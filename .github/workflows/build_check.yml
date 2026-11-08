@@ -1,18 +1,7 @@
 name: Build check
+# Manual only: GitHub Actions minutes are limited, builds are made locally (Android Studio / Gradle).
 on:
   workflow_dispatch:
-  pull_request:
-    paths-ignore:
-      - "*.md"
-    types:
-      - opened
-      - synchronize
-      - reopened
-  push:
-    paths-ignore:
-      - "*.md"
-    branches:
-      - main
 
 jobs:
   build:
