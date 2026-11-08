@@ -67,3 +67,59 @@ Rodadas anteriores (sem GamePad salvo, e com o driver do módulo) foram descarta
 - **Compilação em jogo:** shaders novos que aparecem durante o jogo são compilados ali mesmo e só
   vêm do cache no boot seguinte (comportamento do upstream). No MK8 há uma leva fixa aos ~230 s da
   corrida; por isso a janela termina em 228 s.
+
+## Depois do merge do Cemu oficial (build 7c02ce75)
+
+Mesmas cenas e janelas, medidas de novo depois do merge do upstream (220 commits, até `3b103161`).
+Cada linha teve uma passada de aquecimento antes da medida; a troca de driver limpa o cache de
+pipelines, então cada driver teve a sua.
+
+### FPS médio na janela (1% low entre parênteses)
+
+| jogo | RP5 fábrica antes | RP5 fábrica depois | RP5 Turnip R8 | RG Cube sistema antes | RG Cube sistema depois | RG Cube FristOneRR antes | RG Cube FristOneRR depois |
+|---|---|---|---|---|---|---|---|
+| SM3DW | 53,7 (26,9) | 53,3 (27,2) | 49,4 (29,1) | 39,9 (27,3) | 38,8 (27,8) | 28,5 (20,2) | 28,4 (20,2) |
+| MK8 | 43,5 (24,9) | 44,4 (21,9) | 37,1 (25,3) | 16,0 (13,3) | 16,3 (13,7) | 13,1 (10,1) | 12,9 (9,9) |
+| Bayonetta 2 | 24,3 (15,1) | 24,2 (15,1) | 23,5 (14,1) | 11,1 (6,5) | 11,1 (6,4) | 12,0 (7,5) | 11,8 (7,7) |
+| XCX | 30,1 (29,8) | 30,1 (29,8) | 30,1 (29,8) | 30,1 (29,8) | 30,1 (29,9) | 30,1 (29,3) | 30,1 (28,4) |
+| BotW | 9,4 (5,5) | 9,6 (6,7) | trava (ver abaixo) | 3,8 (3,3) | 3,8 (3,3) | 4,7 (4,0) | **6,4 (5,5)** |
+
+- **Sem regressão.** Com o driver de fábrica do RP5 e o do sistema do RG Cube, as cinco cenas ficam
+  dentro da variação entre rodadas (±1 fps).
+- **BotW com FristOneRR subiu de 4,7 para 6,4 fps** no RG Cube. Na mesma cena do despertar, o jogo
+  fica 1–2 fps acima em todo o trecho final.
+- **Mali sem falhas de compilação.** Antes do merge, SM3DW e MK8 perdiam 8 shaders de streamout com o
+  driver do sistema (14 com o FristOneRR). Depois do merge nenhum shader ou pipeline falha nos 5
+  jogos. Sem `vertexPipelineStoresAndAtomics` o efeito de streamout continua faltando, e o próprio
+  Cemu avisa isso no log.
+
+### Turnip no RP5 (Turnip v26.0.0 R8, K11MCH1, Mesa 26.0.0-devel)
+
+| jogo | driver | FPS | 1% low | > 50 ms | CPU | LatteThread |
+|---|---|---|---|---|---|---|
+| SM3DW | fábrica | 53,3 | 27,2 | 0 | 217 % | 87 % |
+| SM3DW | Turnip | 49,4 | 29,1 | 0 | 176 % | 59 % |
+| MK8 | fábrica | 44,4 | 21,9 | 15 | 292 % | 80 % |
+| MK8 | Turnip | 37,1 | 25,3 | 0 | 225 % | 56 % |
+| MK8 | Turnip, GMEM forçado | 22,5 | 15,9 | 211 | 181 % | 36 % |
+| MK8 | Turnip, sysmem forçado | 38,4 | 25,9 | 2 | 230 % | 56 % |
+| Bayonetta 2 | fábrica | 24,2 | 15,1 | 258 | 308 % | 81 % |
+| Bayonetta 2 | Turnip | 23,5 | 14,1 | 255 | 248 % | < 47 % |
+| XCX | fábrica | 30,1 | 29,8 | 0 | 203 % | 99 % |
+| XCX | Turnip | 30,1 | 29,8 | 0 | 181 % | 78 % |
+
+- **O Turnip gasta bem menos CPU** (a LatteThread cai de 80–99 % para 56–78 %) e **dá quadros mais
+  regulares** (1% low maior, nenhum quadro acima de 50 ms no MK8), mas **perde FPS médio** onde a GPU
+  pesa: SM3DW −7 %, MK8 −16 %.
+- **Não é GMEM contra sysmem.** O Turnip já escolhe sysmem sozinho: forçar sysmem dá o mesmo
+  resultado (38,4), e forçar GMEM derruba o MK8 para 22,5 fps (os muitos render passes do Cemu
+  custam caro em GMEM).
+- **A GPU fica ociosa com o Turnip.** No overlay do RetroidHub, no MK8 a GPU fica em 74 % com o Turnip
+  contra 99 % com o driver de fábrica, e nem a LatteThread nem a GPU estão no limite. O tempo se perde
+  em espera entre CPU e GPU (submissões, fences, leituras de volta). Fica para a análise da Fase 4.
+- **BotW trava com o Turnip quando o cache está quente.** A passada de aquecimento (cache frio) roda e
+  chega a 11–12 fps na janela, acima do driver de fábrica. As duas passadas com cache quente morreram
+  aos ~19 s, ainda no carregamento, com `VK_ERROR_DEVICE_LOST` no `vkQueueSubmit` ("failed to submit
+  command buffer. Error -4"). Com o cache frio os desenhos que esperam pipeline são pulados; com o
+  cache quente algum shader roda logo no carregamento e trava a GPU. O driver de fábrica não tem o
+  problema.

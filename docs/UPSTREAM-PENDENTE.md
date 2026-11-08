@@ -1,14 +1,17 @@
 # Upstream pendente
 
 Levantamento de 2026-11-08 de tudo que as bases do Fractal publicaram e ainda
-não está no nosso `main`. Nada aqui foi aplicado. O merge completo do Cemu
-oficial está marcado para **antes da Fase 4** (ver `docs/ROADMAP.md`).
+não estava no nosso `main`.
+
+**Atualização (2026-11-08):** o Cemu oficial até `3b103161` entrou no merge `7c02ce75`. As 5 cenas
+foram medidas de novo depois dele, sem regressão (ver [FASE3-BASE.md](FASE3-BASE.md)). A seção do
+Cemu oficial abaixo fica como registro dos conflitos. Continua pendente o que vem do Cemu Plus.
 
 ## Resumo
 
 | Fonte | Remote | Situação |
 |---|---|---|
-| Cemu oficial (`cemu-project/main`) | `cemu` | **220 commits** pendentes (merge-base `02383542`, 2026-04-18; tip `3b103161`, 2026-11-04). 4 já trazidos (1 em parte). |
+| Cemu oficial (`cemu-project/main`) | `cemu` | **Trazido no merge `7c02ce75`.** Eram 220 commits (merge-base `02383542`, 2026-04-18; tip `3b103161`, 2026-11-04). 4 já trazidos (1 em parte). |
 | Port Android do SSimco (`android-port`) | `upstream` | **0 pendentes.** Parado em `8759323e` (2026-04-27), que é a nossa base. |
 | Cemu Plus (`danielcamilo1/cemu-plus`) | `plus` | 68 commits depois da base do SSimco no `android-port`, quase todos de interface própria. 4 trazidos na Fase 0. **2 correções nativas novas** em `fix/texture-unmapped-memory` (2026-11-08). |
 
