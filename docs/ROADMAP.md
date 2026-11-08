@@ -17,6 +17,7 @@ Ideias opcionais fora da ordem: `docs/IDEIAS-FUTURAS.md`.
 - `merge-base` com `cemu-project/main`: `02383542` (2026-04-18).
 - `cemu-project/main` estava **220 commits à frente** em 2026-11-08 (tip `3b103161`, 2026-11-04).
 - Remote local: `cemu` → `https://github.com/cemu-project/Cemu.git`.
+- Lista completa, merge de teste (22 arquivos em conflito) e pendências do Cemu Plus: `docs/UPSTREAM-PENDENTE.md`.
 
 Já trazidos antes do merge (por causa do crash do Mario Kart 8):
 `c2d428e5`, `263b3510`, `d28c7654` e a parte `snd_user` do `9bfdf816`.
