@@ -72,7 +72,16 @@ void SwapchainInfoVk::Create()
 
 	VkResult result = vkCreateSwapchainKHR(m_logicalDevice, &create_info, nullptr, &m_swapchain);
 	if (result != VK_SUCCESS)
+	{
+		// what was asked against what the surface supports, to tell driver problems apart
+		cemuLog_log(LogType::Force, "vkCreateSwapchainKHR failed: {} (format {} colorspace {} usage 0x{:x} of supported 0x{:x}, present mode {}, composite alpha 0x{:x} of supported 0x{:x}, transform 0x{:x}, images {} [{}..{}], extent {}x{})",
+			(sint32)result, (sint32)create_info.imageFormat, (sint32)create_info.imageColorSpace,
+			(uint32)create_info.imageUsage, (uint32)details.capabilities.supportedUsageFlags, (sint32)create_info.presentMode,
+			(uint32)create_info.compositeAlpha, (uint32)details.capabilities.supportedCompositeAlpha, (uint32)create_info.preTransform,
+			create_info.minImageCount, details.capabilities.minImageCount, details.capabilities.maxImageCount,
+			create_info.imageExtent.width, create_info.imageExtent.height);
 		UnrecoverableError("Error attempting to create a swapchain");
+	}
 
 	result = vkGetSwapchainImagesKHR(m_logicalDevice, m_swapchain, &image_count, nullptr);
 	if (result != VK_SUCCESS)
@@ -439,7 +448,20 @@ VkSwapchainCreateInfoKHR SwapchainInfoVk::CreateSwapchainCreateInfo(VkSurfaceKHR
 #else
 	createInfo.preTransform = swapchainSupport.capabilities.currentTransform;
 #endif
+	// opaque when the surface allows it; some drivers (Mesa PanVK on Android) only report inherit
 	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	if (const VkCompositeAlphaFlagsKHR supported = swapchainSupport.capabilities.supportedCompositeAlpha;
+		supported != 0 && (supported & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) == 0)
+	{
+		for (VkCompositeAlphaFlagBitsKHR bit : {VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR, VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR})
+		{
+			if (supported & bit)
+			{
+				createInfo.compositeAlpha = bit;
+				break;
+			}
+		}
+	}
 	createInfo.presentMode = ChoosePresentMode(swapchainSupport.presentModes);
 	createInfo.clipped = VK_TRUE;
 

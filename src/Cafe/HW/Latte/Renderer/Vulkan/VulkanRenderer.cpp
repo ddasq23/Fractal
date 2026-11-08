@@ -288,6 +288,11 @@ void VulkanRenderer::GetDeviceFeatures()
 	m_featureControl.deviceFeatures.occlusion_query_precise = physicalDeviceFeatures2.features.occlusionQueryPrecise;
 	m_featureControl.deviceFeatures.depth_clamp = physicalDeviceFeatures2.features.depthClamp;
 	m_featureControl.deviceFeatures.vertex_pipeline_stores_and_atomics = physicalDeviceFeatures2.features.vertexPipelineStoresAndAtomics;
+	// features that decide how streamout and geometry shaders run (missing on some Mali drivers)
+	cemuLog_log(LogType::Force, "Vulkan: geometryShader {} transform_feedback {} vertexPipelineStoresAndAtomics {}",
+		m_featureControl.deviceFeatures.geometry_shader ? "yes" : "no",
+		m_featureControl.deviceExtensions.transform_feedback ? "yes" : "no",
+		m_featureControl.deviceFeatures.vertex_pipeline_stores_and_atomics ? "yes" : "no");
 	/* Get Vulkan device properties and limits */
 	VkPhysicalDeviceFloatControlsPropertiesKHR pfcp{};
 	prevStruct = nullptr;
