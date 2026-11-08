@@ -15,7 +15,7 @@ enum class GpuVendor { ADRENO, MALI, OTHER }
 
 data class Gpu(
     val vendor: GpuVendor,
-    /** GL_RENDERER, e.g. "Adreno (TM) 740" or "Mali-G57 MC2". */
+    /** GL_RENDERER, e.g. "Adreno (TM) 740", "Mali-G57 MC2" or "Immortalis-G720 MC12". */
     val renderer: String,
     /** 740 for Adreno 740, 57 for Mali-G57; null when unknown. */
     val model: Int?,
@@ -39,14 +39,14 @@ object GpuInfo {
         val renderer = runCatching { glRenderer() }.getOrNull().orEmpty()
         val vendor = when {
             renderer.contains("Adreno", ignoreCase = true) -> GpuVendor.ADRENO
-            renderer.contains("Mali", ignoreCase = true) -> GpuVendor.MALI
+            renderer.contains("Mali", ignoreCase = true) || renderer.contains("Immortalis", ignoreCase = true) -> GpuVendor.MALI
             File("/dev/kgsl-3d0").exists() -> GpuVendor.ADRENO
             File("/dev/mali0").exists() -> GpuVendor.MALI
             else -> GpuVendor.OTHER
         }
         val model = when (vendor) {
             GpuVendor.ADRENO -> Regex("""Adreno[^0-9]*(\d{3})""").find(renderer)?.groupValues?.get(1)?.toIntOrNull()
-            GpuVendor.MALI -> Regex("""Mali-G(\d+)""").find(renderer)?.groupValues?.get(1)?.toIntOrNull()
+            GpuVendor.MALI -> Regex("""(?:Mali|Immortalis)-G(\d+)""").find(renderer)?.groupValues?.get(1)?.toIntOrNull()
             GpuVendor.OTHER -> null
         }
         return Gpu(vendor, renderer, model)

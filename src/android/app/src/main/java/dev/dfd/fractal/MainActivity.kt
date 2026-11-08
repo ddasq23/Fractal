@@ -1,5 +1,11 @@
 package dev.dfd.fractal
 
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import dev.dfd.fractal.common.customdrivers.DriverGuard
+import dev.dfd.fractal.common.ui.localization.tr
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
@@ -124,6 +130,9 @@ private fun MainNav() {
     }
     var introLong by rememberSaveable { mutableStateOf(false) }
     val endIntro = { introPlaying = false }
+    // a custom driver that failed in the last game: back on the system driver, tell the user
+    var driverWarning by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { DriverGuard.recover(context)?.let { driverWarning = it } }
 
     Box(Modifier.fillMaxSize().onPreviewKeyEvent(introKeyFilter({ introPlaying }, endIntro))) {
     NavHost(
@@ -154,6 +163,14 @@ private fun MainNav() {
         aboutCemuNavigation(navController)
     }
     if (introPlaying) IntroAnimation(long = introLong, onFinished = endIntro)
+    }
+    driverWarning?.takeIf { !introPlaying }?.let { text ->
+        AlertDialog(
+            onDismissRequest = { driverWarning = null },
+            title = { Text(tr("Custom driver failed")) },
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = { driverWarning = null }) { Text(tr("OK")) } },
+        )
     }
 }
 

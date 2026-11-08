@@ -3146,6 +3146,9 @@ void VulkanRenderer::SwapBuffer(bool mainWindow)
 		throw std::runtime_error(fmt::format("Failed to present image: {}", result));
 	}
 
+	if (result >= 0)
+		CustomDriverFramePresented();
+
 	if(result == VK_ERROR_OUT_OF_DATE_KHR)
 		chainInfo.m_shouldRecreate = true;
 

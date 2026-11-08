@@ -36,8 +36,7 @@ sealed interface DriverInstallResult {
 
 private val lenientJson = Json { ignoreUnknownKeys = true }
 
-private fun readMetadata(file: File): DriverMetadata? =
-    runCatching { lenientJson.decodeFromString<DriverMetadata>(file.readText()) }.getOrNull()
+private fun readMetadata(file: File): DriverMetadata? = readDriverMetadata(file)
 
 fun readSourceInfo(driverDir: File): DriverSourceInfo? =
     runCatching { lenientJson.decodeFromString<DriverSourceInfo>(driverDir.resolve(SOURCE_FILE_NAME).readText()) }.getOrNull()

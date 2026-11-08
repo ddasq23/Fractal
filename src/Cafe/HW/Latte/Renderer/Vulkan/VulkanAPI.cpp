@@ -142,8 +142,10 @@ void* g_vulkan_so = nullptr;
 bool SupportsLoadingCustomDriver()
 {
 #ifdef __aarch64__
+	// Adreno (kgsl) or Mali (kbase). libadrenotools' custom driver path only swaps the Vulkan HAL the
+	// system loader opens, so it also works for Mali drivers that are HAL modules (PanVK, malisx2).
 	std::error_code ec;
-	return fs::exists("/dev/kgsl-3d0", ec);
+	return fs::exists("/dev/kgsl-3d0", ec) || fs::exists("/dev/mali0", ec);
 #else
 	return false;
 #endif
@@ -158,6 +160,38 @@ constexpr auto CUSTOM_DRIVER_LIB_NAME = "custom_vulkan.so";
 #include <rapidjson/istreamwrapper.h>
 #include "config/ActiveSettings.h"
 #include "Cafe/GameProfile/GameProfile.h"
+
+// Fractal: custom driver guard. "custom_driver_pending" (the driver dir) is written before the driver is
+// loaded and removed after the first presented frame; if it is still there later, starting with that
+// driver crashed or failed. "custom_driver_failed" means it could not be loaded and the system driver
+// was used instead. The app reads both, switches back to the system driver and tells the user.
+constexpr auto CUSTOM_DRIVER_PENDING_MARKER = "custom_driver_pending";
+constexpr auto CUSTOM_DRIVER_FAILED_MARKER = "custom_driver_failed";
+
+static bool s_skip_custom_driver = false;
+static bool s_custom_driver_in_use = false;
+
+// marker contents: driver dir, then "game" or "global" (where the driver was chosen), then the title id
+static void write_custom_driver_marker(const char* name, const std::string& driver_path)
+{
+	const auto& driverSetting = g_current_game_profile->GetDriverSetting();
+	bool fromGame = driverSetting.mode == DriverSettingMode::Custom && driverSetting.customPath == driver_path;
+	std::ofstream out(ActiveSettings::GetInternalPath(name), std::ios::trunc);
+	out << driver_path << '\n' << (fromGame ? "game" : "global") << '\n' << fmt::format("{:016x}", g_current_game_profile->GetTitleId()) << '\n';
+}
+
+static void remove_custom_driver_marker(const char* name)
+{
+	std::error_code ec;
+	fs::remove(ActiveSettings::GetInternalPath(name), ec);
+}
+
+static void custom_driver_failed(const std::string& driver_path)
+{
+	remove_custom_driver_marker(CUSTOM_DRIVER_PENDING_MARKER);
+	write_custom_driver_marker(CUSTOM_DRIVER_FAILED_MARKER, driver_path);
+	cemuLog_log(LogType::Force, "Custom driver failed, using the system driver");
+}
 
 std::string get_custom_driver_lib_name(const fs::path& driver_path)
 {
@@ -208,7 +242,11 @@ void* load_custom_driver()
 		return nullptr;
 	std::string driver_name = get_custom_driver_lib_name(driver_path.value());
 	if (driver_name.empty())
+	{
+		custom_driver_failed(driver_path.value());
 		return nullptr;
+	}
+	write_custom_driver_marker(CUSTOM_DRIVER_PENDING_MARKER, driver_path.value());
 
 	std::error_code ec;
 	fs::copy(fs::path(driver_path.value()) / driver_name, ActiveSettings::GetInternalPath(CUSTOM_DRIVER_LIB_NAME), fs::copy_options::overwrite_existing, ec);
@@ -225,6 +263,7 @@ void* load_custom_driver()
 	if (!vulkan_so)
 	{
 		cemuLog_log(LogType::Force, "Failed to load custom driver");
+		custom_driver_failed(driver_path.value());
 		return nullptr;
 	}
 	cemuLog_log(LogType::Force, "Loaded custom driver");
@@ -239,9 +278,16 @@ void* dlopen_vulkan_loader()
 #if BOOST_OS_LINUX || BOOST_OS_BSD
 	static void* vulkan_so = nullptr;
 #if BOOST_PLAT_ANDROID && defined(__aarch64__)
-	vulkan_so = load_custom_driver();
-	if (vulkan_so)
-		return vulkan_so;
+	s_custom_driver_in_use = false;
+	if (!s_skip_custom_driver)
+	{
+		vulkan_so = load_custom_driver();
+		if (vulkan_so)
+		{
+			s_custom_driver_in_use = true;
+			return vulkan_so;
+		}
+	}
 #endif
 	vulkan_so = dlopen("libvulkan.so", RTLD_NOW);
 	if(!vulkan_so)
@@ -273,11 +319,34 @@ bool InitializeGlobalVulkan()
 	if(!vkEnumerateInstanceVersion)
 	{
 		cemuLog_log(LogType::Force, "vkEnumerateInstanceVersion not available. Outdated graphics driver or Vulkan runtime?");
+#if BOOST_PLAT_ANDROID && defined(__aarch64__)
+		if (s_custom_driver_in_use)
+		{
+			// the custom driver is not usable: retry with the system driver
+			custom_driver_failed(get_custom_driver_path().value_or(""));
+			dlclose(g_vulkan_so);
+			g_vulkan_so = nullptr;
+			s_skip_custom_driver = true;
+			return InitializeGlobalVulkan();
+		}
+#endif
 		return false;
 	}
 
 	g_vulkan_available = true;
 	return true;
+}
+
+void CustomDriverFramePresented()
+{
+#if BOOST_PLAT_ANDROID && defined(__aarch64__)
+	static bool s_done = false;
+	if (s_done)
+		return;
+	s_done = true;
+	if (s_custom_driver_in_use)
+		remove_custom_driver_marker(CUSTOM_DRIVER_PENDING_MARKER);
+#endif
 }
 
 void CleanupGlobalVulkan()

@@ -29,6 +29,12 @@ data class DriverSource(
     val description: String,
     /** Whether a release asset is a driver for [gpu]. */
     val accepts: (assetName: String, gpu: Gpu) -> Boolean,
+    /** Whether the repository builds for [gpu] at all; the source is hidden otherwise. */
+    val supports: (gpu: Gpu) -> Boolean = { true },
+    /** Shown as a tag next to the name: automatic CI builds and the like. */
+    val experimental: Boolean = false,
+    /** Short warning shown under the credit line. */
+    val note: String? = null,
 ) {
     val key get() = "$owner/$repo"
     val url get() = "https://github.com/$owner/$repo"
@@ -47,9 +53,78 @@ private fun turnipFor(name: String, gpu: Gpu): Boolean {
     return if (generation >= 8) gen8Build else !gen8Build
 }
 
+private fun isZip(name: String) = name.lowercase().endsWith(".zip")
+
+/** faux123: one build for Adreno 6xx, 7xx and 8xx. */
+private fun faux123For(name: String, gpu: Gpu) = isZip(name) && "turnip" in name.lowercase()
+
+/** whitebelyash: builds from the turnip/gen8 branch, for Adreno 8xx only. */
+private fun isGen8(gpu: Gpu) = (gpu.adrenoGeneration ?: 0) >= 8
+private fun whitebelyashFor(name: String, gpu: Gpu) = isZip(name) && "turnip" in name.lowercase() && isGen8(gpu)
+
+/**
+ * Banners-Turnip daily CI builds: drop the desktop Linux/Wayland variants, "710-720" builds only on
+ * Adreno 710 to 722, the rest by generation like [turnipFor].
+ */
+private fun bannersFor(name: String, gpu: Gpu): Boolean {
+    val n = name.lowercase()
+    if ("-linux" in n || "-wayland" in n) return false
+    if ("710-720" in n) return gpu.model in 710..722
+    return turnipFor(name, gpu)
+}
+
+/** Mali families, by GL_RENDERER model number (Mali-G1 is the 5th gen "G1-Ultra"). */
+private fun maliBifrost(gpu: Gpu) = gpu.model in setOf(31, 51, 52, 71, 72, 76)
+private fun maliValhallJm(gpu: Gpu) = gpu.model in setOf(57, 68, 77, 78)
+private fun maliCsf(gpu: Gpu) = gpu.model.let { it != null && (it >= 300 || it == 1) }
+/** Unknown model: show every Mali source rather than none. */
+private fun maliUnknown(gpu: Gpu) = gpu.model == null
+
+private fun zipAsset(name: String, gpu: Gpu) = isZip(name)
+
 val DriverSources = listOf(
-    DriverSource("K11MCH1", "AdrenoToolsDrivers", GpuVendor.ADRENO, "Turnip (Mesa) builds for adrenotools apps", ::turnipFor),
+    // Adreno: Turnip (Mesa)
     DriverSource("StevenMXZ", "Adreno-Tools-Drivers", GpuVendor.ADRENO, "Turnip built from Mesa main", ::turnipFor),
+    DriverSource(
+        "faux123", "turnip-faux123-driver", GpuVendor.ADRENO,
+        "Turnip with speed and stability fixes for Adreno 6xx, 7xx and 8xx", ::faux123For,
+    ),
+    DriverSource("K11MCH1", "AdrenoToolsDrivers", GpuVendor.ADRENO, "Turnip (Mesa) builds for adrenotools apps", ::turnipFor),
+    DriverSource(
+        "whitebelyash", "AdrenoToolsDrivers", GpuVendor.ADRENO,
+        "Mainline Turnip for Adreno 8xx", ::whitebelyashFor, supports = ::isGen8,
+    ),
+    DriverSource(
+        "The412Banner", "Banners-Turnip", GpuVendor.ADRENO,
+        "Turnip from Mesa main, built every day", ::bannersFor,
+        experimental = true, note = "Experimental: automatic builds, not tested before release",
+    ),
+    // Mali: PanVK (Mesa) and malisx2, loaded through the same adrenotools path
+    DriverSource(
+        "zenithblue-oss", "panvk-kbase-android", GpuVendor.MALI,
+        "PanVK (Mesa) for Bifrost, Valhall and 5th gen Mali",
+        { name, _ -> name.lowercase().endsWith("-adrenotools.zip") },
+    ),
+    DriverSource(
+        "JimVulkan", "mali-panvk", GpuVendor.MALI,
+        "PanVK (Mesa) for Bifrost, Valhall and 5th gen Mali", ::zipAsset,
+    ),
+    DriverSource(
+        "FristOneRR", "FristOneRR-Panvk-Driver", GpuVendor.MALI,
+        "PanVK (Mesa) tuned for Bifrost and Valhall (G57, G68, G77, G78)", ::zipAsset,
+        supports = { maliBifrost(it) || maliValhallJm(it) || maliUnknown(it) },
+    ),
+    DriverSource(
+        "MineGraph-bilibili", "panvk-Android", GpuVendor.MALI,
+        "PanVK (Mesa) for Mali with the command stream frontend (G610 and newer)", ::zipAsset,
+        supports = { maliCsf(it) || maliUnknown(it) },
+    ),
+    DriverSource(
+        "bmdhacks", "malisx2", GpuVendor.MALI,
+        "malisx2: Vulkan driver for Mali-G52/G76, G57/G68/G77/G78 and G615/G715", ::zipAsset,
+        supports = { it.model in setOf(52, 76, 57, 68, 77, 78, 615, 715) || maliUnknown(it) },
+        note = "No MSAA support: some games may not start",
+    ),
 )
 
 @Serializable

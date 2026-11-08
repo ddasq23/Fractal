@@ -15,6 +15,9 @@ bool InitializeDeviceVulkan(VkDevice device);
 bool SupportsLoadingCustomDriver();
 #endif
 
+// first successful present: the custom driver started fine (clears the Android custom driver guard)
+void CustomDriverFramePresented();
+
 extern bool g_vulkan_available;
 
 #endif

@@ -1,5 +1,9 @@
 package dev.dfd.fractal.emulation
 
+import android.widget.Toast
+import kotlinx.coroutines.delay
+import dev.dfd.fractal.common.customdrivers.DriverGuard
+import dev.dfd.fractal.common.ui.localization.tr
 import android.content.Context
 import android.os.Bundle
 import android.view.KeyEvent
@@ -137,6 +141,7 @@ class EmulationActivity : AppCompatActivity() {
                 }
             }
         }
+        warnIfCustomDriverFailed()
     }
 
     override fun onPause() {
@@ -149,6 +154,23 @@ class EmulationActivity : AppCompatActivity() {
         super.onResume()
 
         inputManager.onResume(display.rotation)
+    }
+
+    /** The custom driver could not be loaded and the system driver is used: say so while playing. */
+    private fun warnIfCustomDriverFailed() {
+        lifecycleScope.launch {
+            repeat(60) {
+                delay(500)
+                if (DriverGuard.loadFailed(this@EmulationActivity)) {
+                    Toast.makeText(
+                        this@EmulationActivity,
+                        tr("The custom driver could not be loaded. Using the system driver."),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                    return@launch
+                }
+            }
+        }
     }
 
     private fun setupHotkeys() {

@@ -134,13 +134,17 @@ private fun GpuCard(gpu: Gpu?, supportsCustomDrivers: Boolean) {
                         gpu == null -> ""
                         supportsCustomDrivers && gpu.vendor == GpuVendor.ADRENO ->
                             tr("Turnip (Mesa) drivers for this GPU are listed below")
-                        gpu.vendor == GpuVendor.MALI ->
-                            tr("Custom drivers for Mali (PanVK) are not available yet; the system driver is used")
+                        supportsCustomDrivers && gpu.vendor == GpuVendor.MALI ->
+                            tr("Experimental: PanVK and malisx2 drivers for this GPU are listed below. If a driver fails, Fractal goes back to the system driver.")
                         else -> tr("Custom drivers are not supported on this GPU; the system driver is used")
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = FractalTheme.colors.textSecondary,
                 )
+            }
+            if (supportsCustomDrivers && gpu?.vendor == GpuVendor.MALI) {
+                StatusChip(tr("Experimental"))
+                Spacer(Modifier.width(8.dp))
             }
             gpu?.renderer?.takeIf { it.isNotBlank() }?.let { StatusChip(it) }
         }
@@ -229,14 +233,23 @@ private fun SourceSection(
         // credit: repository name and link
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(source.key, style = MaterialTheme.typography.titleMedium, color = FractalTheme.colors.text)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(source.key, style = MaterialTheme.typography.titleMedium, color = FractalTheme.colors.text)
+                    if (source.experimental) {
+                        Spacer(Modifier.width(8.dp))
+                        StatusChip(tr("Experimental"))
+                    }
+                }
                 Text(
-                    "${source.description} · ${source.url}",
+                    "${tr(source.description)} · ${source.url}",
                     style = MaterialTheme.typography.bodySmall,
                     color = FractalTheme.colors.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                source.note?.let {
+                    Text(tr(it), style = MaterialTheme.typography.bodySmall, color = FractalTheme.colors.accent)
+                }
             }
             FractalIconButton(FractalIcons.Globe, tr("Open repository"), { uriHandler.openUri(source.url) })
         }

@@ -1,6 +1,6 @@
 package dev.dfd.fractal.common.customdrivers
 
-import dev.dfd.fractal.common.io.decodeJsonFromFile
+import kotlinx.serialization.json.Json
 import dev.dfd.fractal.nativeinterface.NativeActiveSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -30,6 +30,12 @@ data class DriverMetadata(
     val libraryName: String,
 )
 
+// lenient: some packages add their own fields to meta.json
+private val metadataJson = Json { ignoreUnknownKeys = true }
+
+fun readDriverMetadata(file: File): DriverMetadata? =
+    runCatching { metadataJson.decodeFromString<DriverMetadata>(file.readText()) }.getOrNull()
+
 data class Driver(
     val path: String,
     val metadata: DriverMetadata,
@@ -50,9 +56,7 @@ suspend fun parseInstalledDrivers(): List<Driver> {
         for (driverDir in driverDirs) {
             if (!driverDir.isDirectory)
                 continue
-            val metadata =
-                decodeJsonFromFile<DriverMetadata>(driverDir.resolve(META_FILE_NAME))
-                    ?: continue
+            val metadata = readDriverMetadata(driverDir.resolve(META_FILE_NAME)) ?: continue
             val driver = Driver(
                 path = driverDir.path,
                 metadata = metadata,

@@ -14,19 +14,16 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Caches that depend on the GPU driver, per title:
- * shaderCache/precompiled/<title id>_*.bin and the Vulkan pipeline cache shaderCache/driver/vk/<title id>.bin.
- * shaderCache/transferable is driver independent and never touched.
+ * The cache that depends on the GPU driver, per title: the pipeline cache under shaderCache/driver
+ * (Vulkan: shaderCache/driver/vk/<title id>.bin). shaderCache/precompiled holds SPIR-V and
+ * shaderCache/transferable holds the guest shaders; both are driver independent and never touched.
  */
 object DriverCaches {
-    private fun dirs(): List<File> {
-        val shaderCache = File(NativeActiveSettings.getUserDataPath()).resolve("shaderCache")
-        return listOf(shaderCache.resolve("precompiled"), shaderCache.resolve("driver/vk"))
-    }
+    private fun root(): File = File(NativeActiveSettings.getUserDataPath()).resolve("shaderCache/driver")
 
     private fun titleIdOf(file: File): Long? = file.name.take(16).toLongOrNull(16)
 
-    private fun files(): List<File> = dirs().flatMap { it.listFiles()?.filter(File::isFile) ?: emptyList() }
+    private fun files(): List<File> = root().walkTopDown().filter(File::isFile).toList()
 
     /** Driver library dir a title actually uses: null = system driver. */
     fun effectiveDriver(setting: NativeGameTitles.DriverSetting, globalDriver: String?): String? =

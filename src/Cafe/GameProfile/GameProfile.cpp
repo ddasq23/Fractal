@@ -180,6 +180,7 @@ void gameProfile_load()
 
 bool GameProfile::Load(uint64_t title_id)
 {
+	m_title_id = title_id;
 	auto gameProfilePath = ActiveSettings::GetConfigPath("gameProfiles/{:016x}.ini", title_id);
 
 	std::optional<std::vector<uint8>> profileContents = FileStream::LoadIntoMemory(gameProfilePath);
