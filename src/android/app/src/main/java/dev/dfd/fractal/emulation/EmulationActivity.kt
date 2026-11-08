@@ -127,7 +127,7 @@ class EmulationActivity : AppCompatActivity() {
 
         setContent {
             TranslatableContent {
-                ActivityContent {
+                ActivityContent(showBackground = false) {
                     EmulationScreen(
                         gamePath = gamePath,
                         setMotionSensorEnabled = inputManager::setDeviceMotionEnabled,

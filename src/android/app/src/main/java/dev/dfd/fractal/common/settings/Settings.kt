@@ -6,6 +6,8 @@ import androidx.datastore.core.MultiProcessDataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
 import dev.dfd.fractal.common.ui.localization.DEFAULT_LANGUAGE
+import dev.dfd.fractal.common.ui.theme.FractalThemeId
+import dev.dfd.fractal.common.ui.theme.WallpaperId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.InputStream
@@ -17,8 +19,24 @@ data class EmulationSettings(
 )
 
 @Serializable
+enum class LibraryView {
+    GRID,
+    CAROUSEL,
+    LIST,
+}
+
+@Serializable
 data class GuiSettings(
     val language: String = DEFAULT_LANGUAGE,
+    val theme: FractalThemeId = FractalThemeId.SOLID,
+    /** Null means the theme's default wallpaper. */
+    val wallpaper: WallpaperId? = null,
+    /** Absolute path of the user's wallpaper image, used when [wallpaper] is CUSTOM. */
+    val customWallpaperPath: String? = null,
+    /** Freezes animated wallpapers. */
+    val animationEconomy: Boolean = false,
+    val libraryView: LibraryView = LibraryView.GRID,
+    val onboardingCompleted: Boolean = false,
 )
 
 @Serializable
@@ -48,16 +66,19 @@ data class AppSettings(
 )
 
 object AppSettingsSerializer : Serializer<AppSettings> {
+    // unknown keys are ignored so settings written by a newer build don't reset everything
+    private val json = Json { ignoreUnknownKeys = true }
+
     override val defaultValue: AppSettings = AppSettings()
 
     override suspend fun readFrom(input: InputStream): AppSettings = try {
-        Json.decodeFromString<AppSettings>(input.readBytes().decodeToString())
+        json.decodeFromString<AppSettings>(input.readBytes().decodeToString())
     } catch (_: Exception) {
         defaultValue
     }
 
     override suspend fun writeTo(t: AppSettings, output: OutputStream) {
-        output.write(Json.encodeToString(t).encodeToByteArray())
+        output.write(json.encodeToString(t).encodeToByteArray())
     }
 }
 
