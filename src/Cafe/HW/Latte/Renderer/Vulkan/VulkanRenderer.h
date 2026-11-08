@@ -711,6 +711,7 @@ private:
 	// GPU time per command buffer for the performance log (two timestamps per command buffer)
 	bool m_perfTimestampsSupported = false;
 	double m_perfTimestampPeriodNs = 1.0;
+	uint64 m_perfTimestampMask = ~0ull;
 	VkQueryPool m_perfQueryPool = VK_NULL_HANDLE;
 	std::array<bool, kCommandBufferPoolSize> m_perfQueryWritten{};
 	void PerfTimestampBegin();

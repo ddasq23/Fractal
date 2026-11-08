@@ -801,6 +801,17 @@ VulkanRenderer::VulkanRenderer() : Renderer(RendererAPI::Vulkan)
 	InitializeDeviceVulkan(m_logicalDevice);
 
 	vkGetDeviceQueue(m_logicalDevice, m_indices.graphicsFamily, 0, &m_graphicsQueue);
+	{
+		// timestamps only carry timestampValidBits; without any the performance log skips GPU time
+		uint32 familyCount = 0;
+		vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &familyCount, nullptr);
+		std::vector<VkQueueFamilyProperties> families(familyCount);
+		vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &familyCount, families.data());
+		const uint32 validBits = m_indices.graphicsFamily < (int)familyCount ? families[m_indices.graphicsFamily].timestampValidBits : 0;
+		if (validBits == 0)
+			m_perfTimestampsSupported = false;
+		m_perfTimestampMask = validBits >= 64 ? ~0ull : ((1ull << validBits) - 1);
+	}
 	vkGetDeviceQueue(m_logicalDevice, m_indices.graphicsFamily, 0, &m_presentQueue);
 
 	vkDestroySurfaceKHR(m_instance, surface, nullptr);
@@ -2326,6 +2337,8 @@ void VulkanRenderer::PerfTimestampCollect(size_t commandBufferIndex)
 	uint64 ts[2];
 	if (vkGetQueryPoolResults(m_logicalDevice, m_perfQueryPool, (uint32)commandBufferIndex * 2, 2, sizeof(ts), ts, sizeof(uint64), VK_QUERY_RESULT_64_BIT) != VK_SUCCESS)
 		return;
+	ts[0] &= m_perfTimestampMask;
+	ts[1] &= m_perfTimestampMask;
 	if (ts[1] > ts[0])
 		PerfLog::GpuWork((uint64)(ts[0] * m_perfTimestampPeriodNs), (uint64)(ts[1] * m_perfTimestampPeriodNs));
 }

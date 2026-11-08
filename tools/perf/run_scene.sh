@@ -40,7 +40,13 @@ before=$($A shell ls "$FILES/perf" | tr -d '\r' | grep "_$TID\$" | sort | tail -
 # open the library and tap the game
 $A shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
 sleep 6
-read -r x1 y1 x2 y2 < <($A exec-out uiautomator dump /dev/tty 2>/dev/null | grep -o "text=\"$TITLE\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o 'bounds=.*' | grep -o '[0-9]\+' | tr '\n' ' ')
+# the game may be below the visible rows: scroll down a few times until it shows up
+read -r W H < <($A shell wm size | grep -o '[0-9]*x[0-9]*' | tail -1 | tr x ' ')
+for try in 1 2 3 4 5; do
+  read -r x1 y1 x2 y2 < <($A exec-out uiautomator dump /dev/tty 2>/dev/null | grep -o "text=\"$TITLE\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o 'bounds=.*' | grep -o '[0-9]\+' | tr '\n' ' ')
+  [ -n "${y2:-}" ] && break
+  $A shell input swipe $((W / 2)) $((H * 8 / 10)) $((W / 2)) $((H * 4 / 10)) 400; sleep 1
+done
 [ -n "${y2:-}" ] || { echo "$TITLE not in the library"; exit 1; }
 $A shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 ))
 start=$(date +%s)

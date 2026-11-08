@@ -492,6 +492,11 @@ namespace PerfLog
 	{
 		if (!IsActive())
 			return;
+		constexpr uint64 kSecondNs = 1000000000ull;
+		if (endNs - startNs > kSecondNs)
+			return; // not a real command buffer duration (bad timestamp)
+		if (s_gpuLastEndNs > endNs + kSecondNs)
+			s_gpuLastEndNs = 0; // the GPU clock went backwards (or an earlier timestamp was bogus)
 		const uint64 from = std::max(startNs, s_gpuLastEndNs);
 		if (endNs > from)
 			s_counters.gpuBusyNs += endNs - from;
