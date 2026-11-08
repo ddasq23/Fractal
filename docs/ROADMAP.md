@@ -86,9 +86,13 @@ está no código recompilado e quanto está em HLE, agendador e esperas):
   blocos mais quentes.
 - Se a diferença valer, protótipo de um backend alternativo atrás de uma opção, com volta para o
   recompilador atual.
-- **Licença:** o Dolphin é GPL-2.0-or-later e o Fractal é MPL-2.0. Usar o Dolphin como referência de
-  técnicas não muda nada; copiar código dele torna o binário distribuído GPL. Decisão do usuário antes de
-  copiar qualquer código.
+- **Licença (decidido pelo usuário em 2026-11-08):** o Fractal pode adotar a licença do Dolphin,
+  GPL-2.0-or-later, e reaproveitar código do JitArm64. O código do Cemu é MPL-2.0 sem o aviso
+  "Incompatible With Secondary Licenses", e a seção 3.3 da MPL permite distribuir a obra combinada sob a
+  GPL-2.0-or-later; os arquivos do Cemu continuam também sob a MPL. Quando o primeiro código derivado do
+  Dolphin entrar: o binário e o repositório passam a GPL-2.0-or-later (LICENSE e README), os arquivos
+  derivados levam o cabeçalho GPL com o copyright do Dolphin Emulator Project, e os arquivos novos nossos
+  passam a usar cabeçalho GPL-2.0-or-later.
 
 ## Para a Fase 4: fallback para o interpretador
 
