@@ -218,14 +218,14 @@ namespace NativeEmulation
 } // namespace NativeEmulation
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_setReplaceTVWithPadView([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean swapped)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_setReplaceTVWithPadView([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean swapped)
 {
 	// Emulate pressing the TAB key for showing DRC instead of TV
 	WindowSystem::GetWindowInfo().set_keystate(static_cast<uint32>(WindowSystem::PlatformKeyCodes::TAB), swapped);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_initializeEmulation([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_initializeEmulation([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	FilesystemAndroid::SetFilesystemCallbacks(std::make_shared<AndroidFilesystemCallbacks>());
 	GetConfigHandle().SetFilename(ActiveSettings::GetConfigPath("settings.xml").generic_wstring());
@@ -237,7 +237,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_initializeEmulation([[maybe_
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_initializeRenderer(JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_initializeRenderer(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	static std::unique_ptr<NativeEmulation::TestSurface> testSurface;
 
@@ -252,27 +252,27 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_initializeRenderer(JNIEnv* e
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_setDPI([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jfloat dpi)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_setDPI([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jfloat dpi)
 {
 	auto& windowInfo = WindowSystem::GetWindowInfo();
 	windowInfo.dpi_scale = windowInfo.pad_dpi_scale = dpi;
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_clearPadSurface([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_clearPadSurface([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	VulkanRenderer::GetInstance()->StopUsingPadAndWait();
 	WindowSystem::GetWindowInfo().pad_open = false;
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_supportsLoadingCustomDriver([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_supportsLoadingCustomDriver([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	return SupportsLoadingCustomDriver();
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_setSurface(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject surface, jboolean isMainCanvas)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_setSurface(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject surface, jboolean isMainCanvas)
 {
 	JNIUtils::HandleNativeException(env, [&]() {
 		auto& windowHandleInfo = isMainCanvas ? WindowSystem::GetWindowInfo().canvas_main : WindowSystem::GetWindowInfo().canvas_pad;
@@ -287,7 +287,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_setSurface(JNIEnv* env, [[ma
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_initializeSurface(JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean isMainCanvas)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_initializeSurface(JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean isMainCanvas)
 {
 	JNIUtils::HandleNativeException(env, [&]() {
 		int width, height;
@@ -306,7 +306,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_initializeSurface(JNIEnv* en
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_setSurfaceSize([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint width, jint height, jboolean isMainCanvas)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_setSurfaceSize([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint width, jint height, jboolean isMainCanvas)
 {
 	auto& windowInfo = WindowSystem::GetWindowInfo();
 	if (isMainCanvas)
@@ -322,7 +322,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_setSurfaceSize([[maybe_unuse
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_initializeSystems([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_initializeSystems([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	NativeEmulation::SetDefaultDeviceController();
 	WindowSystem::GetWindowInfo().set_keystatesup();
@@ -330,7 +330,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_initializeSystems([[maybe_un
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_prepareTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jstring launchPathJava)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_prepareTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jstring launchPathJava)
 {
 	fs::path launchPath = JNIUtils::FromJString(env, launchPathJava);
 
@@ -385,19 +385,19 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulation_prepareTitle([[maybe_unused]
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_launchTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_launchTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	CafeSystem::LaunchForegroundTitle();
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_pauseTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_pauseTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	CafeSystem::PauseTitle();
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulation_resumeTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_resumeTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	CafeSystem::ResumeTitle();
 }

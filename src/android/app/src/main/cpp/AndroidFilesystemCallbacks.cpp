@@ -3,7 +3,7 @@
 AndroidFilesystemCallbacks::AndroidFilesystemCallbacks()
 {
 	JNIEnv* env = JNIUtils::GetEnv();
-	m_fileUtilClass = JNIUtils::Scopedjclass("info/cemu/cemu/nativeinterface/NativeFiles");
+	m_fileUtilClass = JNIUtils::Scopedjclass("dev/dfd/fractal/nativeinterface/NativeFiles");
 	m_openContentUriMid = env->GetStaticMethodID(*m_fileUtilClass, "openContentUri", "(Ljava/lang/String;)I");
 	m_listFilesMid = env->GetStaticMethodID(*m_fileUtilClass, "listFiles", "(Ljava/lang/String;)[Ljava/lang/String;");
 	m_isDirectoryMid = env->GetStaticMethodID(*m_fileUtilClass, "isDirectory", "(Ljava/lang/String;)Z");

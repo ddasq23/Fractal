@@ -5,7 +5,7 @@
 #include "Cafe/Account/Account.h"
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeAccount_createAccount(JNIEnv* env, [[maybe_unused]] jclass clazz, jint persistentId, jstring miiName)
+Java_dev_dfd_fractal_nativeinterface_NativeAccount_createAccount(JNIEnv* env, [[maybe_unused]] jclass clazz, jint persistentId, jstring miiName)
 {
 	Account account(persistentId, boost::nowide::widen(JNIUtils::FromJString(env, miiName)));
 	account.Save();
@@ -13,7 +13,7 @@ Java_info_cemu_cemu_nativeinterface_NativeAccount_createAccount(JNIEnv* env, [[m
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeAccount_deleteAccount([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint persistentId)
+Java_dev_dfd_fractal_nativeinterface_NativeAccount_deleteAccount([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint persistentId)
 {
 	const auto& account = Account::GetAccount(persistentId);
 
@@ -35,11 +35,11 @@ Java_info_cemu_cemu_nativeinterface_NativeAccount_deleteAccount([[maybe_unused]]
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeAccount_saveAccount(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject accountJava)
+Java_dev_dfd_fractal_nativeinterface_NativeAccount_saveAccount(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject accountJava)
 {
 	using namespace std::chrono;
 
-	jclass accountClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeAccount$Account");
+	jclass accountClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeAccount$Account");
 	auto getAccountField = [&](const char* fieldName, const char* sig, auto getFieldFn) -> auto {
 		auto getField = std::bind(getFieldFn, env, accountJava, std::placeholders::_1);
 		return getField(env->GetFieldID(accountClass, fieldName, sig));
@@ -83,10 +83,10 @@ jlong toUnixTimestampMillis(std::chrono::year_month_day ymd)
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeAccount_getAccounts(JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeAccount_getAccounts(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	using namespace std::chrono;
-	jclass accountClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeAccount$Account");
+	jclass accountClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeAccount$Account");
 	jmethodID accountCtrId = env->GetMethodID(accountClass, "<init>", "(ILjava/lang/String;JBLjava/lang/String;IZ)V");
 
 	const auto& accounts = Account::GetAccounts();
@@ -121,9 +121,9 @@ Java_info_cemu_cemu_nativeinterface_NativeAccount_getAccounts(JNIEnv* env, [[may
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeAccount_getAccountCountries(JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeAccount_getAccountCountries(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
-	jclass countryClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeAccount$AccountCountry");
+	jclass countryClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeAccount$AccountCountry");
 	jmethodID countryCtrId = env->GetMethodID(countryClass, "<init>", "(ILjava/lang/String;)V");
 
 	struct Country
@@ -157,7 +157,7 @@ Java_info_cemu_cemu_nativeinterface_NativeAccount_getAccountCountries(JNIEnv* en
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeAccount_getAccountValidationErrors(JNIEnv* env, [[maybe_unused]] jclass clazz, jint persistentId)
+Java_dev_dfd_fractal_nativeinterface_NativeAccount_getAccountValidationErrors(JNIEnv* env, [[maybe_unused]] jclass clazz, jint persistentId)
 {
 	using ErrorType = std::pair<jclass, jmethodID>;
 	auto getErrorType = [&](const char* className, const char* ctrSig = "()V") -> ErrorType {
@@ -169,13 +169,13 @@ Java_info_cemu_cemu_nativeinterface_NativeAccount_getAccountValidationErrors(JNI
 	auto newError = [&](const ErrorType& error, auto... args) {
 		return env->NewObject(error.first, error.second, args...);
 	};
-	auto missingOTPError = getErrorType("info/cemu/cemu/nativeinterface/NativeAccount$MissingOTP");
-	auto corruptedOTPError = getErrorType("info/cemu/cemu/nativeinterface/NativeAccount$CorruptedOTP");
-	auto missingSEEPROMError = getErrorType("info/cemu/cemu/nativeinterface/NativeAccount$MissingSEEPROM");
-	auto corruptedSEEPROMError = getErrorType("info/cemu/cemu/nativeinterface/NativeAccount$CorruptedSEEPROM");
-	auto missingFileError = getErrorType("info/cemu/cemu/nativeinterface/NativeAccount$MissingFile", "(Ljava/lang/String;)V");
-	auto accountError = getErrorType("info/cemu/cemu/nativeinterface/NativeAccount$AccountError", "(I)V");
-	auto baseErrorType = env->FindClass("info/cemu/cemu/nativeinterface/NativeAccount$OnlineValidationError");
+	auto missingOTPError = getErrorType("dev/dfd/fractal/nativeinterface/NativeAccount$MissingOTP");
+	auto corruptedOTPError = getErrorType("dev/dfd/fractal/nativeinterface/NativeAccount$CorruptedOTP");
+	auto missingSEEPROMError = getErrorType("dev/dfd/fractal/nativeinterface/NativeAccount$MissingSEEPROM");
+	auto corruptedSEEPROMError = getErrorType("dev/dfd/fractal/nativeinterface/NativeAccount$CorruptedSEEPROM");
+	auto missingFileError = getErrorType("dev/dfd/fractal/nativeinterface/NativeAccount$MissingFile", "(Ljava/lang/String;)V");
+	auto accountError = getErrorType("dev/dfd/fractal/nativeinterface/NativeAccount$AccountError", "(I)V");
+	auto baseErrorType = env->FindClass("dev/dfd/fractal/nativeinterface/NativeAccount$OnlineValidationError");
 
 	auto account = Account::GetAccount(persistentId);
 	const auto validator = account.ValidateOnlineFiles();
@@ -228,13 +228,13 @@ Java_info_cemu_cemu_nativeinterface_NativeAccount_getAccountValidationErrors(JNI
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeAccount_isOTPPresent([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeAccount_isOTPPresent([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	return NCrypto::OTP_IsPresent();
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeAccount_isSEEPROMPresent([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeAccount_isSEEPROMPresent([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	return NCrypto::SEEPROM_IsPresent();
 }

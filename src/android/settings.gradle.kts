@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Cemu"
+rootProject.name = "Fractal"
 include(":app")
  

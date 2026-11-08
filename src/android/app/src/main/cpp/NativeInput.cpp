@@ -18,7 +18,7 @@ namespace NativeInput
 		AndroidControllerCallbacks(JNIEnv* env, jobject callbacks)
 			: m_callbacksObject(callbacks)
 		{
-			jclass controllerCallbacksClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeInput$ControllerCallbacks");
+			jclass controllerCallbacksClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeInput$ControllerCallbacks");
 			m_vibrateControllerMId = env->GetMethodID(controllerCallbacksClass, "vibrateController", "(Ljava/lang/String;JI)V");
 			m_cancelControllerVibrationMId = env->GetMethodID(controllerCallbacksClass, "cancelControllerVibration", "(Ljava/lang/String;)V");
 			env->DeleteLocalRef(controllerCallbacksClass);
@@ -54,7 +54,7 @@ namespace NativeInput
 		DeviceControllerCallbacks(JNIEnv* env, jobject callbacks)
 			: m_callbacksObject(callbacks)
 		{
-			jclass controllerCallbacksClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeInput$DeviceCallbacks");
+			jclass controllerCallbacksClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeInput$DeviceCallbacks");
 			m_vibrateMId = env->GetMethodID(controllerCallbacksClass, "vibrate", "(JI)V");
 			m_cancelVibrationMId = env->GetMethodID(controllerCallbacksClass, "cancelVibration", "()V");
 			env->DeleteLocalRef(controllerCallbacksClass);
@@ -143,19 +143,19 @@ namespace NativeInput
 } // namespace NativeInput
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_onControllerKey(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring deviceDescriptor, jint key, jboolean is_pressed)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_onControllerKey(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring deviceDescriptor, jint key, jboolean is_pressed)
 {
 	ControllerManager::instance().process_key_event(JNIUtils::FromJString(env, deviceDescriptor), key, is_pressed);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_onControllerAxis(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring deviceDescriptor, jint axis, jfloat value)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_onControllerAxis(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring deviceDescriptor, jint axis, jfloat value)
 {
 	ControllerManager::instance().process_axis_event(JNIUtils::FromJString(env, deviceDescriptor), axis, value);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_onControllerMotion(
+Java_dev_dfd_fractal_nativeinterface_NativeInput_onControllerMotion(
 	JNIEnv* env,
 	[[maybe_unused]] jclass clazz,
 	jstring deviceDescriptor,
@@ -179,13 +179,13 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_onControllerMotion(
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_setControllers(JNIEnv* env, [[maybe_unused]] jclass clazz, jobjectArray controllers)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_setControllers(JNIEnv* env, [[maybe_unused]] jclass clazz, jobjectArray controllers)
 {
 	jsize arrayLength = env->GetArrayLength(controllers);
 	std::vector<ControllerManager::ControllerInfo> controllerInfos;
 	controllerInfos.reserve(arrayLength);
 
-	jclass controllerInfoClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeInput$ControllerInfo");
+	jclass controllerInfoClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeInput$ControllerInfo");
 	jfieldID idFieldId = env->GetFieldID(controllerInfoClass, "id", "I");
 	jfieldID descriptorFieldId = env->GetFieldID(controllerInfoClass, "descriptor", "Ljava/lang/String;");
 	jfieldID nameFieldId = env->GetFieldID(controllerInfoClass, "name", "Ljava/lang/String;");
@@ -211,7 +211,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_setControllers(JNIEnv* env, [[ma
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_setControllerType([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jint emulated_controller_type)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_setControllerType([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jint emulated_controller_type)
 {
 	auto type = static_cast<EmulatedController::Type>(emulated_controller_type);
 	auto& androidEmulatedController = EmulatedControllerManager::GetController(index);
@@ -222,7 +222,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_setControllerType([[maybe_unused
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_getControllerType([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getControllerType([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
 {
 	auto emulatedController = EmulatedControllerManager::GetController(index).GetControllerPtr();
 	if (emulatedController)
@@ -232,16 +232,16 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_getControllerType([[maybe_unused
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobject JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_getControllersCount(JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getControllersCount(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	const auto [vpadCount, wpadCount] = InputManager::instance().get_controller_count();
-	jclass controllersCountClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeInput$ControllerCount");
+	jclass controllersCountClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeInput$ControllerCount");
 	jmethodID ctrMId = env->GetMethodID(controllersCountClass, "<init>", "(II)V");
 	return env->NewObject(controllersCountClass, ctrMId, static_cast<jint>(vpadCount), static_cast<jint>(wpadCount));
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_setVPADScreenToggle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jboolean enabled)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_setVPADScreenToggle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jboolean enabled)
 {
 	auto emulatedController = EmulatedControllerManager::GetController(index).GetControllerPtr();
 	if (emulatedController == nullptr || emulatedController->type() != EmulatedController::Type::VPAD)
@@ -250,7 +250,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_setVPADScreenToggle([[maybe_unus
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_getVPADScreenToggle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getVPADScreenToggle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
 {
 	auto emulatedController = EmulatedControllerManager::GetController(index).GetControllerPtr();
 	if (emulatedController == nullptr || emulatedController->type() != EmulatedController::Type::VPAD)
@@ -259,33 +259,33 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_getVPADScreenToggle([[maybe_unus
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_isControllerDisabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_isControllerDisabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
 {
 	return EmulatedControllerManager::GetController(index).GetControllerPtr() == nullptr;
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_setControllerMapping(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring deviceDescriptor, jstring deviceName, jint index, jint mappingId, jint buttonId)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_setControllerMapping(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring deviceDescriptor, jstring deviceName, jint index, jint mappingId, jint buttonId)
 {
 	auto controller = ControllerFactory::CreateController(InputAPI::Android, JNIUtils::FromJString(env, deviceDescriptor), JNIUtils::FromJString(env, deviceName));
 	EmulatedControllerManager::GetController(index).SetMapping(mappingId, controller, buttonId);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jstring JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_getControllerMapping(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jint mappingId)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getControllerMapping(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jint mappingId)
 {
 	auto mapping = EmulatedControllerManager::GetController(index).GetMapping(mappingId);
 	return JNIUtils::ToJString(env, mapping.value_or(""));
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_clearControllerMapping([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jint mappingId)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_clearControllerMapping([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jint mappingId)
 {
 	EmulatedControllerManager::GetController(index).ClearMapping(mappingId);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobject JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_getControllerMappings(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getControllerMappings(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
 {
 	jclass hashMapClass = env->FindClass("java/util/HashMap");
 	jmethodID hashMapConstructor = env->GetMethodID(hashMapClass, "<init>", "()V");
@@ -307,25 +307,25 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_getControllerMappings(JNIEnv* en
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_onTouchDown([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint x, jint y, jboolean isTV)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_onTouchDown([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint x, jint y, jboolean isTV)
 {
 	NativeInput::OnTouchEvent(x, y, isTV, true);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_onTouchUp([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint x, jint y, jboolean isTV)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_onTouchUp([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint x, jint y, jboolean isTV)
 {
 	NativeInput::OnTouchEvent(x, y, isTV, false);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_onTouchMove([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint x, jint y, jboolean isTV)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_onTouchMove([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint x, jint y, jboolean isTV)
 {
 	NativeInput::OnTouchEvent(x, y, isTV);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_onDeviceMotion([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong timestamp, jfloat gyroX, jfloat gyroY, jfloat gyroZ, jfloat accelX, jfloat accelY, jfloat accelZ)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_onDeviceMotion([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong timestamp, jfloat gyroX, jfloat gyroY, jfloat gyroZ, jfloat accelX, jfloat accelY, jfloat accelZ)
 {
 	DeviceController::process_motion(
 		std::chrono::steady_clock::time_point{std::chrono::nanoseconds(timestamp)},
@@ -338,37 +338,37 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_onDeviceMotion([[maybe_unused]] 
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_setDeviceMotionEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean motionEnabled)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_setDeviceMotionEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean motionEnabled)
 {
 	DeviceController::set_motion_enabled(motionEnabled);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_onOverlayButton([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint controllerIndex, jint mappingId, jboolean state)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_onOverlayButton([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint controllerIndex, jint mappingId, jboolean state)
 {
 	EmulatedControllerManager::GetController(controllerIndex).SetButtonValue(mappingId, state);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_onOverlayAxis([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint controllerIndex, jint mappingId, jfloat value)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_onOverlayAxis([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint controllerIndex, jint mappingId, jfloat value)
 {
 	EmulatedControllerManager::GetController(controllerIndex).SetAxisValue(mappingId, value);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_setControllerCallbacks(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject callbacks)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_setControllerCallbacks(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject callbacks)
 {
 	ControllerManager::instance().set_controller_callbacks(callbacks == nullptr ? nullptr : std::make_shared<NativeInput::AndroidControllerCallbacks>(env, callbacks));
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_setDeviceCallbacks(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject callbacks)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_setDeviceCallbacks(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject callbacks)
 {
 	DeviceController::set_callbacks(callbacks == nullptr ? nullptr : std::make_shared<NativeInput::DeviceControllerCallbacks>(env, callbacks));
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobject JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_getControllerSettings(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jstring descriptor, jstring name)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getControllerSettings(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jstring descriptor, jstring name)
 {
 	auto controller = NativeInput::GetControllerForEmulatedController(index, JNIUtils::FromJString(env, descriptor), JNIUtils::FromJString(env, name));
 
@@ -379,13 +379,13 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_getControllerSettings(JNIEnv* en
 
 	auto settings = controller->get_settings();
 
-	jclass axisSettingsClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeInput$AxisSetting");
+	jclass axisSettingsClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeInput$AxisSetting");
 	jmethodID axisSettingsCtrMID = env->GetMethodID(axisSettingsClass, "<init>", "(FF)V");
 	auto toJavaAxisSettings = [&](const ControllerBase::AxisSetting& axisSetting) {
 		return env->NewObject(axisSettingsClass, axisSettingsCtrMID, axisSetting.deadzone, axisSetting.range);
 	};
-	jclass controllerSettingsClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeInput$ControllerSettings");
-	jmethodID controllerSettingsCtrMID = env->GetMethodID(controllerSettingsClass, "<init>", "(Linfo/cemu/cemu/nativeinterface/NativeInput$AxisSetting;Linfo/cemu/cemu/nativeinterface/NativeInput$AxisSetting;Linfo/cemu/cemu/nativeinterface/NativeInput$AxisSetting;FZ)V");
+	jclass controllerSettingsClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeInput$ControllerSettings");
+	jmethodID controllerSettingsCtrMID = env->GetMethodID(controllerSettingsClass, "<init>", "(Ldev/dfd/fractal/nativeinterface/NativeInput$AxisSetting;Ldev/dfd/fractal/nativeinterface/NativeInput$AxisSetting;Ldev/dfd/fractal/nativeinterface/NativeInput$AxisSetting;FZ)V");
 
 	return env->NewObject(
 		controllerSettingsClass,
@@ -398,7 +398,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_getControllerSettings(JNIEnv* en
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_setControllerSettings(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jstring descriptor, jstring name, jobject controllerSettings)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_setControllerSettings(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jstring descriptor, jstring name, jobject controllerSettings)
 {
 	auto controller = NativeInput::GetControllerForEmulatedController(index, JNIUtils::FromJString(env, descriptor), JNIUtils::FromJString(env, name));
 
@@ -407,15 +407,15 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_setControllerSettings(JNIEnv* en
 		return;
 	}
 
-	jclass axisSettingsClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeInput$AxisSetting");
+	jclass axisSettingsClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeInput$AxisSetting");
 	jfieldID deadzoneFieldId = env->GetFieldID(axisSettingsClass, "deadzone", "F");
 	jfieldID rangeFieldId = env->GetFieldID(axisSettingsClass, "range", "F");
-	jclass controllerSettingsClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeInput$ControllerSettings");
+	jclass controllerSettingsClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeInput$ControllerSettings");
 	jfieldID motionFieldId = env->GetFieldID(controllerSettingsClass, "motion", "Z");
 	jfieldID rumbleFieldId = env->GetFieldID(controllerSettingsClass, "rumble", "F");
-	jfieldID axisFieldId = env->GetFieldID(controllerSettingsClass, "axis", "Linfo/cemu/cemu/nativeinterface/NativeInput$AxisSetting;");
-	jfieldID rotationFieldId = env->GetFieldID(controllerSettingsClass, "rotation", "Linfo/cemu/cemu/nativeinterface/NativeInput$AxisSetting;");
-	jfieldID triggerFieldId = env->GetFieldID(controllerSettingsClass, "trigger", "Linfo/cemu/cemu/nativeinterface/NativeInput$AxisSetting;");
+	jfieldID axisFieldId = env->GetFieldID(controllerSettingsClass, "axis", "Ldev/dfd/fractal/nativeinterface/NativeInput$AxisSetting;");
+	jfieldID rotationFieldId = env->GetFieldID(controllerSettingsClass, "rotation", "Ldev/dfd/fractal/nativeinterface/NativeInput$AxisSetting;");
+	jfieldID triggerFieldId = env->GetFieldID(controllerSettingsClass, "trigger", "Ldev/dfd/fractal/nativeinterface/NativeInput$AxisSetting;");
 	auto getAxisSettings = [&](jfieldID fieldId) {
 		jobject axisSettingJava = env->GetObjectField(controllerSettings, fieldId);
 		ControllerBase::AxisSetting axisSetting{};
@@ -435,7 +435,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_setControllerSettings(JNIEnv* en
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_getMotionEnabledControllerDescriptors(JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getMotionEnabledControllerDescriptors(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	using namespace std::views;
 	auto& inputManager = InputManager::instance();
@@ -454,7 +454,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_getMotionEnabledControllerDescri
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_setDeviceRumble([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jfloat rumble)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_setDeviceRumble([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jfloat rumble)
 {
 	auto [emulatedController, controller] = NativeInput::GetDeviceControllerPair();
 
@@ -465,7 +465,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_setDeviceRumble([[maybe_unused]]
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jfloat JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_getDeviceRumble([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getDeviceRumble([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	auto [emulatedController, controller] = NativeInput::GetDeviceControllerPair();
 
@@ -478,7 +478,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_getDeviceRumble([[maybe_unused]]
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_getDeviceControllerIndex([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getDeviceControllerIndex([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	auto [emulatedController, controller] = NativeInput::GetDeviceControllerPair();
 
@@ -491,7 +491,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_getDeviceControllerIndex([[maybe
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_setDeviceControllerIndex([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_setDeviceControllerIndex([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
 {
 	auto [emulatedController, controller] = NativeInput::GetDeviceControllerPair();
 
@@ -512,7 +512,7 @@ Java_info_cemu_cemu_nativeinterface_NativeInput_setDeviceControllerIndex([[maybe
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeInput_saveInputs([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeInput_saveInputs([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	InputManager::instance().save();
 }

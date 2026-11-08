@@ -33,7 +33,7 @@ namespace NativeSwkbd
 		AndroidSwkbdCallbacks()
 		{
 			JNIEnv* env = JNIUtils::GetEnv();
-			m_emulationActivityClass = JNIUtils::Scopedjclass("info/cemu/cemu/nativeinterface/NativeSwkbd$SwkbdState");
+			m_emulationActivityClass = JNIUtils::Scopedjclass("dev/dfd/fractal/nativeinterface/NativeSwkbd$SwkbdState");
 			m_showSoftwareKeyboardMethodID = env->GetStaticMethodID(*m_emulationActivityClass, "makeVisible", "(Ljava/lang/String;I)V");
 			m_hideSoftwareKeyboardMethodID = env->GetStaticMethodID(*m_emulationActivityClass, "hide", "()V");
 		}
@@ -63,7 +63,7 @@ namespace NativeSwkbd
 } // namespace NativeSwkbd
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeSwkbd_initializeSwkbd([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeSwkbd_initializeSwkbd([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	static std::shared_ptr<swkbd::swkbdCallbacks> swkbdCallbacks = nullptr;
 
@@ -75,7 +75,7 @@ Java_info_cemu_cemu_nativeinterface_NativeSwkbd_initializeSwkbd([[maybe_unused]]
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeSwkbd_onTextChanged([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jstring j_text)
+Java_dev_dfd_fractal_nativeinterface_NativeSwkbd_onTextChanged([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jstring j_text)
 {
 	if (!NativeSwkbd::s_isOpen)
 		return;
@@ -90,7 +90,7 @@ Java_info_cemu_cemu_nativeinterface_NativeSwkbd_onTextChanged([[maybe_unused]] J
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeSwkbd_onFinishedInputEdit([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeSwkbd_onFinishedInputEdit([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	if (!NativeSwkbd::s_isOpen)
 		return;

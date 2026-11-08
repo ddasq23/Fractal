@@ -38,11 +38,11 @@ namespace JNIUtils
 			fn();
 		} catch (const std::exception& exception)
 		{
-			jclass exceptionClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeException");
+			jclass exceptionClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeException");
 			env->ThrowNew(exceptionClass, exception.what());
 		} catch (...)
 		{
-			jclass exceptionClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeException");
+			jclass exceptionClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeException");
 			env->ThrowNew(exceptionClass, "Unknown native exception");
 		}
 	}

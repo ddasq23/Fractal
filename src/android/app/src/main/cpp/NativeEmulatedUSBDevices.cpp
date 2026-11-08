@@ -62,7 +62,7 @@ namespace NativeEmulatedUSBDevices
 	{
 		using namespace std::ranges::views;
 
-		jclass figureClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeEmulatedUSBDevices$InstalledFigure");
+		jclass figureClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeEmulatedUSBDevices$InstalledFigure");
 		jmethodID ctrMID = env->GetMethodID(figureClass, "<init>", "(Ljava/lang/String;Ljava/lang/String;)V");
 
 		std::error_code ec;
@@ -135,9 +135,9 @@ namespace NativeEmulatedUSBDevices
 } // namespace NativeEmulatedUSBDevices
 
 extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getInfinityFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_getInfinityFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
-	jclass infinityFigureClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeEmulatedUSBDevices$InfinityFigure");
+	jclass infinityFigureClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeEmulatedUSBDevices$InfinityFigure");
 	jmethodID ctrMID = env->GetMethodID(infinityFigureClass, "<init>", "(IBLjava/lang/String;)V");
 	return JNIUtils::CreateObjectArray(
 		env,
@@ -156,9 +156,9 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getInfinityFigures(
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getDimensionsMiniFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_getDimensionsMiniFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
-	jclass dimensionMiniFigureClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeEmulatedUSBDevices$DimensionsMiniFigure");
+	jclass dimensionMiniFigureClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeEmulatedUSBDevices$DimensionsMiniFigure");
 	jmethodID ctrMID = env->GetMethodID(dimensionMiniFigureClass, "<init>", "(ILjava/lang/String;)V");
 	return JNIUtils::CreateObjectArray(
 		env,
@@ -175,9 +175,9 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getDimensionsMiniFi
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getSkylanderFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_getSkylanderFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
-	jclass skylanderClass = env->FindClass("info/cemu/cemu/nativeinterface/NativeEmulatedUSBDevices$SkylanderFigure");
+	jclass skylanderClass = env->FindClass("dev/dfd/fractal/nativeinterface/NativeEmulatedUSBDevices$SkylanderFigure");
 	jmethodID ctrMID = env->GetMethodID(skylanderClass, "<init>", "(SSLjava/lang/String;)V");
 	return JNIUtils::CreateObjectArray(
 		env,
@@ -196,25 +196,25 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getSkylanderFigures
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getInstalledDimensionsMiniFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_getInstalledDimensionsMiniFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	return NativeEmulatedUSBDevices::GetInstalledFigures(env, NativeEmulatedUSBDevices::DIMENSIONS_FIGURES_PATH);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getInstalledInfinityFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_getInstalledInfinityFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	return NativeEmulatedUSBDevices::GetInstalledFigures(env, NativeEmulatedUSBDevices::INFINITY_FIGURES_PATH);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getInstalledSkylanderFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_getInstalledSkylanderFigures(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	return NativeEmulatedUSBDevices::GetInstalledFigures(env, NativeEmulatedUSBDevices::SKYLANDERS_FIGURES_PATH);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_deleteFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject installedFigure)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_deleteFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject installedFigure)
 {
 	jclass figureClass = env->GetObjectClass(installedFigure);
 	jfieldID pathFieldId = env->GetFieldID(figureClass, "path", "Ljava/lang/String;");
@@ -232,7 +232,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_deleteFigure(JNIEnv
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_createSkylanderFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jint id, jint variant)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_createSkylanderFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jint id, jint variant)
 {
 	std::string skylanderFileName = nsyshid::g_skyportal.FindSkylander(id, variant) + ".sky";
 	fs::path skylanderFilePath = NativeEmulatedUSBDevices::PrepareUniqueUserFilePath(NativeEmulatedUSBDevices::SKYLANDERS_FIGURES_PATH, skylanderFileName);
@@ -240,7 +240,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_createSkylanderFigu
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_createInfinityFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong number)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_createInfinityFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong number)
 {
 	auto [figureSeries, figureName] = nsyshid::g_infinitybase.FindFigure(number);
 	std::string infinityFileName = figureName + ".bin";
@@ -249,7 +249,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_createInfinityFigur
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_createDimensionsFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong number)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_createDimensionsFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong number)
 {
 	std::string figureName = nsyshid::g_dimensionstoypad.FindFigure(number);
 	std::string dimensionsFileName = figureName + ".bin";
@@ -258,7 +258,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_createDimensionsFig
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_loadDimensionsFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring path, jint pad, jint index)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_loadDimensionsFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring path, jint pad, jint index)
 {
 	return NativeEmulatedUSBDevices::LoadFigure<0x2D * 0x04>(JNIUtils::FromJString(env, path), [&](auto&& buffer, auto&& file) {
 		NativeEmulatedUSBDevices::ClearDimensionsFigure(pad, index);
@@ -273,7 +273,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_loadDimensionsFigur
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_loadInfinityFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring path, jint slot)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_loadInfinityFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring path, jint slot)
 {
 	return NativeEmulatedUSBDevices::LoadFigure<nsyshid::INF_FIGURE_SIZE>(JNIUtils::FromJString(env, path), [&](auto&& buffer, auto&& file) {
 		NativeEmulatedUSBDevices::ClearInfinityFigure(slot);
@@ -289,7 +289,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_loadInfinityFigure(
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_loadSkylandersFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring path, jint slot)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_loadSkylandersFigure(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring path, jint slot)
 {
 	return NativeEmulatedUSBDevices::LoadFigure<nsyshid::SKY_FIGURE_SIZE>(JNIUtils::FromJString(env, path), [&](auto&& buffer, auto&& file) {
 		NativeEmulatedUSBDevices::ClearSkylandersFigure(slot);
@@ -308,7 +308,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_loadSkylandersFigur
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getSkylandersFigureSlot(JNIEnv* env, [[maybe_unused]] jclass clazz, jint slot)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_getSkylandersFigureSlot(JNIEnv* env, [[maybe_unused]] jclass clazz, jint slot)
 {
 	if (const auto& opt = NativeEmulatedUSBDevices::g_skylanderSlots.at(slot))
 	{
@@ -319,7 +319,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getSkylandersFigure
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getInfinityFigureSlot(JNIEnv* env, [[maybe_unused]] jclass clazz, jint slot)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_getInfinityFigureSlot(JNIEnv* env, [[maybe_unused]] jclass clazz, jint slot)
 {
 	if (const auto& opt = NativeEmulatedUSBDevices::g_infinitySlots.at(slot))
 	{
@@ -330,7 +330,7 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getInfinityFigureSl
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getDimensionsFigureSlot(JNIEnv* env, [[maybe_unused]] jclass clazz, jint slot)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_getDimensionsFigureSlot(JNIEnv* env, [[maybe_unused]] jclass clazz, jint slot)
 {
 	if (const auto& opt = NativeEmulatedUSBDevices::g_dimensionSlots.at(slot))
 	{
@@ -341,37 +341,37 @@ Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_getDimensionsFigure
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_clearDimensionsFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint pad, jint index)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_clearDimensionsFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint pad, jint index)
 {
 	NativeEmulatedUSBDevices::ClearDimensionsFigure(pad, index);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_clearSkylandersFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint slot)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_clearSkylandersFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint slot)
 {
 	NativeEmulatedUSBDevices::ClearSkylandersFigure(slot);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_clearInfinityFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint slot)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_clearInfinityFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint slot)
 {
 	NativeEmulatedUSBDevices::ClearInfinityFigure(slot);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_tempRemoveDimensionsFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_tempRemoveDimensionsFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
 {
 	nsyshid::g_dimensionstoypad.TempRemove(index);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_cancelRemoveDimensionsFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_cancelRemoveDimensionsFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
 {
 	nsyshid::g_dimensionstoypad.CancelRemove(index);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_info_cemu_cemu_nativeinterface_NativeEmulatedUSBDevices_moveDimensionsFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint newPad, jint newIndex, jint oldPad, jint oldIndex)
+Java_dev_dfd_fractal_nativeinterface_NativeEmulatedUSBDevices_moveDimensionsFigure([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint newPad, jint newIndex, jint oldPad, jint oldIndex)
 {
 	nsyshid::g_dimensionstoypad.MoveFigure(newPad, newIndex, oldPad, oldIndex);
 	if (newIndex != oldIndex)

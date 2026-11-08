@@ -41,11 +41,11 @@ fun getVersionName(): String {
 val cemuDataFilesFolder = "../../../bin"
 
 android {
-    namespace = "info.cemu.cemu"
+    namespace = "dev.dfd.fractal"
     compileSdk = 36
     ndkVersion = "29.0.14206865"
     defaultConfig {
-        applicationId = "info.cemu.cemu"
+        applicationId = "dev.dfd.fractal"
         minSdk = 30
         targetSdk = 35
         versionName = getVersionName()
