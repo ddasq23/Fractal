@@ -329,13 +329,14 @@ private fun DrawScope.drawSierpinskiZoom(palette: Palette, t: Float, path: Path)
     val h = side * 0.866f
     val top = Offset(size.width / 2f, (size.height - h) / 2f)
     scale(zoom, pivot = top) {
-        val accent = palette.colorAt(1f)
+        // the ink palette tops out at the same dark plum the facets start from, so blend toward the brand magenta
+        val accent = FractalPalette.Magenta
         fun draw(a: Offset, b: Offset, c: Offset, depth: Int) {
             if (depth == 0) {
                 path.reset()
                 path.moveTo(a.x, a.y); path.lineTo(b.x, b.y); path.lineTo(c.x, c.y); path.close()
                 val tone = ((a.y - top.y) / h).coerceIn(0f, 1f)
-                drawPath(path, lerp(Color(0xFF2A1630), accent, 0.15f + tone * 0.35f))
+                drawPath(path, lerp(Color(0xFF2A1630), accent, 0.08f + tone * 0.22f))
                 return
             }
             val ab = (a + b) / 2f
