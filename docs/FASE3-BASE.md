@@ -16,12 +16,27 @@ a thread mais ocupada.
 
 ## RP5 — perfil SD 480+ (base de otimização)
 
-Snapdragon 865 com cpu5 e cpu6 desligados, núcleos grandes a 1,80 / 1,86 GHz, GPU a 400 MHz
-(regra do RetroidHub). Driver Vulkan: o do módulo do RetroidHub (build 1745012551), não o de fábrica.
+Snapdragon 865 com cpu5 e cpu6 desligados, núcleos pequenos a até 1,80 GHz e grandes a até 1,86 GHz,
+GPU a 400 MHz (regra do RetroidHub; clocks conferidos no log). Driver Vulkan **de fábrica** (Adreno 650,
+build de 2023-09-27): o módulo de driver do RetroidHub deixou de carregar às 18:13 e saiu no reboot.
+Rodadas anteriores (sem GamePad salvo, e com o driver do módulo) foram descartadas.
 
-*Pendente:* a primeira rodada no RP5 foi descartada (o GamePad emulado não estava salvo, então as cenas
-não começavam) e a segunda parou porque o Vulkan do aparelho deixou de carregar (permissão do driver
-do módulo). Será refeita.
+| jogo | FPS | 1% low | frametime médio / pior (ms) | > 50 ms | shaders / pipelines na janela | CPU | threads mais ocupadas |
+|---|---|---|---|---|---|---|---|
+| SM3DW | 53,7 | 26,9 | 18,6 / 54 | 1 | 1 / 52 | 225 % | OSSched[core=1] 97 %, LatteThread 92 % |
+| MK8 | 43,5 | 24,9 | 23,0 / 85 | 10 | 0 / 15 | 285 % | OSSched[core=1] 97 %, LatteThread 77 % |
+| Bayonetta 2 | 24,3 | 15,1 | 41,2 / 379 | 231 | 3 / 158 | 308 % | OSSched[core=1] 94 %, LatteThread 81 % |
+| XCX | 30,1 | 29,8 | 33,3 / 34 | 0 | 0 / 0 | 203 % | LatteThread 99 %, OSSched[core=0] 99 % |
+| BotW | 9,4 | 5,5 | 106,6 / 416 | 516 | 44 / 124 | 305 % | OSSched[core=1] 91 %, LatteThread 87 % |
+
+- **Dois gargalos no RP5:** o núcleo PPC principal (91–97 %) e a LatteThread (77–99 %, a thread que
+  processa os comandos da GPU emulada e grava os comandos Vulkan). Além disso a GPU a 400 MHz fica
+  em 95–96 % no SM3DW e no MK8 (overlay do RetroidHub), então nesse perfil a GPU também limita.
+- **XCX** fica nos 30 fps do próprio jogo com folga zero: LatteThread e núcleo PPC já em 99 %.
+- **Bayonetta 2** tem engasgos de compilação na janela (158 pipelines, 231 quadros acima de 50 ms).
+- **BotW:** no RP5 o jogo carrega mais rápido e aos 320–375 s o Link já está jogável, depois da cena do
+  despertar; por isso há compilação na janela. No RG Cube a mesma janela ainda é a cena. Os números
+  dos dois aparelhos não são da mesma imagem.
 
 ## RG Cube — Unisoc T820, Mali-G57 MC4, sem limite de clock
 
