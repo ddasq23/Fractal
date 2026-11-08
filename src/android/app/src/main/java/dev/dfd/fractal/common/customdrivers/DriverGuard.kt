@@ -12,6 +12,7 @@ import dev.dfd.fractal.nativeinterface.NativeGameTitles
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.DriverSettingMode
 import dev.dfd.fractal.nativeinterface.NativeSettings
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -26,8 +27,15 @@ object DriverGuard {
     private const val PENDING = "custom_driver_pending"
     private const val FAILED = "custom_driver_failed"
 
-    /** The pending marker only means a crash when read by a new process, not while a game runs. */
-    private var pendingChecked = false
+    /**
+     * The pending marker only means a crash when no game is running. Release builds run the game in its
+     * own process (":EmulationProcess"), debug builds in the app process, where the library can't be
+     * resumed while a game runs.
+     */
+    private fun gameRunning(context: Context): Boolean {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager ?: return false
+        return am.runningAppProcesses.orEmpty().any { it.processName.endsWith(":EmulationProcess") }
+    }
 
     fun loadFailed(context: Context): Boolean = File(context.dataDir, FAILED).isFile
 
@@ -38,11 +46,15 @@ object DriverGuard {
     suspend fun recover(context: Context): String? = withContext(Dispatchers.IO) {
         val failed = File(context.dataDir, FAILED)
         val pending = File(context.dataDir, PENDING)
-        val checkPending = !pendingChecked
-        pendingChecked = true
+        // the library can come back a moment before the system drops the crashed game process
+        var checkPending = false
+        if (pending.isFile) for (attempt in 0 until 4) {
+            if (!gameRunning(context)) { checkPending = true; break }
+            delay(750)
+        }
         val (marker, crashed) = when {
             failed.isFile -> failed to false
-            checkPending && pending.isFile -> pending to true
+            checkPending -> pending to true
             else -> return@withContext null
         }
         val lines = runCatching { marker.readLines() }.getOrDefault(emptyList())

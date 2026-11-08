@@ -5,6 +5,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import dev.dfd.fractal.common.customdrivers.DriverGuard
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.dfd.fractal.common.ui.localization.tr
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -132,7 +135,12 @@ private fun MainNav() {
     val endIntro = { introPlaying = false }
     // a custom driver that failed in the last game: back on the system driver, tell the user
     var driverWarning by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { DriverGuard.recover(context)?.let { driverWarning = it } }
+    // checked on every resume: in release builds the game runs in its own process, so a crash there
+    // brings this activity back without restarting it
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    LaunchedEffect(lifecycleState) {
+        if (lifecycleState == Lifecycle.State.RESUMED) DriverGuard.recover(context)?.let { driverWarning = it }
+    }
 
     Box(Modifier.fillMaxSize().onPreviewKeyEvent(introKeyFilter({ introPlaying }, endIntro))) {
     NavHost(
