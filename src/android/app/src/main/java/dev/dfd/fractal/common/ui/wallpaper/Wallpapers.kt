@@ -50,6 +50,7 @@ import kotlin.random.Random
 /** Animated wallpapers are capped at this frame rate. */
 private const val ANIMATION_FPS = 30
 private const val FRAME_NANOS = 1_000_000_000L / ANIMATION_FPS
+private const val FRAME_SLACK_NANOS = 2_000_000L
 
 private data class Palette(val base: Color, val stops: List<Color>)
 
@@ -103,7 +104,8 @@ private fun animationClock(enabled: Boolean): androidx.compose.runtime.MutableFl
             withFrameNanos { now ->
                 if (last == 0L) last = now
                 val elapsed = now - last
-                if (elapsed >= FRAME_NANOS) {
+                // 2 ms of slack: vsync intervals jitter, and a strict check would wait one more vsync (~20 fps at 60 Hz)
+                if (elapsed >= FRAME_NANOS - FRAME_SLACK_NANOS) {
                     // clamp so a long pause doesn't jump the animation
                     time.floatValue += min(elapsed, FRAME_NANOS * 4) / 1e9f
                     last = now
