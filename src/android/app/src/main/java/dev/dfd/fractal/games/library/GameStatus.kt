@@ -11,11 +11,11 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalContext
 import dev.dfd.fractal.common.android.context.internalFolder
+import dev.dfd.fractal.common.customdrivers.profileDispatcher
 import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.nativeinterface.NativeGameTitles
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
 import dev.dfd.fractal.nativeinterface.NativeGraphicPacks
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -28,7 +28,6 @@ data class GameStatus(
 
 
 // the native side loads the profile into one global (g_currentGameProfile), so reads are serialized
-private val profileDispatcher = Dispatchers.IO.limitedParallelism(1)
 
 private fun loadStatus(game: Game, userFolder: File): GameStatus {
     val driverSetting = NativeGameTitles.getDriverSettingForTitle(game.titleId)

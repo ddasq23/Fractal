@@ -8,7 +8,7 @@ import androidx.navigation.toRoute
 import dev.dfd.fractal.settings.account.AccountSettingsScreen
 import dev.dfd.fractal.settings.appearance.AppearanceScreen
 import dev.dfd.fractal.settings.audio.AudioSettingsScreen
-import dev.dfd.fractal.settings.customdrivers.CustomDriversScreen
+import dev.dfd.fractal.drivers.DriversScreen
 import dev.dfd.fractal.settings.emulatedusbdevices.EmulatedUSBDevicesSettingsScreen
 import dev.dfd.fractal.settings.gamespath.GamePathsScreen
 import dev.dfd.fractal.settings.general.GeneralSettingsScreen
@@ -92,7 +92,7 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
         AppearanceScreen(navigateBack = { navController.popBackStack() })
     }
     composable<CustomDriversRoute> {
-        CustomDriversScreen(navigateBack = { navController.popBackStack() })
+        DriversScreen(navigateBack = { navController.popBackStack() })
     }
     navigation<SettingsRoute>(startDestination = SettingsRoutes.SettingsHomeScreenRoute) {
         composable<SettingsRoutes.SettingsHomeScreenRoute> {
@@ -106,6 +106,7 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
                 goToAccountSettings = { navController.navigate(SettingsRoutes.AccountSettingsScreenRoute) },
                 goToEmulatedUSBDevicesSettings = { navController.navigate(SettingsRoutes.EmulatedUSBDevicesSettingsScreenRoute) },
                 goToAppearance = { navController.navigate(AppearanceRoute) },
+                goToDrivers = { navController.navigate(CustomDriversRoute) },
                 goToWelcome = goToWelcome,
             )
         }
@@ -123,7 +124,7 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
             )
         }
         composable<SettingsRoutes.CustomDriversScreenRoute> {
-            CustomDriversScreen(
+            DriversScreen(
                 navigateBack = { navController.popBackStack() },
             )
         }

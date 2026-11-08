@@ -100,9 +100,10 @@ object FractalIcons {
     }
 
     val Refresh = icon("refresh") {
-        moveTo(19f, 12f); lineTo(19f, 5f); lineTo(5f, 5f); lineTo(5f, 12f)
-        moveTo(16f, 8.5f); lineTo(19f, 5f); lineTo(22f, 8.5f)
-        moveTo(5f, 12f); lineTo(5f, 19f); lineTo(19f, 19f); lineTo(19f, 15f)
+        // circular arrow: 300° clockwise arc around (12, 12), arrowhead at the top
+        moveTo(18.06f, 8.5f)
+        arcTo(7f, 7f, 0f, isMoreThanHalf = true, isPositiveArc = true, x1 = 12f, y1 = 5f)
+        moveTo(9.5f, 2.5f); lineTo(12f, 5f); lineTo(9.5f, 7.5f)
     }
 
     val Star = icon("star") {
@@ -126,6 +127,11 @@ object FractalIcons {
     val Back = icon("back") { moveTo(14.5f, 5f); lineTo(7.5f, 12f); lineTo(14.5f, 19f) }
 
     val Next = icon("next") { moveTo(9.5f, 5f); lineTo(16.5f, 12f); lineTo(9.5f, 19f) }
+    val Download = icon("download") {
+        moveTo(12f, 4f); lineTo(12f, 15f)
+        moveTo(7f, 10.5f); lineTo(12f, 15.5f); lineTo(17f, 10.5f)
+        moveTo(5f, 19.5f); lineTo(19f, 19.5f)
+    }
 
     val Check = icon("check") { moveTo(4.5f, 12.5f); lineTo(9.5f, 17.5f); lineTo(19.5f, 6.5f) }
 

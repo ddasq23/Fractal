@@ -28,11 +28,16 @@ private fun extractZipEntry(
     buffer: ByteArray,
     targetDir: String,
 ) {
-    val file = Paths.get(targetDir, zipEntry.name).toFile()
+    val root = Paths.get(targetDir).toFile().canonicalFile
+    val file = Paths.get(targetDir, zipEntry.name).toFile().canonicalFile
+    // zip slip: entries like "../x" must not escape the target directory (driver zips come from the internet)
+    if (file != root && !file.path.startsWith(root.path + java.io.File.separator))
+        throw java.io.IOException("Zip entry outside of the target directory: ${zipEntry.name}")
     if (zipEntry.isDirectory) {
         file.apply { if (!isDirectory) mkdirs() }
         return
     }
+    file.parentFile?.mkdirs()
     FileOutputStream(file).use { fileOutputStream ->
         var bytesRead: Int
         while ((zipInputStream.read(buffer).also { bytesRead = it }) > 0) {

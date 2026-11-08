@@ -16,6 +16,7 @@ fun SettingsHomeScreen(
     goToAccountSettings: () -> Unit,
     goToOverlaySettings: () -> Unit,
     goToAppearance: () -> Unit,
+    goToDrivers: () -> Unit,
     goToWelcome: () -> Unit,
     navigateBack: () -> Unit
 ) {
@@ -27,6 +28,11 @@ fun SettingsHomeScreen(
             label = tr("Appearance"),
             description = tr("Theme, wallpaper and library view"),
             onClick = dropUnlessResumed(block = goToAppearance)
+        )
+        Button(
+            label = tr("Drivers"),
+            description = tr("Install GPU drivers and switch between them"),
+            onClick = dropUnlessResumed(block = goToDrivers)
         )
         Button(
             label = tr("Welcome setup"),

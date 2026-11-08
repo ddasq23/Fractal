@@ -59,6 +59,7 @@ fun NavGraphBuilder.gamesNavigation(
     goToAboutCemu: () -> Unit,
     goToGamePaths: () -> Unit,
     goToAppearance: () -> Unit,
+    goToDrivers: () -> Unit,
     goToWelcome: () -> Unit,
 ) {
     navigation<GameListRoute>(startDestination = GameListRoutes.GamesRoute) {
@@ -78,6 +79,7 @@ fun NavGraphBuilder.gamesNavigation(
                     goToSettings = goToSettings,
                     goToGamePaths = goToGamePaths,
                     goToAppearance = goToAppearance,
+                    goToDrivers = goToDrivers,
                     goToWelcome = goToWelcome,
                     goToTitleManager = goToTitleManager,
                     goToGraphicPacks = goToGraphicPacks,

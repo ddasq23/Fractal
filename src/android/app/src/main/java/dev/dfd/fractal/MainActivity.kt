@@ -14,6 +14,7 @@ import dev.dfd.fractal.common.ui.intro.introKeyFilter
 import androidx.compose.runtime.remember
 import dev.dfd.fractal.common.ui.components.LocalGuiSettings
 import dev.dfd.fractal.settings.AppearanceRoute
+import dev.dfd.fractal.settings.CustomDriversRoute
 import dev.dfd.fractal.settings.GamePathsRoute
 import dev.dfd.fractal.welcome.WelcomeRoute
 import dev.dfd.fractal.welcome.welcomeNavigation
@@ -140,6 +141,7 @@ private fun MainNav() {
             goToAboutCemu = { navController.navigate(AboutCemuRoute) },
             goToGamePaths = { navController.navigate(GamePathsRoute) },
             goToAppearance = { navController.navigate(AppearanceRoute) },
+            goToDrivers = { navController.navigate(CustomDriversRoute) },
             goToWelcome = { navController.navigate(WelcomeRoute) },
         )
         welcomeNavigation(navController, onSetupFinished = {

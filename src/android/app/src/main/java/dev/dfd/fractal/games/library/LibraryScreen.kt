@@ -94,6 +94,7 @@ class LibraryNavigation(
     val goToSettings: () -> Unit,
     val goToGamePaths: () -> Unit,
     val goToAppearance: () -> Unit,
+    val goToDrivers: () -> Unit,
     val goToWelcome: () -> Unit,
     val goToTitleManager: () -> Unit,
     val goToGraphicPacks: () -> Unit,
@@ -271,6 +272,7 @@ fun LibraryScreen(
             SheetAction(tr("Appearance"), FractalIcons.Palette) { optionsOpen = false; navigation.goToAppearance() }
             SheetAction(tr("Game folders"), FractalIcons.FolderAdd) { optionsOpen = false; navigation.goToGamePaths() }
             SheetAction(tr("Graphic packs"), FractalIcons.Layers) { optionsOpen = false; navigation.goToGraphicPacks() }
+            SheetAction(tr("Drivers"), FractalIcons.Chip) { optionsOpen = false; navigation.goToDrivers() }
             SheetAction(tr("Title manager"), FractalIcons.Box) { optionsOpen = false; navigation.goToTitleManager() }
             SheetAction(tr("Refresh library"), FractalIcons.Refresh) { optionsOpen = false; viewModel.refreshGames() }
             SheetAction(tr("Open Fractal folder"), FractalIcons.Folder) {
