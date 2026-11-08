@@ -87,6 +87,8 @@ def summarize(path, t_from, t_to, top_threads):
         "pipelines_win": total(window, "pipelines"),
         "pipeline_sync_ms_win": total(window, "pipeline_sync_ms"),
         "cpu": total(window, "cpu_process_pct") / n_seconds,
+        # GPU time of the command buffers (Vulkan timestamps); None for logs from before the column existed
+        "gpu_busy": total(window, "gpu_busy_ms") / n_seconds / 10 if window and "gpu_busy_ms" in window[0] else None,
         "threads": ", ".join(f"{name} {pct / n_seconds:.0f}%" for name, pct in busiest),
     }
 
@@ -102,8 +104,8 @@ def main():
     args = ap.parse_args()
 
     if not args.no_header:
-        print(f"| Aparelho / perfil | Jogo | GPU / driver | FPS médio | 1% low | frametime médio / pior (ms) | quadros > 50 ms | shaders compilados / pipelines criados (sessão) | na janela | espera por pipeline (ms) | CPU do processo | threads mais ocupadas |")
-        print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+        print(f"| Aparelho / perfil | Jogo | GPU / driver | FPS médio | 1% low | frametime médio / pior (ms) | quadros > 50 ms | shaders compilados / pipelines criados (sessão) | na janela | espera por pipeline (ms) | CPU do processo | GPU ocupada | threads mais ocupadas |")
+        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for path in args.sessions:
         if not os.path.isdir(path):
             continue
@@ -111,9 +113,10 @@ def main():
         if s["last_s"] < args.t_to:
             print(f"<!-- {path}: session lasted {s['last_s']:.0f}s, shorter than the window -->", file=sys.stderr)
         label = args.label or s["device"]
+        gpu = "–" if s["gpu_busy"] is None else f"{s['gpu_busy']:.0f}%"
         print(f"| {label} | {s['title']} | {s['gpu']} / {s['driver']} | {s['fps']:.1f} | {s['low1']:.1f} | "
               f"{s['ft_avg']:.1f} / {s['ft_max']:.0f} | {s['over50']} | {s['shaders_all']:.0f} / {s['pipelines_all']:.0f} | "
-              f"{s['shaders_win']:.0f} / {s['pipelines_win']:.0f} | {s['pipeline_sync_ms_win']:.0f} | {s['cpu']:.0f}% | {s['threads']} |")
+              f"{s['shaders_win']:.0f} / {s['pipelines_win']:.0f} | {s['pipeline_sync_ms_win']:.0f} | {s['cpu']:.0f}% | {gpu} | {s['threads']} |")
 
 
 if __name__ == "__main__":

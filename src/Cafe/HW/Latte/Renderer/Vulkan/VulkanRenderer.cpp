@@ -392,6 +392,9 @@ void VulkanRenderer::GetDeviceFeatures()
 		m_featureControl.deviceExtensions.attachment_feedback_loop_dynamic_state = attachmentFeedbackLoopDynamicStateFeature.attachmentFeedbackLoopDynamicState == VK_TRUE;
 	if (!UseAttachmentFeedbackLoop())
 		cemuLog_log(LogType::Force, "VK_EXT_attachment_feedback_loop_layout(_dynamic_state) not supported");
+	// GPU timestamps for the performance log
+	m_perfTimestampsSupported = prop2.properties.limits.timestampComputeAndGraphics == VK_TRUE && prop2.properties.limits.timestampPeriod > 0.0f;
+	m_perfTimestampPeriodNs = prop2.properties.limits.timestampPeriod;
 	// get limits
 	m_featureControl.limits.minUniformBufferOffsetAlignment = std::max(prop2.properties.limits.minUniformBufferOffsetAlignment, (VkDeviceSize)4);
 	m_featureControl.limits.nonCoherentAtomSize = std::max(prop2.properties.limits.nonCoherentAtomSize, (VkDeviceSize)4);
@@ -897,6 +900,11 @@ VulkanRenderer::~VulkanRenderer()
 	SubmitCommandBuffer();
 	WaitDeviceIdle();
 	WaitCommandBufferFinished(GetCurrentCommandBufferId());
+	if (m_perfQueryPool != VK_NULL_HANDLE)
+	{
+		vkDestroyQueryPool(m_logicalDevice, m_perfQueryPool, nullptr);
+		m_perfQueryPool = VK_NULL_HANDLE;
+	}
 	// shut down pipeline save thread
 	m_destructionRequested = true;
 	m_pipeline_cache_semaphore.notify();
@@ -2242,6 +2250,7 @@ void VulkanRenderer::InitFirstCommandBuffer()
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	vkBeginCommandBuffer(m_state.currentCommandBuffer, &beginInfo);
+	PerfTimestampBegin();
 
 	vkCmdSetViewport(m_state.currentCommandBuffer, 0, 1, &m_state.currentViewport);
 	vkCmdSetScissor(m_state.currentCommandBuffer, 0, 1, &m_state.currentScissorRect);
@@ -2257,6 +2266,7 @@ void VulkanRenderer::ProcessFinishedCommandBuffers()
 		VkResult fenceStatus = vkGetFenceStatus(m_logicalDevice, m_cmdBufferFences[m_commandBufferSyncIndex]);
 		if (fenceStatus == VK_SUCCESS)
 		{
+			PerfTimestampCollect(m_commandBufferSyncIndex);
 			ProcessDestructionQueue();
 			m_uniformVarBufferReadIndex = m_cmdBufferUniformRingbufIndices[m_commandBufferSyncIndex];
 			m_commandBufferSyncIndex = (m_commandBufferSyncIndex + 1) % m_commandBuffers.size();
@@ -2276,6 +2286,48 @@ void VulkanRenderer::ProcessFinishedCommandBuffers()
 	{
 		LatteTextureReadback_UpdateFinishedTransfers(false);
 	}
+}
+
+void VulkanRenderer::PerfTimestampBegin()
+{
+	m_perfQueryWritten[m_commandBufferIndex] = false;
+	if (!m_perfTimestampsSupported || !PerfLog::IsActive())
+		return;
+	if (m_perfQueryPool == VK_NULL_HANDLE)
+	{
+		VkQueryPoolCreateInfo info{};
+		info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+		info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+		info.queryCount = kCommandBufferPoolSize * 2;
+		if (vkCreateQueryPool(m_logicalDevice, &info, nullptr, &m_perfQueryPool) != VK_SUCCESS)
+		{
+			m_perfTimestampsSupported = false;
+			m_perfQueryPool = VK_NULL_HANDLE;
+			return;
+		}
+	}
+	const uint32 first = (uint32)m_commandBufferIndex * 2;
+	vkCmdResetQueryPool(m_state.currentCommandBuffer, m_perfQueryPool, first, 2);
+	vkCmdWriteTimestamp(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_perfQueryPool, first);
+	m_perfQueryWritten[m_commandBufferIndex] = true;
+}
+
+void VulkanRenderer::PerfTimestampEnd()
+{
+	if (m_perfQueryWritten[m_commandBufferIndex])
+		vkCmdWriteTimestamp(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_perfQueryPool, (uint32)m_commandBufferIndex * 2 + 1);
+}
+
+void VulkanRenderer::PerfTimestampCollect(size_t commandBufferIndex)
+{
+	if (!m_perfQueryWritten[commandBufferIndex])
+		return;
+	m_perfQueryWritten[commandBufferIndex] = false;
+	uint64 ts[2];
+	if (vkGetQueryPoolResults(m_logicalDevice, m_perfQueryPool, (uint32)commandBufferIndex * 2, 2, sizeof(ts), ts, sizeof(uint64), VK_QUERY_RESULT_64_BIT) != VK_SUCCESS)
+		return;
+	if (ts[1] > ts[0])
+		PerfLog::GpuWork((uint64)(ts[0] * m_perfTimestampPeriodNs), (uint64)(ts[1] * m_perfTimestampPeriodNs));
 }
 
 void VulkanRenderer::WaitForNextFinishedCommandBuffer()
@@ -2301,6 +2353,7 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 
 	occlusionQuery_notifyEndCommandBuffer();
 
+	PerfTimestampEnd();
 	vkEndCommandBuffer(m_state.currentCommandBuffer);
 
 	VkSubmitInfo submitInfo = {};
@@ -2363,6 +2416,7 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	vkBeginCommandBuffer(m_state.currentCommandBuffer, &beginInfo);
+	PerfTimestampBegin();
 
 	// make sure some states are set for this command buffer
 	vkCmdSetViewport(m_state.currentCommandBuffer, 0, 1, &m_state.currentViewport);

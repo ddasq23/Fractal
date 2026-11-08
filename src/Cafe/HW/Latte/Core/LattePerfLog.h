@@ -28,6 +28,8 @@ namespace PerfLog
 	void PipelineCompiled(uint64 durationUs, bool renderThread, bool failed);
 
 	void SetGpuInfo(std::string_view gpu, std::string_view driver);
+	// a command buffer ran on the GPU from startNs to endNs (GPU clock); overlapping work is counted once
+	void GpuWork(uint64 startNs, uint64 endNs);
 
 	// PPC recompiler, for profiling (simpleperf samples in JIT code are mapped back to PPC functions):
 	//   jitmap.txt   "<host address> <host size> <ppc address> <ppc size>" per recompiled function

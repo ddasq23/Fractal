@@ -46,7 +46,9 @@ namespace PerfLog
 		std::atomic<uint32> pipelinesFailed{};
 		std::atomic<uint64> pipelineUs{};
 		std::atomic<uint64> pipelineSyncUs{};
+		std::atomic<uint64> gpuBusyNs{};
 	};
+	static uint64 s_gpuLastEndNs = 0; // only touched by the render thread
 
 	static std::atomic<bool> s_active{false};
 	static Counters s_counters;
@@ -323,7 +325,7 @@ namespace PerfLog
 			freqHeader += fmt::format(",cpu{}_mhz", i);
 		seconds << "t_s,frames,fps,ft_avg_ms,ft_p99_ms,low1_fps,ft_max_ms,"
 				   "shaders,shaders_cached,shaders_failed,shader_ms,"
-				   "pipelines,pipelines_sync,pipelines_failed,pipeline_ms,pipeline_sync_ms,"
+				   "pipelines,pipelines_sync,pipelines_failed,pipeline_ms,pipeline_sync_ms,gpu_busy_ms,"
 				   "cpu_process_pct,rss_mb" << freqHeader << "\n";
 		threads << "t_s,tid,name,cpu_pct\n";
 		frames << "t_ms,ft_ms\n";
@@ -407,10 +409,11 @@ namespace PerfLog
 			prevTicks = std::move(ticks);
 
 			std::string freqs = ReadCpuFreqs(cpuCount);
-			seconds << fmt::format("{:.0f},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{},{},{},{:.1f},{},{},{},{:.1f},{:.1f},{:.1f},{}{}{}\n",
+			const uint64 gpuBusyNs = s_counters.gpuBusyNs.exchange(0);
+			seconds << fmt::format("{:.0f},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{},{},{},{:.1f},{},{},{},{:.1f},{:.1f},{:.1f},{:.1f},{}{}{}\n",
 								   tS, n, fps, ftAvg, ftP99, low1, ftMax,
 								   shaders, shadersCached, shadersFailed, shaderUs / 1000.0,
-								   pipelines, pipelinesSync, pipelinesFailed, pipelineUs / 1000.0, pipelineSyncUs / 1000.0,
+								   pipelines, pipelinesSync, pipelinesFailed, pipelineUs / 1000.0, pipelineSyncUs / 1000.0, gpuBusyNs / 1e6,
 								   processPct, ReadRssMb(), cpuCount ? "," : "", freqs);
 			seconds.flush();
 			threads.flush();
@@ -449,6 +452,8 @@ namespace PerfLog
 		s_counters.pipelinesFailed = 0;
 		s_counters.pipelineUs = 0;
 		s_counters.pipelineSyncUs = 0;
+		s_counters.gpuBusyNs = 0;
+		s_gpuLastEndNs = 0;
 		{
 			std::scoped_lock lock(s_frameMutex);
 			s_frames.clear();
@@ -481,6 +486,16 @@ namespace PerfLog
 		std::scoped_lock lock(s_jitMutex);
 		s_jitMap.close();
 		s_jitFail.close();
+	}
+
+	void GpuWork(uint64 startNs, uint64 endNs)
+	{
+		if (!IsActive())
+			return;
+		const uint64 from = std::max(startNs, s_gpuLastEndNs);
+		if (endNs > from)
+			s_counters.gpuBusyNs += endNs - from;
+		s_gpuLastEndNs = std::max(s_gpuLastEndNs, endNs);
 	}
 
 	void JitFunction(uint32 ppcAddress, uint32 ppcSize, const void* hostCode, uint32 hostSize)

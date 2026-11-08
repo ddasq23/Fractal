@@ -708,6 +708,15 @@ private:
 	std::array<VkCommandBuffer, kCommandBufferPoolSize> m_commandBuffers;
 	std::array<VkSemaphore, kCommandBufferPoolSize> m_commandBufferSemaphores;
 
+	// GPU time per command buffer for the performance log (two timestamps per command buffer)
+	bool m_perfTimestampsSupported = false;
+	double m_perfTimestampPeriodNs = 1.0;
+	VkQueryPool m_perfQueryPool = VK_NULL_HANDLE;
+	std::array<bool, kCommandBufferPoolSize> m_perfQueryWritten{};
+	void PerfTimestampBegin();
+	void PerfTimestampEnd();
+	void PerfTimestampCollect(size_t commandBufferIndex);
+
 	VkSemaphore GetLastSubmittedCmdBufferSemaphore()
 	{
 		return m_commandBufferSemaphores[(m_commandBufferIndex + m_commandBufferSemaphores.size() - 1) % m_commandBufferSemaphores.size()];
