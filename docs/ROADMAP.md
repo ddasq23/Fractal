@@ -76,6 +76,20 @@ Risco de conflito: o port do SSimco e os cherry-picks de FSR/GSR/RCAS mexem em
   `0e4fc41f` sndcore DRC mix mask, alarmes (`b93335be`, `c8a5e25d`, `f38c013b`, `2c212b52`, `ae937e78`),
   crashes no encerramento (`0df18ba8`, `c0f02bcb`, `fb3d265d`)
 
+## Fase 4: experimento com o JitArm64 do Dolphin (pedido do usuário, 2026-11-08)
+
+Primeiro experimento da Fase 4, depois do perfil com simpleperf (que mostra quanto do tempo do núcleo PPC
+está no código recompilado e quanto está em HLE, agendador e esperas):
+
+- Comparar o código gerado pelo backend AArch64 do Cemu (`Espresso/Recompiler/BackendAArch64`, IR + alocação
+  de registradores; a memória já é base + endereço, sem checagem) com o do JitArm64 do Dolphin para os
+  blocos mais quentes.
+- Se a diferença valer, protótipo de um backend alternativo atrás de uma opção, com volta para o
+  recompilador atual.
+- **Licença:** o Dolphin é GPL-2.0-or-later e o Fractal é MPL-2.0. Usar o Dolphin como referência de
+  técnicas não muda nada; copiar código dele torna o binário distribuído GPL. Decisão do usuário antes de
+  copiar qualquer código.
+
 ## Para a Fase 4: fallback para o interpretador
 
 Smoke test de 2026-11-08 no Odin 2 Mini (sem limite de clock), linhas
