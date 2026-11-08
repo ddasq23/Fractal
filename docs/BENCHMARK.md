@@ -33,7 +33,7 @@ mesmo ponto. O roteiro é aplicado pelo próprio emulador (`perf/input_<titleid>
 | cena | caminho | janela medida |
 |---|---|---|
 | `sm3dw` | arquivo novo → File 1 → Mario → abertura (fogos e personagens) | 75–105 s |
-| `mk8` | Grand Prix 50cc → Mario → Mushroom Cup → Mario Kart Stadium; o jogador fica parado e a corrida segue | 185–235 s |
+| `mk8` | Grand Prix 50cc → Mario → Mushroom Cup → Mario Kart Stadium; o jogador fica parado e a corrida segue | 190–228 s (aos ~230 s entra conteúdo novo na corrida) |
 | `bayo2` | slot 1 → Story → 2nd Climax → prólogo | 190–250 s |
 | `xcx` | aviso offline → título → configurações iniciais (sai com B) → abertura no espaço | 255–325 s |
 | `botw` | título → "Open your eyes" → Link acorda no Santuário da Ressurreição | 320–375 s |
