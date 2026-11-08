@@ -1,0 +1,43 @@
+# NOTICE
+
+**Fractal** is a Wii U emulator for Android, maintained by DFD.
+It is a fork of other projects and keeps their license: the
+**Mozilla Public License 2.0** (see `LICENSE.txt`). Original license
+headers in existing files are kept as they are.
+
+## Credits
+
+### Cemu — cemu-project
+- https://github.com/cemu-project/Cemu
+- The emulator core (PowerPC recompiler, Latte GPU emulation, Cafe OS HLE,
+  audio, input) and most of the code in this repository.
+
+### Cemu Android port — SSimco
+- https://github.com/SSimco/Cemu (branch `android-port`)
+- The Android port that Fractal is forked from: the Android build setup,
+  JNI layer, Kotlin/Jetpack Compose app and ARM64 support work.
+- Fork point: commit `8759323e` (2026-04-27).
+
+### Cemu Plus — danielcamilo1
+- https://github.com/danielcamilo1/cemu-plus
+- Changes brought in from Cemu Plus:
+  - `c44f90c1`: lock for 64-bit coreinit atomics on misaligned addresses
+    (SIGBUS fix on ARM64, e.g. Star Fox Zero).
+  - `40b46380`: crash details written to log.txt/logcat and Android
+    tombstone (native part only).
+  - `d0301dbe`: AMD FSR 1 and Snapdragon GSR upscale filters.
+  - `5a189b9c`: FSR RCAS pass, GSR EdgeDir variant and sharpness setting
+    (upscaling part only).
+
+## Third-party components
+
+Third-party libraries under `dependencies/` and those pulled through vcpkg
+keep their own licenses. See each component's license file.
+
+AMD FidelityFX Super Resolution 1: Copyright (c) 2021 Advanced Micro Devices, Inc. (MIT).
+Snapdragon Game Super Resolution 1: Copyright (c) 2025 Qualcomm Innovation Center, Inc. (BSD-3-Clause).
+
+## Files added by Fractal
+
+New files written for Fractal may carry an MPL-2.0 header naming DFD as the
+author. Modifications to existing files keep the original header.
