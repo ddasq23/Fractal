@@ -47,6 +47,8 @@ ainda foi compilado.
 ## Como rodar
 
 Use o **build release** (o debug compila o código nativo com -O0 e asserts, e fica bem mais lento).
+O commit que aparece no `info.txt` e no log é lido só quando o CMake configura; antes de um build de
+medição rode `touch CMakeLists.txt` para ele pegar o commit atual (isso recompila todo o código nativo).
 
 ```sh
 # uma cena, com screenshots em 60 e 90 s
