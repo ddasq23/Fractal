@@ -3308,8 +3308,6 @@ void VulkanRenderer::DrawBackbufferQuadTwoPass(LatteTextureView* texView, Render
 		return;
 
 	LatteTextureViewVk* texViewVk = (LatteTextureViewVk*)texView;
-	if (!padView)
-		m_tvSourceWidth = (uint32)texView->baseTexture->width;
 	draw_endRenderPass();
 
 	OutputPassTarget& target = outputPass_getTarget(padView, (uint32)imageWidth, (uint32)imageHeight);
