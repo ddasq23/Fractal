@@ -19,6 +19,7 @@
 #include "BackendAArch64/BackendAArch64.h"
 #endif
 #include "util/highresolutiontimer/HighResolutionTimer.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 
 #define PPCREC_FORCE_SYNCHRONOUS_COMPILATION	0 // if 1, then function recompilation will block and execute on the thread that called PPCRecompiler_visitAddressNoBlock
 #define PPCREC_LOG_RECOMPILATION_RESULTS		0
@@ -192,6 +193,7 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 		{
 			if (coreinit::codeGenShouldAvoid())
 			{
+				PerfLog::JitFailure(range.startAddress, range.length, "codegen-area");
 				return nullptr;
 			}
 		}
@@ -212,6 +214,7 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 	bool compiledSuccessfully = PPCRecompiler_generateIntermediateCode(ppcImlGenContext, ppcRecFunc, entryAddresses, boundaryTracker);
 	if (compiledSuccessfully == false)
 	{
+		PerfLog::JitFailure(range.startAddress, range.length, "frontend");
 		delete ppcRecFunc;
 		return nullptr;
 	}
@@ -231,6 +234,7 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 	// apply passes
 	if (!PPCRecompiler_ApplyIMLPasses(ppcImlGenContext))
 	{
+		PerfLog::JitFailure(range.startAddress, range.length, "iml-passes");
 		delete ppcRecFunc;
 		return nullptr;
 	}
@@ -240,12 +244,14 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 	bool x64GenerationSuccess = PPCRecompiler_generateX64Code(ppcRecFunc, &ppcImlGenContext);
 	if (x64GenerationSuccess == false)
 	{
+		PerfLog::JitFailure(range.startAddress, range.length, "backend");
 		return nullptr;
 	}
 #elif defined(__aarch64__)
 	bool aarch64GenerationSuccess = PPCRecompiler_generateAArch64Code(ppcRecFunc, &ppcImlGenContext);
 	if (aarch64GenerationSuccess == false)
 	{
+		PerfLog::JitFailure(range.startAddress, range.length, "backend");
 		return nullptr;
 	}
 #endif
@@ -258,6 +264,8 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 			delete fs;
 		}
 	}
+
+	PerfLog::JitFunction(ppcRecFunc->ppcAddress, ppcRecFunc->ppcSize, ppcRecFunc->x86Code, (uint32)ppcRecFunc->x86Size);
 
 	// collect list of PPC-->x64 entry points
 	entryPointsOut.clear();

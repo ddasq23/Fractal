@@ -29,6 +29,12 @@ namespace PerfLog
 
 	void SetGpuInfo(std::string_view gpu, std::string_view driver);
 
+	// PPC recompiler, for profiling (simpleperf samples in JIT code are mapped back to PPC functions):
+	//   jitmap.txt   "<host address> <host size> <ppc address> <ppc size>" per recompiled function
+	//   jitfail.txt  "<ppc address> <ppc size> <stage>" per function left to the interpreter
+	void JitFunction(uint32 ppcAddress, uint32 ppcSize, const void* hostCode, uint32 hostSize);
+	void JitFailure(uint32 ppcAddress, uint32 ppcSize, const char* stage);
+
 	// Input script for reproducible benchmark scenes: <user data>/perf/input_<titleid>.txt (or
 	// input.txt), one press per line: "<seconds since the game started> <button> [hold ms, default 150]".
 	// Buttons: A B X Y L R ZL ZR PLUS MINUS UP DOWN LEFT RIGHT, and LUP LDOWN LLEFT LRIGHT RUP RDOWN

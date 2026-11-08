@@ -67,6 +67,9 @@ namespace PerfLog
 
 	static std::vector<ScriptedPress> s_inputScript; // set before s_active, read-only afterwards
 
+	static std::mutex s_jitMutex;
+	static std::ofstream s_jitMap, s_jitFail;
+
 	bool IsActive()
 	{
 		return s_active.load(std::memory_order_relaxed);
@@ -451,6 +454,11 @@ namespace PerfLog
 			s_frames.clear();
 		}
 		s_inputScript = LoadInputScript(CafeSystem::GetForegroundTitleId());
+		{
+			std::scoped_lock lock(s_jitMutex);
+			s_jitMap.open(dir / "jitmap.txt", std::ios::trunc);
+			s_jitFail.open(dir / "jitfail.txt", std::ios::trunc);
+		}
 		s_sessionStart = Clock::now();
 		s_hasLastFrame = false;
 		s_stop = false;
@@ -470,5 +478,30 @@ namespace PerfLog
 		s_stopCv.notify_all();
 		if (s_writer.joinable())
 			s_writer.join();
+		std::scoped_lock lock(s_jitMutex);
+		s_jitMap.close();
+		s_jitFail.close();
+	}
+
+	void JitFunction(uint32 ppcAddress, uint32 ppcSize, const void* hostCode, uint32 hostSize)
+	{
+		if (!IsActive())
+			return;
+		std::scoped_lock lock(s_jitMutex);
+		if (!s_jitMap.is_open())
+			return;
+		s_jitMap << fmt::format("{:x} {:x} {:08x} {}\n", (uint64)(uintptr_t)hostCode, hostSize, ppcAddress, ppcSize);
+		s_jitMap.flush();
+	}
+
+	void JitFailure(uint32 ppcAddress, uint32 ppcSize, const char* stage)
+	{
+		if (!IsActive())
+			return;
+		std::scoped_lock lock(s_jitMutex);
+		if (!s_jitFail.is_open())
+			return;
+		s_jitFail << fmt::format("{:08x} {} {}\n", ppcAddress, ppcSize, stage);
+		s_jitFail.flush();
 	}
 }
