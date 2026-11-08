@@ -13,6 +13,8 @@ class GamesPathsViewModel : ViewModel() {
         if (!_gamesPaths.value.contains(gamesPath)) {
             _gamesPaths.value += gamesPath
             NativeSettings.addGamesPath(gamesPath)
+            // save now: the next save is on pause, and a crash or force-stop before it loses the folder
+            NativeSettings.saveSettings()
         }
     }
 
@@ -20,6 +22,8 @@ class GamesPathsViewModel : ViewModel() {
         if (_gamesPaths.value.contains(gamesPath)) {
             _gamesPaths.value -= gamesPath
             NativeSettings.removeGamesPath(gamesPath)
+            // save now: the next save is on pause, and a crash or force-stop before it loses the folder
+            NativeSettings.saveSettings()
         }
     }
 }
