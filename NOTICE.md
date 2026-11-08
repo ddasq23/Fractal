@@ -37,6 +37,12 @@ keep their own licenses. See each component's license file.
 AMD FidelityFX Super Resolution 1: Copyright (c) 2021 Advanced Micro Devices, Inc. (MIT).
 Snapdragon Game Super Resolution 1: Copyright (c) 2025 Qualcomm Innovation Center, Inc. (BSD-3-Clause).
 
+Fonts bundled with the Android app (`src/android/app/src/main/res/font`), both
+under the SIL Open Font License 1.1 (full text in `res/raw/license_ofl_*.txt`):
+
+- Space Grotesk: Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk)
+- Inter: Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
+
 ## Files added by Fractal
 
 New files written for Fractal may carry an MPL-2.0 header naming DFD as the

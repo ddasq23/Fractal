@@ -1,7 +1,5 @@
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <gradient
-        android:angle="90"
-        android:endColor="#00b5ff"
-        android:startColor="#0087b5" />
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fractal: Sierpinski triangle, 3 levels. MPL-2.0, Copyright (c) 2026 DFD -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#100F16" />
 </shape>

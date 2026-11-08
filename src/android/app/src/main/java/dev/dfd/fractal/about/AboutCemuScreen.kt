@@ -50,7 +50,7 @@ fun AboutCemuScreen(navigateBack: () -> Unit) {
     val libraries by produceLibraries(R.raw.aboutlibraries)
 
     ScreenContentLazy(
-        appBarText = tr("About Cemu"),
+        appBarText = tr("About Fractal"),
         navigateBack = navigateBack,
         contentModifier = Modifier
             .fillMaxWidth()
@@ -95,9 +95,13 @@ private fun LazyListScope.aboutCemuSection() {
             )
             Text(
                 text = tr(
-                    "Original authors: {0}",
+                    "Cemu original authors: {0}",
                     stringResource(R.string.cemu_original_authors)
                 ),
+                fontSize = 18.sp,
+            )
+            Text(
+                text = tr("Fractal is based on Cemu and on the Cemu Android port by SSimco."),
                 fontSize = 18.sp,
             )
             CemuWebsite()
@@ -109,7 +113,7 @@ private fun LazyListScope.disclaimerSection() {
     item {
         AboutSection {
             Text(
-                text = tr("Cemu is a Wii U emulator.\n\nWii and Wii U are trademarks of Nintendo.\nCemu is not affiliated with Nintendo."),
+                text = tr("Fractal is a Wii U emulator.\n\nWii and Wii U are trademarks of Nintendo.\nFractal is not affiliated with Nintendo."),
                 fontSize = 18.sp
             )
         }
@@ -250,6 +254,10 @@ private val UsedLibraries: List<Library> = listOf(
     Library("fontawesome", "https://github.com/FortAwesome/Font-Awesome"),
     Library("boost", "https://www.boost.org"),
     Library("libusb", "https://libusb.info"),
+    Library("AMD FidelityFX Super Resolution 1.0", "https://github.com/GPUOpen-Effects/FidelityFX-FSR"),
+    Library("Snapdragon Game Super Resolution", "https://github.com/quic/snapdragon-gsr"),
+    Library("Space Grotesk (OFL)", "https://github.com/floriankarsten/space-grotesk"),
+    Library("Inter (OFL)", "https://github.com/rsms/inter"),
     Library(
         "Modified ih264 from Android project",
         LibrarySource(

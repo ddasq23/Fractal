@@ -14,6 +14,8 @@ import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.ViewGroup
+import android.view.View
 import android.view.MotionEvent
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
@@ -59,7 +61,20 @@ class MainActivity : AppCompatActivity() {
             return true
         }
 
+        // In touch mode no view has focus, so a first gamepad button that is not a d-pad key
+        // (Start, Y, X...) would never reach Compose. Leave touch mode and focus the content first.
+        if (event.action == KeyEvent.ACTION_DOWN && currentFocus == null) {
+            focusContentFromTouch()
+        }
+
         return super.dispatchKeyEvent(event)
+    }
+
+    private fun focusContentFromTouch() {
+        // ComposeView -> AndroidComposeView; addFocusables() is empty for Compose, so walk the first children
+        var view: View? = findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
+        while (view != null && !view.isFocusable) view = (view as? ViewGroup)?.getChildAt(0)
+        view?.requestFocusFromTouch()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

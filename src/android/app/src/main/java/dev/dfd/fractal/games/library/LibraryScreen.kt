@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -222,7 +223,14 @@ fun LibraryScreen(
             NavStyle.RAIL -> Row(Modifier.fillMaxSize()) {
                 navBar(Modifier.fillMaxHeight())
                 Box(Modifier.weight(1f).fillMaxHeight()) {
-                    content(PaddingValues(start = 8.dp, end = 20.dp, top = 16.dp, bottom = 16.dp))
+                    content(PaddingValues(start = 8.dp, end = 20.dp, top = 16.dp, bottom = 88.dp))
+                    // Material You: "add folder" as an extended FAB
+                    ExtendedFloatingActionButton(
+                        onClick = navigation.goToGamePaths,
+                        icon = { Icon(FractalIcons.FolderAdd, contentDescription = null) },
+                        text = { Text(tr("Add folder")) },
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+                    )
                 }
             }
 
