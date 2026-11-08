@@ -6,6 +6,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
 import dev.dfd.fractal.settings.account.AccountSettingsScreen
+import dev.dfd.fractal.settings.appearance.AppearanceScreen
 import dev.dfd.fractal.settings.audio.AudioSettingsScreen
 import dev.dfd.fractal.settings.customdrivers.CustomDriversScreen
 import dev.dfd.fractal.settings.emulatedusbdevices.EmulatedUSBDevicesSettingsScreen
@@ -22,6 +23,16 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 object SettingsRoute
+
+/** Routes other screens (library, welcome) open directly. */
+@Serializable
+object GamePathsRoute
+
+@Serializable
+object AppearanceRoute
+
+@Serializable
+object CustomDriversRoute
 
 private object SettingsRoutes {
     @Serializable
@@ -73,7 +84,16 @@ private object SettingsRoutes {
     object AccountSettingsScreenRoute
 }
 
-fun NavGraphBuilder.settingsNavigation(navController: NavHostController) {
+fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWelcome: () -> Unit) {
+    composable<GamePathsRoute> {
+        GamePathsScreen(navigateBack = { navController.popBackStack() })
+    }
+    composable<AppearanceRoute> {
+        AppearanceScreen(navigateBack = { navController.popBackStack() })
+    }
+    composable<CustomDriversRoute> {
+        CustomDriversScreen(navigateBack = { navController.popBackStack() })
+    }
     navigation<SettingsRoute>(startDestination = SettingsRoutes.SettingsHomeScreenRoute) {
         composable<SettingsRoutes.SettingsHomeScreenRoute> {
             SettingsHomeScreen(
@@ -85,6 +105,8 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController) {
                 goToOverlaySettings = { navController.navigate(SettingsRoutes.OverlaySettingsScreenRoute) },
                 goToAccountSettings = { navController.navigate(SettingsRoutes.AccountSettingsScreenRoute) },
                 goToEmulatedUSBDevicesSettings = { navController.navigate(SettingsRoutes.EmulatedUSBDevicesSettingsScreenRoute) },
+                goToAppearance = { navController.navigate(AppearanceRoute) },
+                goToWelcome = goToWelcome,
             )
         }
         composable<SettingsRoutes.AudioSettingsScreenRoute> {

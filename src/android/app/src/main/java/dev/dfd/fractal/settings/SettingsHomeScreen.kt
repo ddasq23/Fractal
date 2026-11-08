@@ -15,12 +15,24 @@ fun SettingsHomeScreen(
     goToAudioSettings: () -> Unit,
     goToAccountSettings: () -> Unit,
     goToOverlaySettings: () -> Unit,
+    goToAppearance: () -> Unit,
+    goToWelcome: () -> Unit,
     navigateBack: () -> Unit
 ) {
     ScreenContent(
         appBarText = tr("Settings"),
         navigateBack = navigateBack,
     ) {
+        Button(
+            label = tr("Appearance"),
+            description = tr("Theme, wallpaper and library view"),
+            onClick = dropUnlessResumed(block = goToAppearance)
+        )
+        Button(
+            label = tr("Welcome setup"),
+            description = tr("Run the first-use setup again"),
+            onClick = dropUnlessResumed(block = goToWelcome)
+        )
         Button(
             label = tr("General settings"),
             onClick = dropUnlessResumed(block = goToGeneralSettings)

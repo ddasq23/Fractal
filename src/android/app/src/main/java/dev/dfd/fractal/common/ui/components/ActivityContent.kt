@@ -38,8 +38,8 @@ class FocusedGameArt {
 
 val LocalFocusedGameArt = staticCompositionLocalOf { FocusedGameArt() }
 
-/** Lets screens preview appearance changes (welcome screen) before they are saved. */
-val LocalGuiSettingsOverride = staticCompositionLocalOf<GuiSettings?> { null }
+/** GUI settings as loaded by [ActivityContent]; never null inside it. */
+val LocalGuiSettings = staticCompositionLocalOf<GuiSettings?> { null }
 
 @Composable
 fun ActivityContent(
@@ -65,7 +65,7 @@ fun ThemedContent(
     val focusedArt = remember { FocusedGameArt() }
     FractalTheme(themeId = gui.theme) {
         val tokens = FractalTheme.tokens
-        CompositionLocalProvider(LocalFocusedGameArt provides focusedArt) {
+        CompositionLocalProvider(LocalFocusedGameArt provides focusedArt, LocalGuiSettings provides gui) {
             if (!showBackground) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     content()

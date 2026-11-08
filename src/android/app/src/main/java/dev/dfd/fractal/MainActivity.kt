@@ -1,5 +1,11 @@
 package dev.dfd.fractal
 
+import androidx.compose.runtime.remember
+import dev.dfd.fractal.common.ui.components.LocalGuiSettings
+import dev.dfd.fractal.settings.AppearanceRoute
+import dev.dfd.fractal.settings.GamePathsRoute
+import dev.dfd.fractal.welcome.WelcomeRoute
+import dev.dfd.fractal.welcome.welcomeNavigation
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -82,10 +88,13 @@ class MainActivity : AppCompatActivity() {
 private fun MainNav() {
     val navController = rememberNavController()
     val context = LocalContext.current
+    // ActivityContent provides the settings already loaded; first use starts on the welcome screen
+    val gui = LocalGuiSettings.current
+    val startDestination: Any = remember { if (gui?.onboardingCompleted == false) WelcomeRoute else GameListRoute }
 
     NavHost(
         navController = navController,
-        startDestination = GameListRoute,
+        startDestination = startDestination,
         enterTransition = { EnterTransition.None },
         exitTransition = { ExitTransition.None }) {
         gamesNavigation(
@@ -96,8 +105,12 @@ private fun MainNav() {
             goToTitleManager = { navController.navigate(TitleManagerRoute) },
             goToGraphicPacks = { navController.navigate(GraphicPacksRoute) },
             goToAboutCemu = { navController.navigate(AboutCemuRoute) },
+            goToGamePaths = { navController.navigate(GamePathsRoute) },
+            goToAppearance = { navController.navigate(AppearanceRoute) },
+            goToWelcome = { navController.navigate(WelcomeRoute) },
         )
-        settingsNavigation(navController)
+        welcomeNavigation(navController)
+        settingsNavigation(navController, goToWelcome = { navController.navigate(WelcomeRoute) })
         titleManagerNavigation(navController)
         graphicPacksNavigation(navController)
         aboutCemuNavigation(navController)
