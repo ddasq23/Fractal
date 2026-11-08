@@ -57,6 +57,10 @@ tools/perf/run_scene.sh <serial adb> sm3dw saida/ "60 90"
 # todas as cenas e a tabela (uma linha por cena, na janela de cada uma)
 tools/perf/baseline.sh <serial adb> "RG Cube (driver do sistema)" saida/rgcube_sys
 
+# trocar o driver global pela aba Drivers (instala se preciso); depois, uma passada de aquecimento
+tools/perf/select_driver.sh <serial adb> "Turnip_v26.0.0_R8"
+tools/perf/select_driver.sh <serial adb> "System driver"
+
 # resumir sessões avulsas
 python3 tools/perf/summarize.py perf/2026* --from 60 --to 120 --label "Odin"
 ```
