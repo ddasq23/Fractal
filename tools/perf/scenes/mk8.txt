@@ -1,0 +1,16 @@
+# title: MARIO KART 8
+# title_id: 000500001010ec00
+# duration: 240
+# window: 185 235
+# scene: new save -> Grand Prix 50cc, Mario, Mushroom Cup -> Mario Kart Stadium; the player stays on the grid while the race runs
+40 A
+46 A
+52 A
+58 A
+64 A
+70 A
+76 A
+82 A
+88 A
+94 A
+100 A

@@ -1,0 +1,10 @@
+# title: SUPER MARIO 3D WORLD
+# title_id: 0005000010145c00
+# duration: 110
+# window: 75 105
+# scene: new save -> File 1 -> Mario -> opening cutscene (in-engine, fireworks and characters)
+40 A
+46 A
+52 A
+58 A
+64 A

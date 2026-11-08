@@ -1,0 +1,11 @@
+# title: BAYONETTA 2
+# title_id: 0005000010172600
+# duration: 255
+# window: 190 250
+# scene: new save -> slot 1 -> Story -> 2nd Climax -> prologue cutscene (in-engine)
+100 A
+110 A
+120 A
+130 A
+140 A
+150 A

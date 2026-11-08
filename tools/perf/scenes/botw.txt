@@ -1,0 +1,14 @@
+# title: The Legend of Zelda Breath of the Wild
+# title_id: 00050000101c9400
+# duration: 380
+# window: 320 375
+# scene: new save -> title -> opening ("Open your eyes") -> Link wakes up in the Shrine of Resurrection (in-engine)
+150 A
+165 A
+180 A
+195 A
+210 A
+225 A
+240 A
+255 A
+270 A

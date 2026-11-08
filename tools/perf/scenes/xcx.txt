@@ -1,0 +1,17 @@
+# title: Xenoblade Chronicles X
+# title_id: 00050000101c4d00
+# duration: 330
+# window: 255 325
+# scene: new save -> offline notice -> title -> first-run settings (B to leave) -> opening cutscene in space (in-engine)
+150 A
+160 A
+170 A
+180 B
+186 B
+192 B
+202 A
+212 A
+222 A
+232 A
+242 A
+252 A
