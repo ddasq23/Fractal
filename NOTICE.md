@@ -28,6 +28,9 @@ headers in existing files are kept as they are.
   - `d0301dbe`: AMD FSR 1 and Snapdragon GSR upscale filters.
   - `5a189b9c`: FSR RCAS pass, GSR EdgeDir variant and sharpness setting
     (upscaling part only).
+  - `86476991`: textures whose data is outside of mapped memory are cleared
+    instead of crashing.
+  - `1490fda6`: Cemu log also written to logcat on Android.
 
 ## Third-party components
 
