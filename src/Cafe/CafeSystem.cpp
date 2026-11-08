@@ -16,6 +16,7 @@
 #include "Common/cpu_features.h"
 #include "input/InputManager.h"
 #include "Cafe/CafeSystem.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/TitleList/TitleList.h"
 #include "Cafe/TitleList/GameInfo.h"
 #include "Cafe/OS/libs/coreinit/coreinit_Alarm.h"
@@ -902,6 +903,7 @@ namespace CafeSystem
 		PPCTimer_waitForInit();
 		// start system
 		sSystemRunning = true;
+		PerfLog::SessionStart();
 		WindowSystem::NotifyGameLoaded();
 		std::thread t(_LaunchTitleThread);
 		t.detach();
@@ -1058,6 +1060,7 @@ namespace CafeSystem
 	{
 		if(!sSystemRunning)
 			return;
+		PerfLog::SessionEnd();
         coreinit::OSSchedulerEnd();
         Latte_Stop();
         // reset Cafe OS userspace modules

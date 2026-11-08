@@ -1,4 +1,5 @@
 #include "Cafe/HW/Latte/Renderer/Vulkan/RendererShaderVk.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
 #include "config/ActiveSettings.h"
@@ -266,6 +267,14 @@ void RendererShaderVk::FinishCompilation()
 
 void RendererShaderVk::CompileInternal(bool isRenderThread)
 {
+	// performance log: time from here to the end of the compile, whichever path it takes
+	struct PerfScope
+	{
+		RendererShaderVk* shader;
+		PerfLogTimer timer;
+		bool fromCache = false;
+		~PerfScope() { PerfLog::ShaderCompiled(timer.ElapsedUs(), fromCache, shader->m_shader_module == nullptr); }
+	} perfScope{this};
 	const bool compileWithDebugInfo = ((VulkanRenderer*)g_renderer.get())->IsTracingToolEnabled();
 
 	// try to retrieve SPIR-V module from cache
@@ -278,6 +287,7 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 		if (s_spirvCache->GetFile({ h1, h2 }, cacheFileData))
 		{
 			// generate shader from cached SPIR-V buffer
+			perfScope.fromCache = true;
 			CreateVkShaderModule(std::span<uint32>((uint32*)cacheFileData.data(), cacheFileData.size() / sizeof(uint32)));
 			FinishCompilation();
 			return;

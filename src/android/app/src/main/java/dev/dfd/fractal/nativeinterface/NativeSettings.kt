@@ -19,6 +19,13 @@ object NativeSettings {
     @JvmStatic
     external fun setAsyncShaderCompile(value: Boolean)
 
+    /** Per-session performance CSV in <app files>/perf (LattePerfLog). */
+    @JvmStatic
+    external fun getPerformanceLog(): Boolean
+
+    @JvmStatic
+    external fun setPerformanceLog(value: Boolean)
+
     object VSyncMode {
         const val OFF: Int = 0
         const val DOUBLE_BUFFERING: Int = 1

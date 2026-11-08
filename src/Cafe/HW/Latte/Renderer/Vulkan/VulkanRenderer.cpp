@@ -1,3 +1,4 @@
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/LatteTextureVk.h"
@@ -222,6 +223,7 @@ void VulkanRenderer::DetermineVendor()
 	if (m_featureControl.deviceExtensions.driver_properties)
 	{
 		cemuLog_log(LogType::Force, "Driver version: {}", driverProperties.driverInfo);
+		PerfLog::SetGpuInfo(properties.properties.deviceName, driverProperties.driverInfo);
 
 		if(m_vendor == GfxVendor::Nvidia)
 		{
@@ -233,6 +235,7 @@ void VulkanRenderer::DetermineVendor()
 	else
 	{
 		cemuLog_log(LogType::Force, "Driver version (as stored in device info): {:08}", properties.properties.driverVersion);
+		PerfLog::SetGpuInfo(properties.properties.deviceName, fmt::format("{:08x}", properties.properties.driverVersion));
 
 		if(m_vendor == GfxVendor::Nvidia)
 		{

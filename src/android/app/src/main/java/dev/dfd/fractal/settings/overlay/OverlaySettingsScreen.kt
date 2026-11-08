@@ -11,6 +11,7 @@ import dev.dfd.fractal.common.ui.components.SingleSelection
 import dev.dfd.fractal.common.ui.components.Slider
 import dev.dfd.fractal.common.ui.components.Toggle
 import dev.dfd.fractal.common.ui.localization.tr
+import dev.dfd.fractal.BuildConfig
 import dev.dfd.fractal.nativeinterface.NativeSettings
 
 private val OverlayPositionChoices = listOf(
@@ -59,6 +60,13 @@ fun OverlaySettingsScreen(navigateBack: () -> Unit) {
         )
         if (notificationsPosition != NativeSettings.OverlayScreenPosition.DISABLED)
             NotificationSettings()
+        Header(tr("Performance log"))
+        Toggle(
+            label = tr("Record performance log"),
+            description = tr("Saves FPS, frametimes, shader and pipeline compilation and CPU use per thread to CSV files, one folder per game session, in Android/data/{0}/files/perf", BuildConfig.APPLICATION_ID),
+            initialCheckedState = NativeSettings::getPerformanceLog,
+            onCheckedChanged = NativeSettings::setPerformanceLog,
+        )
     }
 }
 

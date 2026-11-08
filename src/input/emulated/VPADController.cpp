@@ -8,6 +8,7 @@
 #include "input/InputManager.h"
 #include "Cafe/HW/Latte/Core/Latte.h"
 #include "Cafe/CafeSystem.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 
 enum ControllerVPADMapping2 : uint32
 {
@@ -110,6 +111,40 @@ void VPADController::VPADRead(VPADStatus_t& status, const BtnRepeat& repeat)
 		status.hold |= VPAD_STICK_R_DOWN;
 	else if (rotation.y >= kAxisThreshold || (HAS_FLAG(last_hold, VPAD_STICK_R_UP) && rotation.y >= kHoldAxisThreshold))
 		status.hold |= VPAD_STICK_R_UP;
+
+	// Fractal: benchmark input script (only while the performance log runs)
+	if (const auto& script = PerfLog::InputScript(); !script.empty())
+	{
+		const double t = PerfLog::SessionSeconds();
+		for (const auto& press : script)
+		{
+			if (t < press.startS || t >= press.endS)
+				continue;
+			const std::string& b = press.button;
+			if (b == "A") status.hold |= VPAD_A;
+			else if (b == "B") status.hold |= VPAD_B;
+			else if (b == "X") status.hold |= VPAD_X;
+			else if (b == "Y") status.hold |= VPAD_Y;
+			else if (b == "L") status.hold |= VPAD_L;
+			else if (b == "R") status.hold |= VPAD_R;
+			else if (b == "ZL") status.hold |= VPAD_ZL;
+			else if (b == "ZR") status.hold |= VPAD_ZR;
+			else if (b == "PLUS") status.hold |= VPAD_PLUS;
+			else if (b == "MINUS") status.hold |= VPAD_MINUS;
+			else if (b == "UP") status.hold |= VPAD_UP;
+			else if (b == "DOWN") status.hold |= VPAD_DOWN;
+			else if (b == "LEFT") status.hold |= VPAD_LEFT;
+			else if (b == "RIGHT") status.hold |= VPAD_RIGHT;
+			else if (b == "LUP") { status.leftStick.y = 1.0f; status.hold |= VPAD_STICK_L_UP; }
+			else if (b == "LDOWN") { status.leftStick.y = -1.0f; status.hold |= VPAD_STICK_L_DOWN; }
+			else if (b == "LLEFT") { status.leftStick.x = -1.0f; status.hold |= VPAD_STICK_L_LEFT; }
+			else if (b == "LRIGHT") { status.leftStick.x = 1.0f; status.hold |= VPAD_STICK_L_RIGHT; }
+			else if (b == "RUP") { status.rightStick.y = 1.0f; status.hold |= VPAD_STICK_R_UP; }
+			else if (b == "RDOWN") { status.rightStick.y = -1.0f; status.hold |= VPAD_STICK_R_DOWN; }
+			else if (b == "RLEFT") { status.rightStick.x = -1.0f; status.hold |= VPAD_STICK_R_LEFT; }
+			else if (b == "RRIGHT") { status.rightStick.x = 1.0f; status.hold |= VPAD_STICK_R_RIGHT; }
+		}
+	}
 
 	// button repeat
 	const auto now = std::chrono::high_resolution_clock::now();

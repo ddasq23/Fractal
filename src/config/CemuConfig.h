@@ -454,6 +454,7 @@ struct CemuConfig
 	ConfigValue<bool> gx2drawdone_sync { true };
 	ConfigValue<bool> render_upside_down{ false };
 	ConfigValue<bool> async_compile{ true };
+	ConfigValue<bool> perf_log{ false }; // Fractal: per-session performance CSV (LattePerfLog)
 #if ENABLE_METAL
 	ConfigValue<bool> force_mesh_shaders{ false };
 #endif

@@ -1,3 +1,4 @@
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
 #include "Cafe/HW/Latte/Core/FetchShader.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanPipelineCompiler.h"
@@ -1037,6 +1038,7 @@ bool PipelineCompiler::Compile(bool forceCompile, bool isRenderThread, bool show
 	VkPipeline pipeline = VK_NULL_HANDLE;
 	VkResult result;
 	uint8 retryCount = 0;
+	PerfLogTimer perfTimer;
 	while (retryCount < 3)
 	{
 		std::shared_lock lock(vkRenderer->m_pipeline_cache_save_mutex);
@@ -1047,6 +1049,8 @@ bool PipelineCompiler::Compile(bool forceCompile, bool isRenderThread, bool show
 		retryCount++;
 	}
 
+	if (result != VK_ERROR_PIPELINE_COMPILE_REQUIRED_EXT)
+		PerfLog::PipelineCompiled(perfTimer.ElapsedUs(), isRenderThread, result != VK_SUCCESS);
 	if (result == VK_ERROR_PIPELINE_COMPILE_REQUIRED_EXT)
 	{
 		return false;
