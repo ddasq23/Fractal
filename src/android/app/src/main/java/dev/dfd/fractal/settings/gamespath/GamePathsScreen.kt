@@ -1,35 +1,39 @@
 package dev.dfd.fractal.settings.gamespath
 
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.viewmodel.compose.viewModel
-import dev.dfd.fractal.R
-import dev.dfd.fractal.common.ui.components.ScreenContentLazy
+import dev.dfd.fractal.common.ui.fractal.FractalButton
+import dev.dfd.fractal.common.ui.fractal.FractalIconButton
+import dev.dfd.fractal.common.ui.fractal.FractalScreen
+import dev.dfd.fractal.common.ui.icons.FractalIcons
 import dev.dfd.fractal.common.ui.localization.tr
-import kotlinx.coroutines.launch
+import dev.dfd.fractal.common.ui.theme.FractalTheme
+import dev.dfd.fractal.common.ui.theme.fractalSurface
 
 @Composable
 fun GamePathsScreen(
@@ -37,9 +41,8 @@ fun GamePathsScreen(
     gamesPathsViewModel: GamesPathsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
     val gamesPaths by gamesPathsViewModel.gamesPaths.collectAsState()
+    var message by remember { mutableStateOf<String?>(null) }
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
@@ -51,66 +54,72 @@ fun GamePathsScreen(
                 DocumentFile.fromTreeUri(context, uri) ?: return@rememberLauncherForActivityResult
             val gamesPath = documentFile.uri.toString()
             if (gamesPaths.contains(gamesPath)) {
-                coroutineScope.launch {
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(tr("Games path already added"))
-                }
+                message = tr("Games path already added")
                 return@rememberLauncherForActivityResult
             }
+            message = null
             gamesPathsViewModel.addGamesPath(gamesPath)
         }
-    ScreenContentLazy(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        appBarText = tr("Game paths"),
-        navigateBack = navigateBack,
-        actions = {
-            IconButton(onClick = { launcher.launch(null) }) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_add),
-                    contentDescription = null
-                )
-            }
-        },
-    ) {
-        items(items = gamesPaths, key = { it }) {
-            GamePathsListItem(
-                modifier = Modifier.animateItem(),
-                gamesPath = it,
-                onDelete = { gamesPathsViewModel.removeGamesPath(it) }
+
+    FractalScreen(title = tr("Game paths"), onBack = navigateBack) {
+        Text(
+            tr("Fractal looks for games (.wua, .wux, .wud, .iso, .rpx) in these folders and in every folder inside them."),
+            style = MaterialTheme.typography.bodyMedium,
+            color = FractalTheme.colors.textSecondary,
+        )
+        message?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = FractalTheme.colors.accent)
+        }
+        if (gamesPaths.isEmpty()) {
+            Text(
+                tr("No folders yet."),
+                style = MaterialTheme.typography.bodyLarge,
+                color = FractalTheme.colors.text,
+                modifier = Modifier.padding(vertical = 8.dp),
             )
         }
+        gamesPaths.forEach { path ->
+            GamePathRow(path, onDelete = { gamesPathsViewModel.removeGamesPath(path) })
+        }
+        FractalButton(
+            tr("Add game folder"),
+            onClick = { launcher.launch(null) },
+            icon = FractalIcons.FolderAdd,
+            primary = gamesPaths.isEmpty(),
+        )
     }
 }
 
 @Composable
-fun GamePathsListItem(
-    modifier: Modifier,
-    gamesPath: String,
-    onDelete: () -> Unit,
-) {
-    Card(modifier = modifier.padding(8.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth(),
-        ) {
-            Text(
-                modifier = Modifier
-                    .weight(1.0f)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .basicMarquee(),
-                text = gamesPath,
-                maxLines = 1,
-            )
-            IconButton(
-                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp, end = 8.dp),
-                onClick = onDelete
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_delete),
-                    contentDescription = null
-                )
-            }
+private fun GamePathRow(gamesPath: String, onDelete: () -> Unit) {
+    val (name, location) = remember(gamesPath) { describeTreeUri(gamesPath) }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .fractalSurface(FractalTheme.shapes.card, FractalTheme.surface)
+            .padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(FractalIcons.Folder, null, tint = FractalTheme.colors.accent, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(name, style = MaterialTheme.typography.titleMedium, color = FractalTheme.colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(location, style = MaterialTheme.typography.bodySmall, color = FractalTheme.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        FractalIconButton(FractalIcons.Trash, tr("Remove"), onDelete)
     }
+}
+
+/**
+ * Folder name and a readable location for a SAF tree URI, e.g.
+ * content://…/tree/primary%3AWII%20U → ("WII U", "Internal storage › WII U").
+ */
+private fun describeTreeUri(uriString: String): Pair<String, String> {
+    val docId = runCatching { Uri.parse(uriString).lastPathSegment }.getOrNull() ?: return uriString to uriString
+    val volume = docId.substringBefore(':', "")
+    val relative = docId.substringAfter(':', docId).trim('/')
+    val volumeName = if (volume.equals("primary", ignoreCase = true)) tr("Internal storage") else volume.ifBlank { tr("Storage") }
+    val name = relative.substringAfterLast('/').ifBlank { volumeName }
+    val location = listOf(volumeName).plus(relative.split('/').filter { it.isNotBlank() }).joinToString(" › ")
+    return name to location
 }
