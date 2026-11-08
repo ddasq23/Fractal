@@ -300,7 +300,11 @@ fun LibraryViewPicker(current: LibraryView, onSelect: (LibraryView) -> Unit) {
 }
 
 @Composable
-fun EconomyToggle(enabled: Boolean, onChange: (Boolean) -> Unit) {
+fun EconomyToggle(enabled: Boolean, onChange: (Boolean) -> Unit) =
+    SettingToggle(tr("Economy mode"), tr("Freezes animated wallpapers to save battery"), enabled, onChange)
+
+@Composable
+fun SettingToggle(title: String, description: String, enabled: Boolean, onChange: (Boolean) -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val shape = FractalTheme.shapes.card
@@ -316,9 +320,9 @@ fun EconomyToggle(enabled: Boolean, onChange: (Boolean) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(tr("Economy mode"), style = MaterialTheme.typography.titleSmall, color = FractalTheme.colors.text)
+            Text(title, style = MaterialTheme.typography.titleSmall, color = FractalTheme.colors.text)
             Text(
-                tr("Freezes animated wallpapers to save battery"),
+                description,
                 style = MaterialTheme.typography.bodySmall,
                 color = FractalTheme.colors.textSecondary,
             )

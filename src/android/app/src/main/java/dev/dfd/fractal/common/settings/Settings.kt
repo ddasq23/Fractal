@@ -35,6 +35,7 @@ data class GuiSettings(
     val customWallpaperPath: String? = null,
     /** Freezes animated wallpapers. */
     val animationEconomy: Boolean = false,
+    val introOnLaunch: Boolean = true,
     val libraryView: LibraryView = LibraryView.GRID,
     val onboardingCompleted: Boolean = false,
 )

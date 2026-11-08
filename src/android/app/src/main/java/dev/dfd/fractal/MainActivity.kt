@@ -1,5 +1,16 @@
 package dev.dfd.fractal
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import dev.dfd.fractal.common.ui.intro.IntroAnimation
+import dev.dfd.fractal.common.ui.intro.introAnimationsDisabled
+import dev.dfd.fractal.common.ui.intro.introKeyFilter
 import androidx.compose.runtime.remember
 import dev.dfd.fractal.common.ui.components.LocalGuiSettings
 import dev.dfd.fractal.settings.AppearanceRoute
@@ -106,7 +117,14 @@ private fun MainNav() {
     // ActivityContent provides the settings already loaded; first use starts on the welcome screen
     val gui = LocalGuiSettings.current
     val startDestination: Any = remember { if (gui?.onboardingCompleted == false) WelcomeRoute else GameListRoute }
+    // intro: on launch (if enabled and the setup is done) and, longer, right after the welcome setup
+    var introPlaying by rememberSaveable {
+        mutableStateOf(gui?.onboardingCompleted == true && gui.introOnLaunch && !introAnimationsDisabled())
+    }
+    var introLong by rememberSaveable { mutableStateOf(false) }
+    val endIntro = { introPlaying = false }
 
+    Box(Modifier.fillMaxSize().onPreviewKeyEvent(introKeyFilter({ introPlaying }, endIntro))) {
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -124,11 +142,16 @@ private fun MainNav() {
             goToAppearance = { navController.navigate(AppearanceRoute) },
             goToWelcome = { navController.navigate(WelcomeRoute) },
         )
-        welcomeNavigation(navController)
+        welcomeNavigation(navController, onSetupFinished = {
+            introLong = true
+            introPlaying = true
+        })
         settingsNavigation(navController, goToWelcome = { navController.navigate(WelcomeRoute) })
         titleManagerNavigation(navController)
         graphicPacksNavigation(navController)
         aboutCemuNavigation(navController)
+    }
+    if (introPlaying) IntroAnimation(long = introLong, onFinished = endIntro)
     }
 }
 

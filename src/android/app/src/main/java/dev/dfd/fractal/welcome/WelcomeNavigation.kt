@@ -17,7 +17,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 object WelcomeRoute
 
-fun NavGraphBuilder.welcomeNavigation(navController: NavHostController) {
+fun NavGraphBuilder.welcomeNavigation(navController: NavHostController, onSetupFinished: () -> Unit) {
     composable<WelcomeRoute> {
         WelcomeScreen(
             WelcomeNavigation(
@@ -26,6 +26,7 @@ fun NavGraphBuilder.welcomeNavigation(navController: NavHostController) {
                     navController.navigate(GameListRoute) {
                         popUpTo(navController.graph.id) { inclusive = true }
                     }
+                    onSetupFinished()
                 },
                 goToGraphicPacks = { navController.navigate(GraphicPacksRoute) },
                 goToCustomDrivers = { navController.navigate(CustomDriversRoute) },
