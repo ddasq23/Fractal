@@ -1723,10 +1723,13 @@ void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, 
 		vkCmdBindDescriptorSets(m_state.currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkObjPipeline->m_pipelineLayout, 2, 1, &geometryDS->m_vkObjDescriptorSet->descriptorSet, numDynOffsets, dynamicOffsets);
 	}
 	// draw
-	if (hostIndexType != INDEX_TYPE::NONE)
-		if (!DiagSkipDraw()) vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
-	else
-		if (!DiagSkipDraw()) vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
+	if (!DiagSkipDraw())
+	{
+		if (hostIndexType != INDEX_TYPE::NONE)
+			vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
+		else
+			vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
+	}
 	PerfLog::DrawCall();
 	LatteStreamout_FinishDrawcall(m_useHostMemoryForCache);
 }
@@ -1947,10 +1950,13 @@ void VulkanRenderer::draw_execute_continued(uint32 baseVertex, uint32 baseInstan
 	}
 
 	// draw
-	if (hostIndexType != INDEX_TYPE::NONE)
-		if (!DiagSkipDraw()) vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
-	else
-		if (!DiagSkipDraw()) vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
+	if (!DiagSkipDraw())
+	{
+		if (hostIndexType != INDEX_TYPE::NONE)
+			vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
+		else
+			vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
+	}
 
 	PerfLog::DrawCall();
 	LatteStreamout_FinishDrawcall(m_useHostMemoryForCache);
