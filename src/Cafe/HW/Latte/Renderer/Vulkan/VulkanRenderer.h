@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/RendererShaderVk.h"
@@ -565,7 +566,7 @@ private:
 	void draw_updateDepthBias(bool forceUpdate);
 
 	void draw_setRenderPass();
-	void draw_endRenderPass();
+	void draw_endRenderPass(PerfLog::RenderPassEnd reason = PerfLog::RenderPassEnd::Other);
 
 	void draw_beginSequence() override;
 	void draw_execute(uint32 baseVertex, uint32 baseInstance, uint32 instanceCount, uint32 count, MPTR indexDataMPTR, Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE indexType, const LatteDrawcallContext& drawcallContext) override;
@@ -630,6 +631,8 @@ private:
 	void occlusionQuery_updateState() override;
 	void occlusionQuery_notifyEndCommandBuffer();
 	void occlusionQuery_notifyBeginCommandBuffer();
+	void occlusionQuery_notifyRenderPassBegin();
+	void occlusionQuery_notifyRenderPassEnd();
 
 private:
 	std::vector<const char*> m_layerNames;
@@ -693,6 +696,18 @@ private:
 	// this allows us to skip any vertex/uniform caching logic and let the GPU directly read the memory from main RAM
 	// Wii U memory imported into a buffer
 	static constexpr bool m_useHostMemoryForCache{ false }; // currently disabled and made constexpr so the compiler eliminates the branches that will never be taken
+
+	// direct writes into the buffer cache (unified memory GPUs): an upload to a range the GPU no longer uses is a memcpy
+	// instead of a staging copy, so it does not have to end the render pass
+	static constexpr uint32 kBufferCacheUseBlockShift = 10; // 1 KB blocks
+	uint8* m_bufferCacheMapped{ nullptr };
+	std::vector<uint64> m_bufferCacheLastUse; // per block: id of the last command buffer that used it + 1 (0 = never)
+	// the continued draws of a draw sequence reuse the buffer bindings of its first draw without marking them again.
+	// If a command buffer is submitted mid-sequence those ranges are not marked for the new one, so stay on staging uploads
+	bool m_inDrawSequence{ false };
+	bool m_bufferCacheDirectBlocked{ false };
+	bool bufferCache_isRangeIdle(uint32 bufferOffset, uint32 size) const;
+	void bufferCache_markInUse(uint32 bufferOffset, uint32 size) override;
 	VkBuffer m_importedMem = VK_NULL_HANDLE;
 	VkDeviceMemory m_importedMemMemory = VK_NULL_HANDLE;
 	MPTR m_importedMemBaseAddress = 0;
@@ -767,6 +782,7 @@ private:
 		VkDeviceMemory memoryQueryResults;
 		uint64* ptrQueryResults;
 		std::vector<uint16> list_availableQueryIndices;
+		std::vector<uint16> list_pendingResetQueryIndices; // released, reset at the start of the next command buffer
 	}m_occlusionQueries;
 
 	// barrier

@@ -1566,7 +1566,9 @@ uint32 LatteBufferCache_retrieveDataInCache(MPTR physAddress, uint32 size)
 
 	range->checkAndSyncModificationsIfChrononChanged(physAddress, size);
 
-	return range->getBufferOffset(physAddress);
+	const uint32 bufferOffset = range->getBufferOffset(physAddress);
+	g_renderer->bufferCache_markInUse(bufferOffset, size);
+	return bufferOffset;
 }
 
 void LatteBufferCache_copyStreamoutDataToCache(MPTR physAddress, uint32 size, uint32 streamoutBufferOffset)

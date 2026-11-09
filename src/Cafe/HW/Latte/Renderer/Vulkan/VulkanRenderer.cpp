@@ -2362,7 +2362,9 @@ void VulkanRenderer::WaitForNextFinishedCommandBuffer()
 
 void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphore waitSemaphore)
 {
-	draw_endRenderPass();
+	draw_endRenderPass(PerfLog::RenderPassEnd::Submit);
+	if (m_inDrawSequence)
+		m_bufferCacheDirectBlocked = true;
 
 	occlusionQuery_notifyEndCommandBuffer();
 
@@ -3451,7 +3453,7 @@ void VulkanRenderer::ClearColorbuffer(bool padView)
 
 void VulkanRenderer::ClearColorImageRaw(VkImage image, uint32 sliceIndex, uint32 mipIndex, const VkClearColorValue& color, VkImageLayout inputLayout, VkImageLayout outputLayout)
 {
-	draw_endRenderPass();
+	draw_endRenderPass(PerfLog::RenderPassEnd::Clear);
 
 	VkImageSubresourceRange subresourceRange{};
 	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -4016,7 +4018,7 @@ VkDescriptorSetInfo::~VkDescriptorSetInfo()
 
 void VulkanRenderer::texture_clearSlice(LatteTexture* hostTexture, sint32 sliceIndex, sint32 mipIndex)
 {
-	draw_endRenderPass();
+	draw_endRenderPass(PerfLog::RenderPassEnd::Clear);
 	auto vkTexture = (LatteTextureVk*)hostTexture;
 	if (vkTexture->isDepth)
 		texture_clearDepthSlice(hostTexture, sliceIndex, mipIndex, true, vkTexture->hasStencil, 0.0f, 0);
@@ -4039,7 +4041,7 @@ void VulkanRenderer::texture_clearColorSlice(LatteTexture* hostTexture, sint32 s
 
 void VulkanRenderer::texture_clearDepthSlice(LatteTexture* hostTexture, uint32 sliceIndex, sint32 mipIndex, bool clearDepth, bool clearStencil, float depthValue, uint32 stencilValue)
 {
-	draw_endRenderPass(); // vkCmdClearDepthStencilImage must not be inside renderpass
+	draw_endRenderPass(PerfLog::RenderPassEnd::Clear); // vkCmdClearDepthStencilImage must not be inside renderpass
 
 	auto vkTexture = (LatteTextureVk*)hostTexture;
 
@@ -4084,7 +4086,7 @@ void VulkanRenderer::texture_loadSlice(LatteTexture* hostTexture, sint32 width, 
 	auto vkImageObj = vkTexture->GetImageObj();
 	vkImageObj->flagForCurrentCommandBuffer();
 
-	draw_endRenderPass();
+	draw_endRenderPass(PerfLog::RenderPassEnd::TextureUpload);
 
 	VkMemoryRequirements memRequirements;
 	vkGetImageMemoryRequirements(m_logicalDevice, vkImageObj->m_image, &memRequirements);
@@ -4197,7 +4199,7 @@ void VulkanRenderer::texture_copyImageSubData(LatteTexture* src, sint32 srcMip, 
 	LatteTextureVk* srcVk = static_cast<LatteTextureVk*>(src);
 	LatteTextureVk* dstVk = static_cast<LatteTextureVk*>(dst);
 
-	draw_endRenderPass(); // vkCmdCopyImage must be called outside of a renderpass
+	draw_endRenderPass(PerfLog::RenderPassEnd::Copy); // vkCmdCopyImage must be called outside of a renderpass
 
 	VKRObjectTexture* srcVkObj = srcVk->GetImageObj();
 	VKRObjectTexture* dstVkObj = dstVk->GetImageObj();
@@ -4411,12 +4413,62 @@ void VulkanRenderer::bufferCache_init(const sint32 bufferSize)
 	}
 	*/
 	if(!m_useHostMemoryForCache)
-		memoryManager->CreateBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0, m_bufferCache, m_bufferCacheMemory);
+	{
+		constexpr VkBufferUsageFlags usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		// on unified memory GPUs (phones, handhelds) device local memory is also host visible: map it and write uploads
+		// directly when the GPU is done with the range (see bufferCache_upload)
+		const bool tryDirect = PerfLog::Tunable("bufcache_direct", 1) != 0;
+		if (tryDirect && memoryManager->CreateBuffer(bufferSize, usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_bufferCache, m_bufferCacheMemory))
+		{
+			void* mapped = nullptr;
+			if (vkMapMemory(m_logicalDevice, m_bufferCacheMemory, 0, VK_WHOLE_SIZE, 0, &mapped) == VK_SUCCESS)
+			{
+				m_bufferCacheMapped = (uint8*)mapped;
+				m_bufferCacheLastUse.assign(((size_t)bufferSize >> kBufferCacheUseBlockShift) + 1, 0);
+			}
+		}
+		else
+			memoryManager->CreateBuffer(bufferSize, usage, 0, m_bufferCache, m_bufferCacheMemory);
+		cemuLog_log(LogType::Force, "Vulkan: buffer cache {}", m_bufferCacheMapped ? "in host visible device memory (direct uploads)" : "in device memory (staging uploads)");
+	}
+}
+
+bool VulkanRenderer::bufferCache_isRangeIdle(uint32 bufferOffset, uint32 size) const
+{
+	const uint32 first = bufferOffset >> kBufferCacheUseBlockShift;
+	const uint32 last = (bufferOffset + size - 1) >> kBufferCacheUseBlockShift;
+	for (uint32 i = first; i <= last; i++)
+	{
+		const uint64 lastUse = m_bufferCacheLastUse[i];
+		if (lastUse != 0 && !HasCommandBufferFinished(lastUse - 1))
+			return false;
+	}
+	return true;
+}
+
+void VulkanRenderer::bufferCache_markInUse(uint32 bufferOffset, uint32 size)
+{
+	if (!m_bufferCacheMapped || size == 0)
+		return;
+	const uint64 useId = GetCurrentCommandBufferId() + 1;
+	const uint32 first = bufferOffset >> kBufferCacheUseBlockShift;
+	const uint32 last = (bufferOffset + size - 1) >> kBufferCacheUseBlockShift;
+	for (uint32 i = first; i <= last; i++)
+		m_bufferCacheLastUse[i] = useId;
 }
 
 void VulkanRenderer::bufferCache_upload(uint8* buffer, sint32 size, uint32 bufferOffset)
 {
-	draw_endRenderPass();
+	if (m_bufferCacheMapped && size > 0 && !m_bufferCacheDirectBlocked && bufferCache_isRangeIdle(bufferOffset, size))
+	{
+		// no submitted or recorded GPU work uses this range anymore: write it directly. Host writes are visible to the
+		// command buffer that is being recorded once it is submitted, and no render pass has to end
+		memcpy(m_bufferCacheMapped + bufferOffset, buffer, size);
+		PerfLog::BufferUploadDirect();
+		return;
+	}
+	draw_endRenderPass(PerfLog::RenderPassEnd::BufferUpload);
+	bufferCache_markInUse(bufferOffset, size); // the copy below writes it
 
 	VKRSynchronizedRingAllocator& vkMemAllocator = memoryManager->getStagingAllocator();
 
@@ -4442,7 +4494,9 @@ void VulkanRenderer::bufferCache_upload(uint8* buffer, sint32 size, uint32 buffe
 void VulkanRenderer::bufferCache_copy(uint32 srcOffset, uint32 dstOffset, uint32 size)
 {
 	cemu_assert_debug(!m_useHostMemoryForCache);
-	draw_endRenderPass();
+	draw_endRenderPass(PerfLog::RenderPassEnd::BufferCopy);
+	bufferCache_markInUse(srcOffset, size);
+	bufferCache_markInUse(dstOffset, size);
 
 	barrier_sequentializeTransfer();
 
@@ -4460,7 +4514,7 @@ void VulkanRenderer::bufferCache_copy(uint32 srcOffset, uint32 dstOffset, uint32
 
 void VulkanRenderer::bufferCache_copyStreamoutToMainBuffer(uint32 srcOffset, uint32 dstOffset, uint32 size)
 {
-	draw_endRenderPass();
+	draw_endRenderPass(PerfLog::RenderPassEnd::BufferCopy);
 
 	VkBuffer dstBuffer;
 	if (m_useHostMemoryForCache)
@@ -4470,7 +4524,10 @@ void VulkanRenderer::bufferCache_copyStreamoutToMainBuffer(uint32 srcOffset, uin
 		dstOffset -= m_importedMemBaseAddress;
 	}
 	else
+	{
 		dstBuffer = m_bufferCache;
+		bufferCache_markInUse(dstOffset, size);
+	}
 
 	barrier_bufferRange<BUFFER_SHADER_WRITE, TRANSFER_READ,
 		ANY_TRANSFER | BUFFER_SHADER_READ, TRANSFER_WRITE>(

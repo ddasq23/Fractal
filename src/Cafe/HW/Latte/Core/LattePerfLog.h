@@ -36,7 +36,7 @@ namespace PerfLog
 
 	void RenderPassBegin();
 	// why the renderer ended a render pass (each end costs attachment stores and loads on tiled GPUs)
-	enum class RenderPassEnd : uint8 { Other, Fbo, BufferUpload, BufferCopy, TextureUpload, Clear, Copy, Readback, Query, Submit, Count };
+	enum class RenderPassEnd : uint8 { Other, Fbo, BufferUpload, BufferCopy, TextureUpload, Clear, Copy, Readback, Query, Submit, SelfDependency, Count };
 	void RenderPassEnded(RenderPassEnd reason);
 	void BufferUploadDirect(); // buffer cache upload written straight into GPU memory (no copy, no render pass end)
 	void DrawCall();

@@ -136,6 +136,7 @@ public:
 	virtual void bufferCache_init(const sint32 bufferSize) = 0;
 	virtual void bufferCache_upload(uint8* buffer, sint32 size, uint32 bufferOffset) = 0;
 	virtual void bufferCache_copy(uint32 srcOffset, uint32 dstOffset, uint32 size) = 0;
+	virtual void bufferCache_markInUse(uint32 bufferOffset, uint32 size) {} // the next GPU work reads this range of the buffer cache
 	virtual void bufferCache_copyStreamoutToMainBuffer(uint32 srcOffset, uint32 dstOffset, uint32 size) = 0;
 
 	struct BindBufferParam

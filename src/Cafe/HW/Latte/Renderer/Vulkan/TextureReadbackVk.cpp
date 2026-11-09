@@ -1,3 +1,4 @@
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanTextureReadback.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/LatteTextureVk.h"
@@ -48,7 +49,7 @@ void LatteTextureReadbackInfoVk::StartTransfer()
 	region.imageExtent = {region.bufferRowLength, region.bufferImageHeight, 1};
 
 	const auto renderer = VulkanRenderer::GetInstance();
-	renderer->draw_endRenderPass();
+	renderer->draw_endRenderPass(PerfLog::RenderPassEnd::Readback);
 
 	renderer->barrier_image<VulkanRenderer::ANY_TRANSFER | VulkanRenderer::IMAGE_WRITE, VulkanRenderer::TRANSFER_READ>(baseTexture, region.imageSubresource, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 

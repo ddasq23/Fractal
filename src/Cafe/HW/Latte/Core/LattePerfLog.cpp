@@ -334,7 +334,7 @@ namespace PerfLog
 		seconds << "t_s,frames,fps,ft_avg_ms,ft_p99_ms,low1_fps,ft_max_ms,"
 				   "shaders,shaders_cached,shaders_failed,shader_ms,"
 				   "pipelines,pipelines_sync,pipelines_failed,pipeline_ms,pipeline_sync_ms,gpu_busy_ms,render_passes,draws,"
-				   "rpe_other,rpe_fbo,rpe_buffer_upload,rpe_buffer_copy,rpe_texture_upload,rpe_clear,rpe_copy,rpe_readback,rpe_query,rpe_submit,buffer_uploads_direct,"
+				   "rpe_other,rpe_fbo,rpe_buffer_upload,rpe_buffer_copy,rpe_texture_upload,rpe_clear,rpe_copy,rpe_readback,rpe_query,rpe_submit,rpe_self_dependency,buffer_uploads_direct,"
 				   "cpu_process_pct,rss_mb" << freqHeader << "\n";
 		threads << "t_s,tid,name,cpu_pct\n";
 		frames << "t_ms,ft_ms\n";

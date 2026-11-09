@@ -1,10 +1,16 @@
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
 
+// Occlusion queries are split into fragments that live inside the game's render passes: a fragment begins when a render
+// pass begins (or when the query begins inside one) and ends right before that pass ends (or when the query ends).
+// Query indices are reset in batches at the start of a command buffer and the results are read on the host once the
+// command buffer has finished. So beginning or ending a query never ends the render pass, which on tiled mobile GPUs
+// costs a store and a reload of all attachments. Draws only happen inside render passes, so no samples are lost.
 class LatteQueryObjectVk : public LatteQueryObject
 {
 	friend class VulkanRenderer;
 
-	LatteQueryObjectVk(VulkanRenderer* rendererVk) : m_rendererVk(rendererVk) 
+	LatteQueryObjectVk(VulkanRenderer* rendererVk) : m_rendererVk(rendererVk)
 	{
 
 	};
@@ -16,11 +22,12 @@ class LatteQueryObjectVk : public LatteQueryObject
 	void endFragment();
 	void handleFinishedFragments();
 
+	static constexpr uint32 INVALID_QUERY_INDEX = 0xFFFFFFFF;
 	uint32 acquireQueryIndex();
 	void releaseQueryIndex(uint32 queryIndex);
 
 private:
-	struct queryFragment 
+	struct queryFragment
 	{
 		uint32 queryIndex;
 		uint64 m_finishCommandBuffer;
@@ -28,7 +35,6 @@ private:
 	};
 
 	VulkanRenderer* m_rendererVk;
-	//sint32 m_queryIndex;
 	std::vector<queryFragment> list_queryFragments;
 	bool m_vkQueryEnded{};
 	bool m_hasActiveQuery{};
@@ -46,16 +52,17 @@ bool LatteQueryObjectVk::getResult(uint64& numSamplesPassed)
 	handleFinishedFragments();
 	cemu_assert_debug(list_queryFragments.empty());
 	numSamplesPassed = m_acccumulatedSum;
-	//numSamplesPassed = m_rendererVk->m_occlusionQueries.ptrQueryResults[m_queryIndex];
 	return true;
 }
 
 void LatteQueryObjectVk::beginFragment()
 {
-	m_rendererVk->draw_endRenderPass();
-
+	cemu_assert_debug(m_rendererVk->m_state.activeRenderpassFBO);
+	cemu_assert_debug(!m_hasActiveFragment);
 	handleFinishedFragments();
 	uint32 newQueryIndex = acquireQueryIndex();
+	if (newQueryIndex == INVALID_QUERY_INDEX)
+		return; // pool exhausted: the samples of this render pass are lost
 
 	queryFragment qf{};
 	qf.queryIndex = newQueryIndex;
@@ -63,11 +70,7 @@ void LatteQueryObjectVk::beginFragment()
 	qf.m_finishCommandBuffer = 0;
 	list_queryFragments.emplace_back(qf);
 
-
-	vkCmdResetQueryPool(m_rendererVk->m_state.currentCommandBuffer, m_rendererVk->m_occlusionQueries.queryPool, newQueryIndex, 1);
 	vkCmdBeginQuery(m_rendererVk->m_state.currentCommandBuffer, m_rendererVk->m_occlusionQueries.queryPool, newQueryIndex, VK_QUERY_CONTROL_PRECISE_BIT);
-	// todo - we already synchronize with command buffers, should we also set wait bits?
-
 	m_hasActiveFragment = true;
 }
 
@@ -75,18 +78,16 @@ void LatteQueryObjectVk::begin()
 {
 	m_vkQueryEnded = false;
 	m_hasActiveQuery = true;
-	beginFragment();
+	if (m_rendererVk->m_state.activeRenderpassFBO)
+		beginFragment();
+	// otherwise the first fragment begins with the next render pass
 }
 
 void LatteQueryObjectVk::endFragment()
 {
-	m_rendererVk->draw_endRenderPass();
-
 	cemu_assert_debug(m_hasActiveFragment);
 	uint32 queryIndex = list_queryFragments.back().queryIndex;
 	vkCmdEndQuery(m_rendererVk->m_state.currentCommandBuffer, m_rendererVk->m_occlusionQueries.queryPool, queryIndex);
-
-	vkCmdCopyQueryPoolResults(m_rendererVk->m_state.currentCommandBuffer, m_rendererVk->m_occlusionQueries.queryPool, queryIndex, 1, m_rendererVk->m_occlusionQueries.bufferQueryResults, queryIndex * sizeof(uint64), 8, VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 	list_queryFragments.back().m_finishCommandBuffer = m_rendererVk->GetCurrentCommandBufferId();
 	list_queryFragments.back().isFinished = true;
 	m_hasActiveFragment = false;
@@ -102,7 +103,10 @@ void LatteQueryObjectVk::handleFinishedFragments()
 			break;
 		if (!m_rendererVk->HasCommandBufferFinished(it.m_finishCommandBuffer))
 			break;
-		m_acccumulatedSum += m_rendererVk->m_occlusionQueries.ptrQueryResults[it.queryIndex];
+		uint64 samples = 0;
+		// the command buffer has finished, so the result is available
+		vkGetQueryPoolResults(m_rendererVk->GetLogicalDevice(), m_rendererVk->m_occlusionQueries.queryPool, it.queryIndex, 1, sizeof(uint64), &samples, sizeof(uint64), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+		m_acccumulatedSum += samples;
 		releaseQueryIndex(it.queryIndex);
 		list_queryFragments.erase(list_queryFragments.begin());
 	}
@@ -110,24 +114,28 @@ void LatteQueryObjectVk::handleFinishedFragments()
 
 uint32 LatteQueryObjectVk::acquireQueryIndex()
 {
-	if (m_rendererVk->m_occlusionQueries.list_availableQueryIndices.empty())
+	auto& available = m_rendererVk->m_occlusionQueries.list_availableQueryIndices;
+	if (available.empty())
 	{
-		cemuLog_log(LogType::Force, "Vulkan-Error: Exhausted query pool");
-		assert_dbg();
+		static bool s_logged = false;
+		if (!s_logged)
+			cemuLog_log(LogType::Force, "Vulkan-Error: Exhausted query pool");
+		s_logged = true;
+		return INVALID_QUERY_INDEX;
 	}
-	uint32 queryIndex = m_rendererVk->m_occlusionQueries.list_availableQueryIndices.back();
-	m_rendererVk->m_occlusionQueries.list_availableQueryIndices.pop_back();
+	uint32 queryIndex = available.back();
+	available.pop_back();
 	return queryIndex;
 }
 
 void LatteQueryObjectVk::releaseQueryIndex(uint32 queryIndex)
 {
-	m_rendererVk->m_occlusionQueries.list_availableQueryIndices.emplace_back(queryIndex);
+	// reset at the start of the next command buffer, then available again
+	m_rendererVk->m_occlusionQueries.list_pendingResetQueryIndices.emplace_back(queryIndex);
 }
 
 void LatteQueryObjectVk::end()
 {
-	cemu_assert_debug(!list_queryFragments.empty());
 	if(m_hasActiveFragment)
 		endFragment();
 	m_vkQueryEnded = true;
@@ -142,7 +150,7 @@ LatteQueryObject* VulkanRenderer::occlusionQuery_create()
 {
 	// create query pool if it doesn't already exist
 	if(m_occlusionQueries.queryPool == VK_NULL_HANDLE)
-	{ 
+	{
 		VkQueryPoolCreateInfo queryPoolCreateInfo{};
 		queryPoolCreateInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
 		queryPoolCreateInfo.flags = 0;
@@ -155,6 +163,13 @@ LatteQueryObject* VulkanRenderer::occlusionQuery_create()
 			cemuLog_log(LogType::Force, "Vulkan-Error: Failed to create query pool with error {}", (sint32)r);
 			return nullptr;
 		}
+		// every query must be reset before its first use. This is the only time a query ends the render pass
+		draw_endRenderPass(PerfLog::RenderPassEnd::Query);
+		vkCmdResetQueryPool(m_state.currentCommandBuffer, m_occlusionQueries.queryPool, 0, OCCLUSION_QUERY_POOL_SIZE);
+		m_occlusionQueries.list_availableQueryIndices.clear();
+		m_occlusionQueries.list_pendingResetQueryIndices.clear();
+		for (sint32 i = OCCLUSION_QUERY_POOL_SIZE - 1; i >= 0; i--)
+			m_occlusionQueries.list_availableQueryIndices.emplace_back(i);
 	}
 	LatteQueryObjectVk* queryObjVk = nullptr;
 	if (m_occlusionQueries.list_cachedQueries.empty())
@@ -170,6 +185,8 @@ LatteQueryObject* VulkanRenderer::occlusionQuery_create()
 	queryObjVk->queryEventStart = 0;
 	queryObjVk->queryEventEnd = 0;
 	queryObjVk->m_vkQueryEnded = false;
+	queryObjVk->m_hasActiveQuery = false;
+	queryObjVk->m_hasActiveFragment = false;
 	queryObjVk->m_acccumulatedSum = 0;
 	cemu_assert_debug(queryObjVk->list_queryFragments.empty()); // query fragment list should always be cleared in _destroy()
 	m_occlusionQueries.list_currentlyActiveQueries.emplace_back(queryObjVk);
@@ -179,8 +196,12 @@ LatteQueryObject* VulkanRenderer::occlusionQuery_create()
 void VulkanRenderer::occlusionQuery_destroy(LatteQueryObject* queryObj)
 {
 	LatteQueryObjectVk* queryObjVk = static_cast<LatteQueryObjectVk*>(queryObj);
+	if (queryObjVk->m_hasActiveFragment) // destroyed while still running: close it so the render pass stays valid
+		queryObjVk->endFragment();
 	m_occlusionQueries.list_currentlyActiveQueries.erase(std::remove(m_occlusionQueries.list_currentlyActiveQueries.begin(), m_occlusionQueries.list_currentlyActiveQueries.end(), queryObj), m_occlusionQueries.list_currentlyActiveQueries.end());
 	m_occlusionQueries.list_cachedQueries.emplace_back(queryObjVk);
+	// a fragment's index may still be in use by a command buffer in flight. That is fine: it is only reset by a later
+	// command buffer, which the GPU runs after this one
 	for (auto& it : queryObjVk->list_queryFragments)
 		queryObjVk->releaseQueryIndex(it.queryIndex);
 	queryObjVk->list_queryFragments.clear();
@@ -199,14 +220,42 @@ void VulkanRenderer::occlusionQuery_updateState()
 
 void VulkanRenderer::occlusionQuery_notifyEndCommandBuffer()
 {
+	// fragments end with their render pass, which ends before the command buffer does
 	for (auto& it : m_occlusionQueries.list_currentlyActiveQueries)
-		if(it->m_hasActiveQuery)
-			it->endFragment();
+		cemu_assert_debug(!it->m_hasActiveFragment);
 }
 
 void VulkanRenderer::occlusionQuery_notifyBeginCommandBuffer()
 {
+	// reset the indices released since the last command buffer, outside of any render pass
+	auto& pending = m_occlusionQueries.list_pendingResetQueryIndices;
+	if (pending.empty() || m_occlusionQueries.queryPool == VK_NULL_HANDLE)
+		return;
+	std::sort(pending.begin(), pending.end());
+	size_t rangeStart = 0;
+	for (size_t i = 1; i <= pending.size(); i++)
+	{
+		if (i == pending.size() || pending[i] != pending[i - 1] + 1)
+		{
+			vkCmdResetQueryPool(m_state.currentCommandBuffer, m_occlusionQueries.queryPool, pending[rangeStart], (uint32)(i - rangeStart));
+			rangeStart = i;
+		}
+	}
+	auto& available = m_occlusionQueries.list_availableQueryIndices;
+	available.insert(available.end(), pending.begin(), pending.end());
+	pending.clear();
+}
+
+void VulkanRenderer::occlusionQuery_notifyRenderPassBegin()
+{
 	for (auto& it : m_occlusionQueries.list_currentlyActiveQueries)
 		if (it->m_hasActiveQuery)
 			it->beginFragment();
+}
+
+void VulkanRenderer::occlusionQuery_notifyRenderPassEnd()
+{
+	for (auto& it : m_occlusionQueries.list_currentlyActiveQueries)
+		if (it->m_hasActiveFragment)
+			it->endFragment();
 }

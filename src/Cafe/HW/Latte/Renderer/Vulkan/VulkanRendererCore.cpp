@@ -1234,7 +1234,7 @@ void VulkanRenderer::draw_setRenderPass()
 		}
 		return;
 	}
-	draw_endRenderPass();
+	draw_endRenderPass(m_state.activeRenderpassFBO == fboVk ? PerfLog::RenderPassEnd::SelfDependency : PerfLog::RenderPassEnd::Fbo);
 	if (m_state.descriptorSetsChanged)
 		sync_inputTexturesChanged();
 
@@ -1261,6 +1261,7 @@ void VulkanRenderer::draw_setRenderPass()
 	}
 
 	m_state.activeRenderpassFBO = fboVk;
+	occlusionQuery_notifyRenderPassBegin();
 	if (UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.GetAspectMask() != m_state.feedbackLoopImageAspect)
 	{
 		m_state.feedbackLoopImageAspect = currentSelfDependencyInfo.GetAspectMask();
@@ -1274,10 +1275,12 @@ void VulkanRenderer::draw_setRenderPass()
 	PerfLog::RenderPassBegin();
 }
 
-void VulkanRenderer::draw_endRenderPass()
+void VulkanRenderer::draw_endRenderPass(PerfLog::RenderPassEnd reason)
 {
 	if (!m_state.activeRenderpassFBO)
 		return;
+	PerfLog::RenderPassEnded(reason);
+	occlusionQuery_notifyRenderPassEnd();
 	if (m_featureControl.deviceExtensions.dynamic_rendering)
 		vkCmdEndRenderingKHR(m_state.currentCommandBuffer);
 	else
@@ -1310,6 +1313,8 @@ void VulkanRenderer::draw_handleSpecialState5()
 void VulkanRenderer::draw_beginSequence()
 {
 	m_state.drawSequenceSkip = false;
+	m_inDrawSequence = true;
+	m_bufferCacheDirectBlocked = false;
 
 	bool streamoutEnable = LatteGPUState.contextRegister[mmVGT_STRMOUT_EN] != 0;
 	if (streamoutEnable)
@@ -1849,6 +1854,8 @@ void VulkanRenderer::draw_updateUniformBuffersDirectAccess(LatteDecompilerShader
 
 void VulkanRenderer::draw_endSequence()
 {
+	m_inDrawSequence = false;
+	m_bufferCacheDirectBlocked = false;
 	LatteDecompilerShader* pixelShader = LatteSHRC_GetActivePixelShader();
 	// post-drawcall logic
 	if (pixelShader)
