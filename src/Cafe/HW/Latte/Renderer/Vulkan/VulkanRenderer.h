@@ -433,7 +433,8 @@ private:
 		// invalidation / flushing
 		uint64 currentFlushIndex{0}; // incremented by every render target barrier
 		uint64 currentVertexFlushIndex{0};
-		VkImageAspectFlags renderPassWrittenAspects{0}; // attachment aspects written by draws since the current render pass began // incremented only by barriers that also make writes visible to vertex/geometry shaders
+		VkImageAspectFlags renderPassWrittenAspects{0}; // attachment aspects written by draws since the current render pass began
+		uint8 renderPassWrittenColorMask{0}; // color attachments (render target indices) written since the current render pass began // incremented only by barriers that also make writes visible to vertex/geometry shaders
 		bool colorBufferSyncPending{false}; // guest color-buffer sync since the previous draw; survives command-buffer resets
 		bool requestFlush{ false }; // flush after every draw operation. The renderpass dependencies dont handle dependencies across multiple drawcalls inside a single renderpass
 
@@ -568,8 +569,8 @@ private:
 	void draw_updateDepthBias(bool forceUpdate);
 
 	void draw_setRenderPass();
-	VkImageAspectFlags draw_getCurrentWriteAspects(class CachedFBOVk* fboVk) const;
-	bool draw_canKeepRenderPassForSelfDependency(class CachedFBOVk* fboVk, VkImageAspectFlags sampledAttachmentAspects);
+	VkImageAspectFlags draw_getCurrentWriteAspects(class CachedFBOVk* fboVk, uint8* colorAttachmentMask = nullptr) const;
+	bool draw_canKeepRenderPassForSelfDependency(class CachedFBOVk* fboVk, VkImageAspectFlags sampledAttachmentAspects, uint8 sampledColorAttachments);
 	void draw_endRenderPass(PerfLog::RenderPassEnd reason = PerfLog::RenderPassEnd::Other);
 
 	void draw_beginSequence() override;

@@ -1265,12 +1265,15 @@ void VulkanRenderer::draw_setRenderPass()
 
 	bool feedbackLoopHandlesSelfDependency = UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.HasSelfDependency() && !currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency();
 	bool selfDependencyNeedsPassSplit = currentSelfDependencyInfo.HasSelfDependency() && !feedbackLoopHandlesSelfDependency;
-	bool overridePassReuse = selfDependencyNeedsPassSplit && (GetConfig().vk_accurate_barriers || m_state.activePipelineInfo->neverSkipAccurateBarrier);
+	// accurate_barriers in perf/tuning.txt overrides the setting for measurements (-1 = use the setting)
+	static const sint64 s_accurateOverride = PerfLog::Tunable("accurate_barriers", -1);
+	const bool accurateBarriers = s_accurateOverride < 0 ? GetConfig().vk_accurate_barriers.GetValue() : s_accurateOverride != 0;
+	bool overridePassReuse = selfDependencyNeedsPassSplit && (accurateBarriers || m_state.activePipelineInfo->neverSkipAccurateBarrier);
 	bool keptForSelfDependency = false;
 	if (overridePassReuse && m_state.activeRenderpassFBO == fboVk && currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency())
 		PerfLog::SelfDependencyReason(3); // vertex/geometry shader samples an attachment
 	if (overridePassReuse && m_state.activeRenderpassFBO == fboVk && !currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency() &&
-		draw_canKeepRenderPassForSelfDependency(fboVk, currentSelfDependencyInfo.GetAspectMask()))
+		draw_canKeepRenderPassForSelfDependency(fboVk, currentSelfDependencyInfo.GetAspectMask(), currentSelfDependencyInfo.colorAttachmentMask))
 	{
 		overridePassReuse = false;
 		keptForSelfDependency = true;
@@ -1325,6 +1328,7 @@ void VulkanRenderer::draw_setRenderPass()
 
 	m_state.activeRenderpassFBO = fboVk;
 	m_state.renderPassWrittenAspects = 0;
+	m_state.renderPassWrittenColorMask = 0;
 	occlusionQuery_notifyRenderPassBegin();
 	if (UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.GetAspectMask() != m_state.feedbackLoopImageAspect)
 	{
@@ -1340,15 +1344,29 @@ void VulkanRenderer::draw_setRenderPass()
 }
 
 // Attachment aspects the current draw can write
-VkImageAspectFlags VulkanRenderer::draw_getCurrentWriteAspects(CachedFBOVk* fboVk) const
+VkImageAspectFlags VulkanRenderer::draw_getCurrentWriteAspects(CachedFBOVk* fboVk, uint8* colorAttachmentMask) const
 {
 	const auto& ctx = LatteGPUState.contextNew;
 	VkImageAspectFlags aspects = 0;
+	uint8 colorMask = 0;
 	const auto specialOp = ctx.CB_COLOR_CONTROL.get_SPECIAL_OP();
 	if (specialOp != Latte::LATTE_CB_COLOR_CONTROL::E_SPECIALOP::NORMAL && specialOp != Latte::LATTE_CB_COLOR_CONTROL::E_SPECIALOP::DISABLE)
+	{
+		if (colorAttachmentMask)
+			*colorAttachmentMask = 0xFF;
 		return VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT; // special states (e.g. clears): assume everything
-	if (specialOp == Latte::LATTE_CB_COLOR_CONTROL::E_SPECIALOP::NORMAL && fboVk->calculateNumColorBuffers() != 0 && ctx.CB_TARGET_MASK.get_MASK() != 0)
-		aspects |= VK_IMAGE_ASPECT_COLOR_BIT;
+	}
+	if (specialOp == Latte::LATTE_CB_COLOR_CONTROL::E_SPECIALOP::NORMAL)
+	{
+		const uint32 targetMask = ctx.CB_TARGET_MASK.get_MASK();
+		for (sint32 i = 0; i < 8; i++)
+			if (fboVk->colorBuffer[i].texture && ((targetMask >> (i * 4)) & 0xF) != 0)
+				colorMask |= (1 << i);
+		if (colorMask)
+			aspects |= VK_IMAGE_ASPECT_COLOR_BIT;
+	}
+	if (colorAttachmentMask)
+		*colorAttachmentMask = colorMask;
 	if (fboVk->hasDepthBuffer())
 	{
 		if (ctx.DB_DEPTH_CONTROL.get_Z_ENABLE() && ctx.DB_DEPTH_CONTROL.get_Z_WRITE_ENABLE())
@@ -1364,18 +1382,22 @@ VkImageAspectFlags VulkanRenderer::draw_getCurrentWriteAspects(CachedFBOVk* fboV
 // and the draw itself does not write them either (e.g. soft particles reading the depth buffer with depth writes off).
 // Reading an attachment that nobody writes in GENERAL layout is valid inside the pass. BotW split its passes ~350 times per
 // frame for this, each split storing and reloading every attachment on tiled GPUs. selfdep_keep=0 in perf/tuning.txt disables
-bool VulkanRenderer::draw_canKeepRenderPassForSelfDependency(CachedFBOVk* fboVk, VkImageAspectFlags sampledAttachmentAspects)
+bool VulkanRenderer::draw_canKeepRenderPassForSelfDependency(CachedFBOVk* fboVk, VkImageAspectFlags sampledAttachmentAspects, uint8 sampledColorAttachments)
 {
 	static const bool s_enabled = PerfLog::Tunable("selfdep_keep", 1) != 0;
 	if (!s_enabled)
 		return false;
 	PerfLog::SelfDependencyAspects((sampledAttachmentAspects & VK_IMAGE_ASPECT_COLOR_BIT) != 0, (sampledAttachmentAspects & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0);
-	if ((sampledAttachmentAspects & draw_getCurrentWriteAspects(fboVk)) != 0)
+	// color is tracked per attachment: a draw may sample one render target of the FBO while writing only the others
+	uint8 currentColorWrites = 0;
+	const VkImageAspectFlags currentWrites = draw_getCurrentWriteAspects(fboVk, &currentColorWrites);
+	const VkImageAspectFlags sampledDepthStencil = sampledAttachmentAspects & ~VK_IMAGE_ASPECT_COLOR_BIT;
+	if ((sampledDepthStencil & currentWrites) != 0 || (sampledColorAttachments & currentColorWrites) != 0)
 	{
 		PerfLog::SelfDependencyReason(0); // the draw writes what it samples
 		return false;
 	}
-	if ((sampledAttachmentAspects & m_state.renderPassWrittenAspects) != 0)
+	if ((sampledDepthStencil & m_state.renderPassWrittenAspects) != 0 || (sampledColorAttachments & m_state.renderPassWrittenColorMask) != 0)
 	{
 		PerfLog::SelfDependencyReason(1); // an earlier draw of the pass wrote it
 		return false;
@@ -1907,7 +1929,11 @@ void VulkanRenderer::draw_execute(uint32 baseVertex, uint32 baseInstance, uint32
 	else
 		draw_execute_continued(baseVertex, baseInstance, instanceCount, count, indexDataMPTR, indexType, drawcallContext);
 	if (m_state.activeRenderpassFBO)
-		m_state.renderPassWrittenAspects |= draw_getCurrentWriteAspects(m_state.activeRenderpassFBO);
+	{
+		uint8 colorWrites = 0;
+		m_state.renderPassWrittenAspects |= draw_getCurrentWriteAspects(m_state.activeRenderpassFBO, &colorWrites);
+		m_state.renderPassWrittenColorMask |= colorWrites;
+	}
 	m_state.colorBufferSyncPending = false;
 	LatteGPUState.drawCallCounter++;
 }

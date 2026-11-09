@@ -240,6 +240,7 @@ CachedFBOVk::RendertargetSelfDependencyMask CachedFBOVk::CheckForSelfDependency(
 			a->firstMip < b->firstMip + b->numMip && b->firstMip < a->firstMip + a->numMip &&
 			a->firstSlice < b->firstSlice + b->numSlice && b->firstSlice < a->firstSlice + a->numSlice;
 	};
+	uint8 sampledColorAttachments = 0;
 	auto getSubresourceSelfDependencyMask = [&](VkDescriptorSetInfo* ds) -> VkImageAspectFlags
 	{
 		VkImageAspectFlags aspectMask = 0;
@@ -249,9 +250,14 @@ CachedFBOVk::RendertargetSelfDependencyMask CachedFBOVk::CheckForSelfDependency(
 		{
 			if (static_cast<LatteTextureVk*>(view->baseTexture)->m_selfDependencyCheckIndex != curColIndex)
 				continue; // not an attachment of this FBO
-			for (auto& colorAttachment : colorBuffer)
-				if (colorAttachment.texture && overlaps(view, colorAttachment.texture))
+			for (sint32 i = 0; i < 8; i++)
+			{
+				if (colorBuffer[i].texture && overlaps(view, colorBuffer[i].texture))
+				{
 					aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
+					sampledColorAttachments |= (1 << i);
+				}
+			}
 			if (depthBuffer.texture && overlaps(view, depthBuffer.texture))
 				aspectMask |= depthBuffer.hasStencil ? (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) : VK_IMAGE_ASPECT_DEPTH_BIT;
 		}
@@ -266,6 +272,7 @@ CachedFBOVk::RendertargetSelfDependencyMask CachedFBOVk::CheckForSelfDependency(
 		VkImageAspectFlags pixelAspectFlags = getSubresourceSelfDependencyMask(psDS);
 		selfDepInfo.aspectMaskFlags = vertexAspectFlags | geometryAspectFlags | pixelAspectFlags;
 		selfDepInfo.hasNonPixelSelfDependency = (vertexAspectFlags | geometryAspectFlags) != 0;
+		selfDepInfo.colorAttachmentMask = sampledColorAttachments;
 		if (selfDepInfo.aspectMaskFlags == 0 && (getSelfDependencyMask(vsDS) | getSelfDependencyMask(gsDS) | getSelfDependencyMask(psDS)) != 0)
 			PerfLog::SelfDependencyOtherSubresource();
 		return selfDepInfo;
@@ -275,5 +282,17 @@ CachedFBOVk::RendertargetSelfDependencyMask CachedFBOVk::CheckForSelfDependency(
 	VkImageAspectFlags pixelAspectFlags = getSelfDependencyMask(psDS);
 	selfDepInfo.aspectMaskFlags = vertexAspectFlags | geometryAspectFlags | pixelAspectFlags;
 	selfDepInfo.hasNonPixelSelfDependency = (vertexAspectFlags | geometryAspectFlags) != 0;
+	if (selfDepInfo.aspectMaskFlags & VK_IMAGE_ASPECT_COLOR_BIT)
+	{
+		for (sint32 i = 0; i < 8; i++)
+		{
+			if (!colorBuffer[i].texture)
+				continue;
+			LatteTextureVk* attTex = static_cast<LatteTextureVk*>(colorBuffer[i].texture->baseTexture);
+			for (VkDescriptorSetInfo* ds : { vsDS, gsDS, psDS })
+				if (ds && std::find(ds->list_fboCandidates.begin(), ds->list_fboCandidates.end(), attTex) != ds->list_fboCandidates.end())
+					selfDepInfo.colorAttachmentMask |= (1 << i);
+		}
+	}
 	return selfDepInfo;
 }

@@ -55,6 +55,7 @@ public:
 	{
 		VkImageAspectFlags aspectMaskFlags{}; // aspect flags which are simultaneously sampled and written
 		bool hasNonPixelSelfDependency{false};
+		uint8 colorAttachmentMask{}; // which color attachments (render target indices) are sampled
 
 		VkImageAspectFlags GetAspectMask() const
 		{
