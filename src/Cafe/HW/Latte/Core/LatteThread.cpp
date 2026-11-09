@@ -13,6 +13,7 @@
 
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "Cafe/HW/Latte/Core/LatteTexture.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "util/helpers/helpers.h"
 
 #include <imgui.h>
@@ -116,6 +117,9 @@ void LatteThread_HandleOSScreen()
 int Latte_ThreadEntry()
 {
 	SetThreadName("LatteThread");
+	// fast_cores bit 1: keep the GPU command thread off the slowest CPU cluster
+	if (PerfLog::Tunable("fast_cores", 0) & 2)
+		cemuLog_log(LogType::Force, "LatteThread: pinned to {} fast CPUs", PinCurrentThreadToFastCores());
 	sint32 w,h;
 	WindowSystem::GetWindowPhysSize(w,h);
 

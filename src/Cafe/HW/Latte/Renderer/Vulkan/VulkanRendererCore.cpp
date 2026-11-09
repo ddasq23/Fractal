@@ -814,6 +814,10 @@ VkDescriptorSetInfo* VulkanRenderer::draw_getOrCreateDescriptorSet(PipelineInfo*
 
 			if (baseTexture->overwriteInfo.anisotropicLevel >= 0)
 				maxAniso = baseTexture->overwriteInfo.anisotropicLevel;
+			// diagnostics: perf/tuning.txt aniso_max_log2=<n> caps anisotropic filtering at 2^n samples (0 turns it off)
+			static const sint64 s_anisoMaxLog2 = PerfLog::Tunable("aniso_max_log2", -1);
+			if (s_anisoMaxLog2 >= 0 && maxAniso > s_anisoMaxLog2)
+				maxAniso = (decltype(maxAniso))s_anisoMaxLog2;
 
 			if (maxAniso > 0)
 			{
@@ -826,7 +830,9 @@ VkDescriptorSetInfo* VulkanRenderer::draw_getOrCreateDescriptorSet(PipelineInfo*
 				samplerInfo.maxAnisotropy = 1.0f;
 			}
 
-			samplerInfo.mipLodBias = (float)iLodBias / 64.0f;
+			// diagnostics: perf/tuning.txt diag_lod_bias=<1/64 mip levels> samples smaller mips, to measure texture bandwidth
+			static const sint64 s_diagLodBias = PerfLog::Tunable("diag_lod_bias", 0);
+			samplerInfo.mipLodBias = (float)(iLodBias + s_diagLodBias) / 64.0f;
 
 			// diagnostics: perf/tuning.txt diag_ps=<pixel shader base hash, decimal> logs what that shader samples
 			static const sint64 s_diagPs = PerfLog::Tunable("diag_ps", 0);

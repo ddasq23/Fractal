@@ -209,6 +209,7 @@ void VulkanRenderer::occlusionQuery_destroy(LatteQueryObject* queryObj)
 
 void VulkanRenderer::occlusionQuery_flush()
 {
+	PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::Query);
 	WaitCommandBufferFinished(m_occlusionQueries.m_lastCommandBuffer);
 }
 

@@ -218,6 +218,9 @@ size_t RemoveDuplicatesKeepOrder(std::vector<T>& vec)
 }
 
 void SetThreadName(const char* name);
+// Linux/Android: restrict the calling thread to the CPUs outside the slowest cluster (by cpuinfo_max_freq).
+// Returns the number of CPUs in the new mask, or 0 if nothing changed (one cluster only, or unsupported)
+int PinCurrentThreadToFastCores();
 
 inline uint64 MakeU64(uint32 high, uint32 low)
 {

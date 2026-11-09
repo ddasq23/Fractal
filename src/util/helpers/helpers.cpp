@@ -15,6 +15,10 @@
 #if BOOST_OS_WINDOWS
 #include <TlHelp32.h>
 #endif
+#if BOOST_OS_LINUX
+#include <sched.h>
+#include <fstream>
+#endif
 
 std::string& ltrim(std::string& str, const std::string& chars)
 {
@@ -466,4 +470,42 @@ std::optional<std::vector<uint8>> zlibDecompress(const std::vector<uint8>& compr
 	decompressed.resize(stream.total_out);
 
 	return decompressed;
+}
+
+int PinCurrentThreadToFastCores()
+{
+#if BOOST_OS_LINUX
+	static const std::vector<int> s_fastCpus = []() {
+		std::vector<std::pair<int, uint64>> cpuFreq;
+		for (int cpu = 0; cpu < CPU_SETSIZE; cpu++)
+		{
+			std::ifstream f(fmt::format("/sys/devices/system/cpu/cpu{}/cpufreq/cpuinfo_max_freq", cpu));
+			uint64 freq = 0;
+			if (!f || !(f >> freq))
+				break;
+			cpuFreq.emplace_back(cpu, freq);
+		}
+		std::vector<int> fast;
+		if (cpuFreq.empty())
+			return fast;
+		uint64 slowest = cpuFreq.front().second;
+		for (auto& [cpu, freq] : cpuFreq)
+			slowest = std::min(slowest, freq);
+		for (auto& [cpu, freq] : cpuFreq)
+			if (freq > slowest)
+				fast.emplace_back(cpu);
+		return fast;
+	}();
+	if (s_fastCpus.empty())
+		return 0;
+	cpu_set_t set;
+	CPU_ZERO(&set);
+	for (int cpu : s_fastCpus)
+		CPU_SET(cpu, &set);
+	if (sched_setaffinity(0, sizeof(set), &set) != 0)
+		return 0;
+	return (int)s_fastCpus.size();
+#else
+	return 0;
+#endif
 }

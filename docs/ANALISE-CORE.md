@@ -583,6 +583,52 @@ recomeça com o store. Contadores `depth_passes`, `depth_unused`, `depth_readonl
 Sem crash em nenhuma cena. Tudo dentro do ruído: nem a Mali nem a Adreno pagam caro pelo store
 de uma profundidade que não mudou. Fica desligado.
 
+### Noite de 09/11
+
+**Onde está o limite de cada cena.** Teste com `diag_tiny_scissor=1`, que recorta toda draw para 1×1
+pixel: o trabalho de fragmento some e o de vértice continua.
+
+| cena | normal | scissor 1×1 | GPU ocupada | leitura |
+|---|---|---|---|---|
+| RP5 MK8 | 47,9 | 47,2 | 84 → 24 % | limite é a CPU (núcleo PPC 1 a 97 %), não a GPU |
+| RP5 BotW | 9,5 | 11,5 | 40 → 22 % | a GPU está no caminho crítico mesmo ociosa: a CPU espera por ela |
+| Cube MK8 | 30,3–31,3 | 52,6 | 100 → 78 % | limite é o fragmento |
+| Cube Bayonetta 2 | 11,6 | 40,6 | 100 → 80 % | limite é o fragmento (~60 ms por frame) |
+
+**Não é banda de textura nem anisotrópico.** A Mali não tem BC1–BC5 e recebe essas texturas
+descomprimidas em RGBA8/R8/RG8, então parecia o suspeito. `diag_lod_bias=64` (um mip abaixo, ~¼ da
+banda de textura) e `aniso_max_log2=0` não mudam o FPS: Cube MK8 31,1 e 30,3, Bayonetta 2 11,6 e 11,8;
+RP5 MK8 47,6 e 47,7. Transcodificar BC para ETC2/ASTC não compensaria.
+
+**Fixar as threads pesadas nos núcleos grandes piora** (`fast_cores=3`, padrão 0). No RP5 o núcleo PPC
+principal e a LatteThread passam boa parte do tempo nos A55, mas fixá-las em 4–7 derruba o MK8 de 47,9
+para 40,1 (GPU 84 → 70 %: o orçamento de energia vai para a CPU) e não muda o BotW (9,4), só a CPU
+(240 → 187 %). No Cube: BotW 4,5 contra 4,6, MK8 29,8 contra 30,6. Fica como diagnóstico.
+
+**BotW: a espera era o sync completo do `GX2DrawDone`.** O tempo que a LatteThread passa esperando a
+GPU agora é separado por motivo (`gw_*_ms`). No BotW do RP5 são 15,6 ms por frame, todos em leituras
+de volta forçadas. Com Vulkan, todo `GX2DrawDone` (2 por frame no BotW) insere
+`IT_HLE_SYNC_ASYNC_OPERATIONS`, que espera a GPU terminar tudo o que foi enviado. Sem esse sync
+(`drawdone_sync=0`), as leituras de volta terminam de forma assíncrona e chegam à CPU alguns
+milissegundos depois:
+
+| RP5 BotW, A/B alternado | sem sync | com sync |
+|---|---|---|
+| FPS (1 % low) | 11,1 (8,5) / 11,2 (7,6) | 9,4 (6,7) / 9,5 (6,7) |
+| espera pela GPU | 0,02 ms/frame | 15,6 ms/frame |
+
+Virou opção por jogo: `fullSyncAtGX2DrawDone` no perfil do jogo (desligada nos perfis padrão do BotW
+JPN/USA/EUR) e um botão "Sincronização total com o GX2DrawDone()" na tela de perfil do jogo. Sem a
+opção no perfil, nada muda. Com o perfil padrão e sem tunable, o BotW do RP5 roda a 11,2. No MK8 a
+espera equivalente é 1 ms por frame (consultas de oclusão), então não vale mexer nos outros jogos.
+
+**Multiplicação exata nos shaders custa ~10 % na Mali.** Todo produto passa por `mul_nonIEEE`
+(0 × inf = 0, como no Wii U). `strict_mul=0` (multiplicação comum) no Cube MK8: 32,7 / 34,1 contra
+30,3 / 31,3 do normal. Variantes exatas mais baratas não recuperam nada: `strict_mul=2` (NaN → 0)
+29,7 / 29,2; `strict_mul=3` (zera as entradas, permite FMA) 31,2. O perfil de jogo já tem
+"Precisão da multiplicação em shaders"; os perfis padrão do Cemu desligam-na em 9 jogos (SM3DW, XCX,
+Captain Toad...), mas não no MK8.
+
 ## Pendências e limitações
 
 - O RG Cube foi perfilado sem root (só espaço de usuário): o tempo de kernel e o custo das

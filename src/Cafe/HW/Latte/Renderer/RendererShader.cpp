@@ -1,4 +1,5 @@
 #include "Cafe/HW/Latte/Renderer/RendererShader.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/GameProfile/GameProfile.h"
 
 // generate a Cemu version and setting dependent id
@@ -18,6 +19,7 @@ uint32 RendererShader::GeneratePrecompiledCacheId()
 
 	// settings that can influence shaders
 	v += (uint32)g_current_game_profile->GetAccurateShaderMul() * 133;
+	v += (uint32)(PerfLog::Tunable("strict_mul", -1) + 1) * 977;
 
 	v += 0x820a5291; // change this value for manual invalidation
 

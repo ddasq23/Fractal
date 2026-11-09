@@ -79,6 +79,7 @@ bool LatteTextureReadbackInfoVk::IsFinished()
 void LatteTextureReadbackInfoVk::ForceFinish()
 {
 	const auto renderer = VulkanRenderer::GetInstance();
+	PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::Readback);
 	renderer->WaitCommandBufferFinished(m_associatedCommandBufferId);
 }
 

@@ -2555,6 +2555,7 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 		cemuLog_logDebug(LogType::Force, "Vulkan: Waiting for available command buffer...");
 		const auto waitStart = std::chrono::steady_clock::now();
 		WaitForNextFinishedCommandBuffer();
+		PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::CommandBufferPool);
 		PerfLog::GpuWait(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - waitStart).count());
 	}
 	m_cmdBufferUniformRingbufIndices[nextCmdBufferIndex] = m_cmdBufferUniformRingbufIndices[m_commandBufferIndex];
@@ -3492,7 +3493,10 @@ void VulkanRenderer::SwapBuffer(bool mainWindow)
 	cemu_assert_debug(m_numSubmittedCmdBuffers > 0);
 
 	// wait for the previous frame to finish rendering
-	WaitCommandBufferFinished(m_commandBufferIDOfPrevFrame);
+	{
+		PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::Present);
+		WaitCommandBufferFinished(m_commandBufferIDOfPrevFrame);
+	}
 	m_commandBufferIDOfPrevFrame = currentFrameCmdBufferID;
 
 	chainInfo.WaitAvailableFence();
@@ -3568,7 +3572,10 @@ void VulkanRenderer::Flush(bool waitIdle)
 	if (m_recordedDrawcalls > 0 || m_submitOnIdle)
 		SubmitCommandBuffer();
 	if (waitIdle)
+	{
+		PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::Flush);
 		WaitCommandBufferFinished(GetCurrentCommandBufferId());
+	}
 }
 
 void VulkanRenderer::NotifyLatteCommandProcessorIdle()
@@ -4086,6 +4093,13 @@ void VulkanRenderer::renderTarget_setViewport(float x, float y, float width, flo
 
 void VulkanRenderer::renderTarget_setScissor(sint32 scissorX, sint32 scissorY, sint32 scissorWidth, sint32 scissorHeight)
 {
+	// diagnostics: perf/tuning.txt diag_tiny_scissor=1 clips every draw to 1x1 pixel, to split vertex from fragment cost
+	static const bool s_tinyScissor = PerfLog::Tunable("diag_tiny_scissor", 0) != 0;
+	if (s_tinyScissor)
+	{
+		scissorWidth = std::min(scissorWidth, 1);
+		scissorHeight = std::min(scissorHeight, 1);
+	}
 	m_state.currentScissorRect.offset.x = scissorX;
 	m_state.currentScissorRect.offset.y = scissorY;
 	m_state.currentScissorRect.extent.width = scissorWidth;

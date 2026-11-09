@@ -1457,6 +1457,9 @@ namespace coreinit
 	{
 		SetThreadName(fmt::format("OSSched[core={}]", (uintptr_t)_assignedCoreIndex).c_str());
 		t_assignedCoreIndex = (sint32)(uintptr_t)_assignedCoreIndex;
+		// fast_cores bit 0: keep the PPC core threads off the slowest CPU cluster
+		if (PerfLog::Tunable("fast_cores", 0) & 1)
+			cemuLog_log(LogType::Force, "OSSched[core={}]: pinned to {} fast CPUs", t_assignedCoreIndex, PinCurrentThreadToFastCores());
 
 		ConfigureHostFloatingPointEnvironment();
 

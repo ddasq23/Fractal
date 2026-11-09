@@ -806,6 +806,10 @@ void LatteShader_GetDecompilerOptions(LatteDecompilerOptions& options, LatteCons
 	}
 #endif
 	options.strictMul = g_current_game_profile->GetAccurateShaderMul() != AccurateShaderMulOption::False;
+	// perf/tuning.txt strict_mul=0 plain multiply, 1 0*x=0 emulation (default: game profile)
+	static const sint64 s_strictMul = PerfLog::Tunable("strict_mul", -1);
+	if (s_strictMul >= 0)
+		options.strictMul = s_strictMul != 0;
 }
 
 LatteDecompilerShader* LatteShader_CompileSeparableVertexShader2(uint64 baseHash, uint64& vsAuxHash, uint8* vertexShaderPtr, uint32 vertexShaderSize, bool usesGeometryShader, LatteFetchShader* fetchShader)
