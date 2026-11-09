@@ -90,7 +90,23 @@ def summarize(path, t_from, t_to, top_threads):
         # GPU time of the command buffers (Vulkan timestamps); None for logs from before the column existed
         "gpu_busy": total(window, "gpu_busy_ms") / n_seconds / 10 if window and "gpu_busy_ms" in window[0] else None,
         "threads": ", ".join(f"{name} {pct / n_seconds:.0f}%" for name, pct in busiest),
+        "clocks": read_clocks(path, t_from, t_to),
     }
+
+
+def read_clocks(path, t_from, t_to):
+    """GPU clock, its thermal cap, the big CPU cap and battery temperature, sampled by run_scene.sh next to the session.
+    Times are from the tap on the game, so the window matches only roughly (the log starts when the game boots)."""
+    parent = os.path.dirname(os.path.abspath(path))
+    files = [f for f in os.listdir(parent) if f.startswith("clocks_") and f.endswith(".csv")]
+    if not files:
+        return "–"
+    with open(os.path.join(parent, files[0]), newline="") as f:
+        rows = [r for r in csv.DictReader(f) if r.get("t_s", "").isdigit() and t_from <= int(r["t_s"]) <= t_to]
+    if not rows:
+        return "–"
+    avg = lambda k: sum(float(r[k]) for r in rows) / len(rows)
+    return f"{avg('gpu_mhz'):.0f}/{avg('gpu_max_mhz'):.0f} MHz, CPU máx {avg('big_cpu_max_mhz'):.0f}, {max(float(r['battery_c']) for r in rows):.0f} °C"
 
 
 def main():
@@ -104,8 +120,8 @@ def main():
     args = ap.parse_args()
 
     if not args.no_header:
-        print(f"| Aparelho / perfil | Jogo | GPU / driver | FPS médio | 1% low | frametime médio / pior (ms) | quadros > 50 ms | shaders compilados / pipelines criados (sessão) | na janela | espera por pipeline (ms) | CPU do processo | GPU ocupada | threads mais ocupadas |")
-        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        print(f"| Aparelho / perfil | Jogo | GPU / driver | FPS médio | 1% low | frametime médio / pior (ms) | quadros > 50 ms | shaders compilados / pipelines criados (sessão) | na janela | espera por pipeline (ms) | CPU do processo | GPU ocupada | threads mais ocupadas | clock GPU (atual/teto), teto CPU grande, bateria |")
+        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for path in args.sessions:
         if not os.path.isdir(path):
             continue
@@ -116,7 +132,7 @@ def main():
         gpu = "–" if s["gpu_busy"] is None else f"{s['gpu_busy']:.0f}%"
         print(f"| {label} | {s['title']} | {s['gpu']} / {s['driver']} | {s['fps']:.1f} | {s['low1']:.1f} | "
               f"{s['ft_avg']:.1f} / {s['ft_max']:.0f} | {s['over50']} | {s['shaders_all']:.0f} / {s['pipelines_all']:.0f} | "
-              f"{s['shaders_win']:.0f} / {s['pipelines_win']:.0f} | {s['pipeline_sync_ms_win']:.0f} | {s['cpu']:.0f}% | {gpu} | {s['threads']} |")
+              f"{s['shaders_win']:.0f} / {s['pipelines_win']:.0f} | {s['pipeline_sync_ms_win']:.0f} | {s['cpu']:.0f}% | {gpu} | {s['threads']} | {s['clocks']} |")
 
 
 if __name__ == "__main__":
