@@ -30,6 +30,9 @@ namespace PerfLog
 	void SetGpuInfo(std::string_view gpu, std::string_view driver);
 	// a command buffer ran on the GPU from startNs to endNs (GPU clock); overlapping work is counted once
 	void GpuWork(uint64 startNs, uint64 endNs);
+	// render thread: one per render pass begun / per draw submitted to the host API
+	void RenderPassBegin();
+	void DrawCall();
 
 	// PPC recompiler, for profiling (simpleperf samples in JIT code are mapped back to PPC functions):
 	//   jitmap.txt   "<host address> <host size> <ppc address> <ppc size>" per recompiled function

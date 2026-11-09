@@ -1,3 +1,4 @@
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/LatteTextureVk.h"
@@ -1270,6 +1271,7 @@ void VulkanRenderer::draw_setRenderPass()
 	vkObjFramebuffer->flagForCurrentCommandBuffer();
 
 	performanceMonitor.vk.numBeginRenderpassPerFrame.increment();
+	PerfLog::RenderPassBegin();
 }
 
 void VulkanRenderer::draw_endRenderPass()
@@ -1310,6 +1312,17 @@ void VulkanRenderer::draw_beginSequence()
 	m_state.drawSequenceSkip = false;
 
 	bool streamoutEnable = LatteGPUState.contextRegister[mmVGT_STRMOUT_EN] != 0;
+	if (streamoutEnable)
+	{
+		// once per process: tells which games need streamout (it needs vertexPipelineStoresAndAtomics)
+		static bool s_streamoutLogged = false;
+		if (!s_streamoutLogged)
+		{
+			s_streamoutLogged = true;
+			cemuLog_log(LogType::Force, "Latte: game uses streamout (transform feedback); vertexPipelineStoresAndAtomics {}",
+				m_featureControl.deviceFeatures.vertex_pipeline_stores_and_atomics ? "yes" : "no");
+		}
+	}
 
 	// update shader state
 	LatteSHRC_UpdateActiveShaders();
@@ -1528,6 +1541,7 @@ void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, 
 		vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
 	else
 		vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
+	PerfLog::DrawCall();
 	LatteStreamout_FinishDrawcall(m_useHostMemoryForCache);
 }
 
@@ -1752,6 +1766,7 @@ void VulkanRenderer::draw_execute_continued(uint32 baseVertex, uint32 baseInstan
 	else
 		vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
 
+	PerfLog::DrawCall();
 	LatteStreamout_FinishDrawcall(m_useHostMemoryForCache);
 }
 

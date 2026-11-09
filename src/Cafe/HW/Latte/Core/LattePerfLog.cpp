@@ -51,6 +51,8 @@ namespace PerfLog
 		std::atomic<uint64> pipelineUs{};
 		std::atomic<uint64> pipelineSyncUs{};
 		std::atomic<uint64> gpuBusyNs{};
+		std::atomic<uint64> renderPasses{};
+		std::atomic<uint64> draws{};
 	};
 	static uint64 s_gpuLastEndNs = 0; // only touched by the render thread
 
@@ -329,7 +331,7 @@ namespace PerfLog
 			freqHeader += fmt::format(",cpu{}_mhz", i);
 		seconds << "t_s,frames,fps,ft_avg_ms,ft_p99_ms,low1_fps,ft_max_ms,"
 				   "shaders,shaders_cached,shaders_failed,shader_ms,"
-				   "pipelines,pipelines_sync,pipelines_failed,pipeline_ms,pipeline_sync_ms,gpu_busy_ms,"
+				   "pipelines,pipelines_sync,pipelines_failed,pipeline_ms,pipeline_sync_ms,gpu_busy_ms,render_passes,draws,"
 				   "cpu_process_pct,rss_mb" << freqHeader << "\n";
 		threads << "t_s,tid,name,cpu_pct\n";
 		frames << "t_ms,ft_ms\n";
@@ -414,10 +416,12 @@ namespace PerfLog
 
 			std::string freqs = ReadCpuFreqs(cpuCount);
 			const uint64 gpuBusyNs = s_counters.gpuBusyNs.exchange(0);
-			seconds << fmt::format("{:.0f},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{},{},{},{:.1f},{},{},{},{:.1f},{:.1f},{:.1f},{:.1f},{}{}{}\n",
+			const uint64 renderPasses = s_counters.renderPasses.exchange(0);
+			const uint64 draws = s_counters.draws.exchange(0);
+			seconds << fmt::format("{:.0f},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{},{},{},{:.1f},{},{},{},{:.1f},{:.1f},{:.1f},{},{},{:.1f},{}{}{}\n",
 								   tS, n, fps, ftAvg, ftP99, low1, ftMax,
 								   shaders, shadersCached, shadersFailed, shaderUs / 1000.0,
-								   pipelines, pipelinesSync, pipelinesFailed, pipelineUs / 1000.0, pipelineSyncUs / 1000.0, gpuBusyNs / 1e6,
+								   pipelines, pipelinesSync, pipelinesFailed, pipelineUs / 1000.0, pipelineSyncUs / 1000.0, gpuBusyNs / 1e6, renderPasses, draws,
 								   processPct, ReadRssMb(), cpuCount ? "," : "", freqs);
 			seconds.flush();
 			threads.flush();
@@ -457,6 +461,8 @@ namespace PerfLog
 		s_counters.pipelineUs = 0;
 		s_counters.pipelineSyncUs = 0;
 		s_counters.gpuBusyNs = 0;
+		s_counters.renderPasses = 0;
+		s_counters.draws = 0;
 		s_gpuLastEndNs = 0;
 		{
 			std::scoped_lock lock(s_frameMutex);
@@ -493,6 +499,18 @@ namespace PerfLog
 		std::scoped_lock lock(s_jitMutex);
 		s_jitMap.close();
 		s_jitFail.close();
+	}
+
+	void RenderPassBegin()
+	{
+		if (IsActive())
+			s_counters.renderPasses.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void DrawCall()
+	{
+		if (IsActive())
+			s_counters.draws.fetch_add(1, std::memory_order_relaxed);
 	}
 
 	void GpuWork(uint64 startNs, uint64 endNs)
