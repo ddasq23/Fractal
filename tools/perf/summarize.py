@@ -106,7 +106,8 @@ def read_clocks(path, t_from, t_to):
     if not rows:
         return "–"
     avg = lambda k: sum(float(r[k]) for r in rows) / len(rows)
-    return f"{avg('gpu_mhz'):.0f}/{avg('gpu_max_mhz'):.0f} MHz, CPU máx {avg('big_cpu_max_mhz'):.0f}, {max(float(r['battery_c']) for r in rows):.0f} °C"
+    skin = f", carcaça {max(float(r['skin_c']) for r in rows):.0f} °C" if rows[0].get("skin_c") not in (None, "", "0") else ""
+    return f"{avg('gpu_mhz'):.0f}/{avg('gpu_max_mhz'):.0f} MHz, CPU máx {avg('big_cpu_max_mhz'):.0f}, {max(float(r['battery_c']) for r in rows):.0f} °C{skin}"
 
 
 def main():
