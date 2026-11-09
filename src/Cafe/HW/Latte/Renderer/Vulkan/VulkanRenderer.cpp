@@ -1799,7 +1799,9 @@ void VulkanRenderer::CreateCommandBuffers()
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandBufferCount = (uint32_t)m_commandBuffers.size();
 
-	const VkResult result = vkAllocateCommandBuffers(m_logicalDevice, &allocInfo, m_commandBuffers.data());
+	VkResult result = vkAllocateCommandBuffers(m_logicalDevice, &allocInfo, m_commandBuffers.data());
+	if (result == VK_SUCCESS)
+		result = vkAllocateCommandBuffers(m_logicalDevice, &allocInfo, m_prologueCommandBuffers.data());
 	if (result != VK_SUCCESS)
 	{
 		cemuLog_log(LogType::Force, "Failed to allocate command buffers: {}", result);
@@ -2492,6 +2494,16 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &m_state.currentCommandBuffer;
+	VkCommandBuffer cmdBufArray[2];
+	if (m_prologueBegun)
+	{
+		vkEndCommandBuffer(m_prologueCommandBuffers[m_commandBufferIndex]);
+		cmdBufArray[0] = m_prologueCommandBuffers[m_commandBufferIndex];
+		cmdBufArray[1] = m_state.currentCommandBuffer;
+		submitInfo.commandBufferCount = 2;
+		submitInfo.pCommandBuffers = cmdBufArray;
+		m_prologueBegun = false;
+	}
 
 	// signal current command buffer semaphore
 	VkSemaphore signalSemArray[2];
@@ -3658,6 +3670,7 @@ void VulkanRenderer::DrawBackbufferQuad(LatteTextureView* texView, RendererOutpu
 		return;
 
 	LatteTextureViewVk* texViewVk = (LatteTextureViewVk*)texView;
+	static_cast<LatteTextureVk*>(texViewVk->baseTexture)->MarkUsedInCurrentCommandBuffer();
 	draw_endRenderPass();
 
 	// barrier for input texture
@@ -3682,6 +3695,7 @@ void VulkanRenderer::DrawBackbufferQuadTwoPass(LatteTextureView* texView, Render
 		return;
 
 	LatteTextureViewVk* texViewVk = (LatteTextureViewVk*)texView;
+	static_cast<LatteTextureVk*>(texViewVk->baseTexture)->MarkUsedInCurrentCommandBuffer();
 	draw_endRenderPass();
 
 	OutputPassTarget& target = outputPass_getTarget(padView, (uint32)imageWidth, (uint32)imageHeight);
@@ -4219,10 +4233,35 @@ void VulkanRenderer::texture_clearDepthSlice(LatteTexture* hostTexture, uint32 s
 void VulkanRenderer::texture_loadSlice(LatteTexture* hostTexture, sint32 width, sint32 height, sint32 depth, void* pixelData, sint32 sliceIndex, sint32 mipIndex, uint32 compressedImageSize)
 {
 	auto vkTexture = (LatteTextureVk*)hostTexture;
-	auto vkImageObj = vkTexture->GetImageObj();
+	auto vkImageObj = vkTexture->GetImageObjUntracked();
 	vkImageObj->flagForCurrentCommandBuffer();
 
-	draw_endRenderPass(PerfLog::RenderPassEnd::TextureUpload);
+	// Inside a render pass the upload would end it. If nothing recorded so far in this command buffer uses the image,
+	// the upload can run before all of it instead: record it into the prologue command buffer, submitted first
+	static const bool s_usePrologue = PerfLog::Tunable("upload_prologue", 1) != 0;
+	const bool inPrologue = s_usePrologue && m_state.activeRenderpassFBO && !vkTexture->IsUsedInCurrentCommandBuffer();
+	VkCommandBuffer mainCommandBuffer = m_state.currentCommandBuffer;
+	if (inPrologue)
+	{
+		VkCommandBuffer prologue = m_prologueCommandBuffers[m_commandBufferIndex];
+		if (!m_prologueBegun)
+		{
+			vkResetCommandBuffer(prologue, 0);
+			VkCommandBufferBeginInfo beginInfo{};
+			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+			vkBeginCommandBuffer(prologue, &beginInfo);
+			m_prologueBegun = true;
+		}
+		m_state.currentCommandBuffer = prologue;
+		m_recordingPrologue = true;
+		PerfLog::TextureUploadInPrologue();
+	}
+	else
+	{
+		vkTexture->MarkUsedInCurrentCommandBuffer();
+		draw_endRenderPass(PerfLog::RenderPassEnd::TextureUpload);
+	}
 
 	VkMemoryRequirements memRequirements;
 	vkGetImageMemoryRequirements(m_logicalDevice, vkImageObj->m_image, &memRequirements);
@@ -4317,6 +4356,12 @@ void VulkanRenderer::texture_loadSlice(LatteTexture* hostTexture, sint32 width, 
 	vkCmdCopyBufferToImage(m_state.currentCommandBuffer, uploadResv.vkBuffer, vkImageObj->m_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageRegionCount, imageRegion);
 
 	barrier_image<ANY_TRANSFER, ANY_TRANSFER | IMAGE_READ | IMAGE_WRITE>(vkTexture, barrierSubresourceRange, vkTexture->GetDefaultLayout());
+
+	if (inPrologue)
+	{
+		m_state.currentCommandBuffer = mainCommandBuffer;
+		m_recordingPrologue = false;
+	}
 }
 
 LatteTexture* VulkanRenderer::texture_createTextureEx(Latte::E_DIM dim, MPTR physAddress, MPTR physMipAddress, Latte::E_GX2SURFFMT format, uint32 width, uint32 height, uint32 depth, uint32 pitch, uint32 mipLevels,

@@ -147,3 +147,15 @@ void LatteTextureVk::AllocateOnHost()
 	auto allocationInfo = VulkanRenderer::GetInstance()->GetMemoryManager()->imageMemoryAllocate(GetImageObj()->m_image);
 	vkObjTex->m_allocation = allocationInfo;
 }
+
+void LatteTextureVk::MarkUsedInCurrentCommandBuffer() const
+{
+	if (VulkanRenderer::GetInstance()->IsRecordingPrologue())
+		return; // the prologue runs before everything in the current command buffer
+	m_lastUseCmdBufferId = VulkanRenderer::GetInstance()->GetCurrentCommandBufferId() + 1;
+}
+
+bool LatteTextureVk::IsUsedInCurrentCommandBuffer() const
+{
+	return m_lastUseCmdBufferId == VulkanRenderer::GetInstance()->GetCurrentCommandBufferId() + 1;
+}

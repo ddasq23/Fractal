@@ -66,6 +66,7 @@ namespace PerfLog
 		std::atomic<uint64> bufferRenameBytes{};
 		std::atomic<uint64> bufferRenameSkipped[4]{};
 		std::atomic<uint64> imageCopiesViaBuffer{};
+		std::atomic<uint64> uploadsInPrologue{};
 		std::atomic<uint64> renderPassRestarts[(size_t)RenderPassEnd::Count]{};
 		std::atomic<uint64> textureReadbacks{};
 	};
@@ -347,7 +348,7 @@ namespace PerfLog
 		seconds << "t_s,frames,fps,ft_avg_ms,ft_p99_ms,low1_fps,ft_max_ms,"
 				   "shaders,shaders_cached,shaders_failed,shader_ms,"
 				   "pipelines,pipelines_sync,pipelines_failed,pipeline_ms,pipeline_sync_ms,gpu_busy_ms,render_passes,draws,"
-				   "rpe_other,rpe_fbo,rpe_buffer_upload,rpe_buffer_copy,rpe_texture_upload,rpe_clear,rpe_copy,rpe_readback,rpe_query,rpe_submit,rpe_self_dependency,buffer_uploads_direct,barriers,gpu_wait_ms,readbacks,selfdep_kept,selfdep_other_subresource,selfdep_color,selfdep_depth,selfdep_why_drawwrites,selfdep_why_passwrote,selfdep_why_otherbarrier,selfdep_why_vertex,upload_fb_blocked,upload_fb_current,upload_fb_inflight,buffer_renames,buffer_rename_kb,rename_skip_streamout,rename_skip_size,rename_skip_heap,rename_skip_busy,copies_via_buffer,"
+				   "rpe_other,rpe_fbo,rpe_buffer_upload,rpe_buffer_copy,rpe_texture_upload,rpe_clear,rpe_copy,rpe_readback,rpe_query,rpe_submit,rpe_self_dependency,buffer_uploads_direct,barriers,gpu_wait_ms,readbacks,selfdep_kept,selfdep_other_subresource,selfdep_color,selfdep_depth,selfdep_why_drawwrites,selfdep_why_passwrote,selfdep_why_otherbarrier,selfdep_why_vertex,upload_fb_blocked,upload_fb_current,upload_fb_inflight,buffer_renames,buffer_rename_kb,rename_skip_streamout,rename_skip_size,rename_skip_heap,rename_skip_busy,copies_via_buffer,uploads_prologue,"
 				   "rs_other,rs_fbo,rs_buffer_upload,rs_buffer_copy,rs_texture_upload,rs_clear,rs_copy,rs_readback,rs_query,rs_submit,rs_self_dependency,"
 				   "cpu_process_pct,rss_mb" << freqHeader << "\n";
 		threads << "t_s,tid,name,cpu_pct\n";
@@ -453,6 +454,7 @@ namespace PerfLog
 			for (auto& c : s_counters.bufferRenameSkipped)
 				passEnds += fmt::format("{},", c.exchange(0));
 			passEnds += fmt::format("{},", s_counters.imageCopiesViaBuffer.exchange(0));
+			passEnds += fmt::format("{},", s_counters.uploadsInPrologue.exchange(0));
 			for (auto& c : s_counters.renderPassRestarts)
 				passEnds += fmt::format("{},", c.exchange(0));
 			seconds << fmt::format("{:.0f},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{},{},{},{:.1f},{},{},{},{:.1f},{:.1f},{:.1f},{},{},{}{:.1f},{}{}{}\n",
@@ -519,6 +521,7 @@ namespace PerfLog
 		for (auto& c : s_counters.bufferRenameSkipped)
 			c = 0;
 		s_counters.imageCopiesViaBuffer = 0;
+		s_counters.uploadsInPrologue = 0;
 		for (auto& c : s_counters.renderPassRestarts)
 			c = 0;
 		s_gpuLastEndNs = 0;
@@ -648,6 +651,12 @@ namespace PerfLog
 	{
 		if (IsActive())
 			s_counters.imageCopiesViaBuffer.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void TextureUploadInPrologue()
+	{
+		if (IsActive())
+			s_counters.uploadsInPrologue.fetch_add(1, std::memory_order_relaxed);
 	}
 
 	void BufferCacheRename(uint32 bytes)

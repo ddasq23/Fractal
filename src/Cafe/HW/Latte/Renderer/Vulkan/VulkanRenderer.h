@@ -266,6 +266,7 @@ public:
 
 	// command buffer synchronization
 	uint64 GetCurrentCommandBufferId() const;
+	bool IsRecordingPrologue() const { return m_recordingPrologue; }
 	bool HasCommandBufferFinished(uint64 commandBufferId) const;
 	void WaitCommandBufferFinished(uint64 commandBufferId);
 
@@ -585,6 +586,7 @@ private:
 	void draw_prepareDynamicOffsetsForDescriptorSet(uint32 shaderStageIndex, uint32* dynamicOffsets, sint32& numDynOffsets, const PipelineInfo* pipeline_info);
 	VkDescriptorSetInfo* draw_getOrCreateDescriptorSet(PipelineInfo* pipeline_info, LatteDecompilerShader* shader);
 	void draw_prepareDescriptorSets(PipelineInfo* pipeline_info, VkDescriptorSetInfo*& vertexDS, VkDescriptorSetInfo*& pixelDS, VkDescriptorSetInfo*& geometryDS);
+	void MarkSampledTexturesUsed();
 	void draw_handleSpecialState5();
 
 	// draw synchronization helper
@@ -741,6 +743,11 @@ private:
 	std::array<size_t, kCommandBufferPoolSize> m_cmdBufferUniformRingbufIndices {}; // read index in the uniform ringbuffer after the command buffer finishes
 	std::array<VkFence, kCommandBufferPoolSize> m_cmdBufferFences;
 	std::array<VkCommandBuffer, kCommandBufferPoolSize> m_commandBuffers;
+	// per slot, submitted right before the main command buffer: texture uploads for images the main one has not used yet
+	// go here, so they don't end the active render pass
+	std::array<VkCommandBuffer, kCommandBufferPoolSize> m_prologueCommandBuffers;
+	bool m_prologueBegun{};
+	bool m_recordingPrologue{};
 	std::array<VkSemaphore, kCommandBufferPoolSize> m_commandBufferSemaphores;
 
 	// GPU time per command buffer for the performance log (two timestamps per command buffer)

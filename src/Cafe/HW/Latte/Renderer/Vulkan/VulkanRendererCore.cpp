@@ -1318,6 +1318,8 @@ void VulkanRenderer::draw_setRenderPass()
 
 	sync_RenderPassLoadTextures(fboVk);
 	PassProfileBeginPass(fboVk);
+	for (LatteTexture* tex : fboVk->GetTextures())
+		static_cast<LatteTextureVk*>(tex)->MarkUsedInCurrentCommandBuffer();
 	if (fboVk == m_state.lastEndedFbo)
 		PerfLog::RenderPassRestarted(m_state.lastEndReason);
 
@@ -1548,6 +1550,15 @@ void VulkanRenderer::draw_beginSequence()
 
 // diagnostics: perf/tuning.txt skip_ps1..skip_ps4=<pixel shader base hash, decimal> drop the draws of those shaders,
 // to measure what they cost
+// the draw samples the textures of the bound descriptor sets: a later upload to them can't move ahead of this command buffer
+void VulkanRenderer::MarkSampledTexturesUsed()
+{
+	for (VkDescriptorSetInfo* ds : { m_state.activeVertexDS, m_state.activeGeometryDS, m_state.activePixelDS })
+		if (ds)
+			for (LatteTextureViewVk* view : ds->list_referencedViews)
+				static_cast<LatteTextureVk*>(view->baseTexture)->MarkUsedInCurrentCommandBuffer();
+}
+
 static bool DiagSkipDraw()
 {
 	static const sint64 s_skip[4] = { PerfLog::Tunable("skip_ps1", 0), PerfLog::Tunable("skip_ps2", 0), PerfLog::Tunable("skip_ps3", 0), PerfLog::Tunable("skip_ps4", 0) };
@@ -1723,6 +1734,7 @@ void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, 
 		vkCmdBindDescriptorSets(m_state.currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkObjPipeline->m_pipelineLayout, 2, 1, &geometryDS->m_vkObjDescriptorSet->descriptorSet, numDynOffsets, dynamicOffsets);
 	}
 	// draw
+	MarkSampledTexturesUsed();
 	if (!DiagSkipDraw())
 	{
 		if (hostIndexType != INDEX_TYPE::NONE)
@@ -1950,6 +1962,7 @@ void VulkanRenderer::draw_execute_continued(uint32 baseVertex, uint32 baseInstan
 	}
 
 	// draw
+	MarkSampledTexturesUsed();
 	if (!DiagSkipDraw())
 	{
 		if (hostIndexType != INDEX_TYPE::NONE)

@@ -16,7 +16,12 @@ public:
 
 	void AllocateOnHost() override;
 
-	VKRObjectTexture* GetImageObj() const { return vkObjTex; };
+	// every command that touches the image gets it through here, so this also records that the current command buffer uses it
+	VKRObjectTexture* GetImageObj() const { MarkUsedInCurrentCommandBuffer(); return vkObjTex; };
+	VKRObjectTexture* GetImageObjUntracked() const { return vkObjTex; };
+
+	void MarkUsedInCurrentCommandBuffer() const;
+	bool IsUsedInCurrentCommandBuffer() const;
 	
 	VkFormat GetFormat() const { return vkObjTex->m_format; }
 	VkImageAspectFlags GetImageAspect() const { return vkObjTex->m_imageAspect; }
@@ -100,4 +105,6 @@ private:
 	std::vector<VkImageLayout> m_layouts;
 	uint32 m_layoutsMips;
 	uint32 m_layoutsDepth;
+private:
+	mutable uint64 m_lastUseCmdBufferId{}; // id + 1 of the last command buffer that used the image, 0 if none
 };
