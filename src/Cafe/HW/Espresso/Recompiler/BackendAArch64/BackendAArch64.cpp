@@ -407,6 +407,8 @@ void AArch64GenContext_t::r_name(IMLInstruction* imlInstruction)
 				ldr(regR, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, spr.CTR)));
 			else if (sprIndex == SPR_XER)
 				ldr(regR, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, spr.XER)));
+			else if (sprIndex == SPR_UPIR)
+				ldr(regR, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, spr.UPIR)));
 			else if (sprIndex >= SPR_UGQR0 && sprIndex <= SPR_UGQR7)
 				ldr(regR, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, spr.UGQR) + sizeof(PPCInterpreter_t::spr.UGQR[0]) * (sprIndex - SPR_UGQR0)));
 			else

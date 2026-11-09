@@ -446,6 +446,12 @@ bool PPCRecompilerImlGen_MFSPR(ppcImlGenContext_t* ppcImlGenContext, uint32 opco
 		IMLReg sprReg = PPCRecompilerImlGen_loadRegister(ppcImlGenContext, PPCREC_NAME_SPR0 + spr);
 		ppcImlGenContext->emitInst().make_r_r(IMLOperation::OP_ASSIGN, gprReg, sprReg);
 	}
+	else if (spr == SPR_UPIR)
+	{
+		// core index: compiled code is shared by all cores, so it is read from the current hCPU (read-only)
+		IMLReg sprReg = PPCRecompilerImlGen_loadRegister(ppcImlGenContext, PPCREC_NAME_SPR0 + spr);
+		ppcImlGenContext->emitInst().make_r_r(IMLOperation::OP_ASSIGN, gprReg, sprReg);
+	}
 	else
 		return false;
 	return true;

@@ -1198,6 +1198,8 @@ void PPCRecompilerX64Gen_imlInstruction_r_name(PPCRecFunction_t* PPCRecFunction,
 				x64Emit_mov_reg64_mem32(x64GenContext, regR, REG_RESV_HCPU, offsetof(PPCInterpreter_t, spr.CTR));
 			else if (sprIndex == SPR_XER)
 				x64Emit_mov_reg64_mem32(x64GenContext, regR, REG_RESV_HCPU, offsetof(PPCInterpreter_t, spr.XER));
+			else if (sprIndex == SPR_UPIR)
+				x64Emit_mov_reg64_mem32(x64GenContext, regR, REG_RESV_HCPU, offsetof(PPCInterpreter_t, spr.UPIR));
 			else if (sprIndex >= SPR_UGQR0 && sprIndex <= SPR_UGQR7)
 			{
 				sint32 memOffset = offsetof(PPCInterpreter_t, spr.UGQR) + sizeof(PPCInterpreter_t::spr.UGQR[0]) * (sprIndex - SPR_UGQR0);
