@@ -56,3 +56,5 @@ bin/graphicPacks/*
 
 # Ignore Finder view option files created by OS X
 .DS_Store
+# python bytecode of tools/
+__pycache__/
