@@ -221,7 +221,7 @@ void IMLDebug_DisassembleInstruction(const IMLInstruction& inst, std::string& di
 			else
 				strOutput.add(".ps0");
 		}
-		else if (inst.op_r_name.name >= PPCREC_NAME_SPR0 && inst.op_r_name.name < (PPCREC_NAME_SPR0 + 999))
+		else if (inst.op_r_name.name >= PPCREC_NAME_SPR0 && inst.op_r_name.name < (PPCREC_NAME_SPR0 + 1024))
 		{
 			strOutput.addFmt("spr{}", inst.op_r_name.name - PPCREC_NAME_SPR0);
 		}

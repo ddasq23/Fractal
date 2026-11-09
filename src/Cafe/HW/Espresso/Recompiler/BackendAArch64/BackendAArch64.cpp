@@ -398,7 +398,7 @@ void AArch64GenContext_t::r_name(IMLInstruction* imlInstruction)
 		{
 			ldr(regR, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, gpr) + sizeof(uint32) * (name - PPCREC_NAME_R0)));
 		}
-		else if (name >= PPCREC_NAME_SPR0 && name < PPCREC_NAME_SPR0 + 999)
+		else if (name >= PPCREC_NAME_SPR0 && name < PPCREC_NAME_SPR0 + 1024)
 		{
 			uint32 sprIndex = (name - PPCREC_NAME_SPR0);
 			if (sprIndex == SPR_LR)
@@ -481,7 +481,7 @@ void AArch64GenContext_t::name_r(IMLInstruction* imlInstruction)
 		{
 			str(regR, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, gpr) + sizeof(uint32) * (name - PPCREC_NAME_R0)));
 		}
-		else if (name >= PPCREC_NAME_SPR0 && name < PPCREC_NAME_SPR0 + 999)
+		else if (name >= PPCREC_NAME_SPR0 && name < PPCREC_NAME_SPR0 + 1024)
 		{
 			uint32 sprIndex = (name - PPCREC_NAME_SPR0);
 			if (sprIndex == SPR_LR)

@@ -1189,7 +1189,7 @@ void PPCRecompilerX64Gen_imlInstruction_r_name(PPCRecFunction_t* PPCRecFunction,
 		{
 			x64Emit_mov_reg64_mem32(x64GenContext, regR, REG_RESV_HCPU, offsetof(PPCInterpreter_t, gpr) + sizeof(uint32) * (name - PPCREC_NAME_R0));
 		}
-		else if (name >= PPCREC_NAME_SPR0 && name < PPCREC_NAME_SPR0 + 999)
+		else if (name >= PPCREC_NAME_SPR0 && name < PPCREC_NAME_SPR0 + 1024)
 		{
 			sint32 sprIndex = (name - PPCREC_NAME_SPR0);
 			if (sprIndex == SPR_LR)
@@ -1269,7 +1269,7 @@ void PPCRecompilerX64Gen_imlInstruction_name_r(PPCRecFunction_t* PPCRecFunction,
 		{
 			x64Emit_mov_mem32_reg64(x64GenContext, REG_RESV_HCPU, offsetof(PPCInterpreter_t, gpr) + sizeof(uint32) * (name - PPCREC_NAME_R0), regR);
 		}
-		else if (name >= PPCREC_NAME_SPR0 && name < PPCREC_NAME_SPR0 + 999)
+		else if (name >= PPCREC_NAME_SPR0 && name < PPCREC_NAME_SPR0 + 1024)
 		{
 			uint32 sprIndex = (name - PPCREC_NAME_SPR0);
 			if (sprIndex == SPR_LR)
