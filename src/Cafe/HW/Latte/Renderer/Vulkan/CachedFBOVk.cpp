@@ -1,3 +1,4 @@
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/CachedFBOVk.h"
@@ -230,7 +231,45 @@ CachedFBOVk::RendertargetSelfDependencyMask CachedFBOVk::CheckForSelfDependency(
 		return aspectMask;
 	};
 
+	// Same base texture is not enough for a hazard: mip chains (bloom, downsampling) render into mip N while sampling mip N-1
+	// of the same texture. Only count sampled views whose mips and slices overlap an attachment (selfdep_subresource=0: old check)
+	static const bool s_subresource = PerfLog::Tunable("selfdep_subresource", 1) != 0;
+	auto overlaps = [](const LatteTextureView* a, const LatteTextureView* b) -> bool
+	{
+		return a->baseTexture == b->baseTexture &&
+			a->firstMip < b->firstMip + b->numMip && b->firstMip < a->firstMip + a->numMip &&
+			a->firstSlice < b->firstSlice + b->numSlice && b->firstSlice < a->firstSlice + a->numSlice;
+	};
+	auto getSubresourceSelfDependencyMask = [&](VkDescriptorSetInfo* ds) -> VkImageAspectFlags
+	{
+		VkImageAspectFlags aspectMask = 0;
+		if (!ds)
+			return aspectMask;
+		for (auto& view : ds->list_referencedViews)
+		{
+			if (static_cast<LatteTextureVk*>(view->baseTexture)->m_selfDependencyCheckIndex != curColIndex)
+				continue; // not an attachment of this FBO
+			for (auto& colorAttachment : colorBuffer)
+				if (colorAttachment.texture && overlaps(view, colorAttachment.texture))
+					aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
+			if (depthBuffer.texture && overlaps(view, depthBuffer.texture))
+				aspectMask |= depthBuffer.hasStencil ? (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) : VK_IMAGE_ASPECT_DEPTH_BIT;
+		}
+		return aspectMask;
+	};
+
 	RendertargetSelfDependencyMask selfDepInfo{};
+	if (s_subresource)
+	{
+		VkImageAspectFlags vertexAspectFlags = getSubresourceSelfDependencyMask(vsDS);
+		VkImageAspectFlags geometryAspectFlags = getSubresourceSelfDependencyMask(gsDS);
+		VkImageAspectFlags pixelAspectFlags = getSubresourceSelfDependencyMask(psDS);
+		selfDepInfo.aspectMaskFlags = vertexAspectFlags | geometryAspectFlags | pixelAspectFlags;
+		selfDepInfo.hasNonPixelSelfDependency = (vertexAspectFlags | geometryAspectFlags) != 0;
+		if (selfDepInfo.aspectMaskFlags == 0 && (getSelfDependencyMask(vsDS) | getSelfDependencyMask(gsDS) | getSelfDependencyMask(psDS)) != 0)
+			PerfLog::SelfDependencyOtherSubresource();
+		return selfDepInfo;
+	}
 	VkImageAspectFlags vertexAspectFlags = getSelfDependencyMask(vsDS);
 	VkImageAspectFlags geometryAspectFlags = getSelfDependencyMask(gsDS);
 	VkImageAspectFlags pixelAspectFlags = getSelfDependencyMask(psDS);

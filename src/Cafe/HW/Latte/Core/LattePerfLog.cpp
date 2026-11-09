@@ -55,6 +55,13 @@ namespace PerfLog
 		std::atomic<uint64> draws{};
 		std::atomic<uint64> renderPassEnds[(size_t)RenderPassEnd::Count]{};
 		std::atomic<uint64> bufferUploadsDirect{};
+		std::atomic<uint64> pipelineBarriers{};
+		std::atomic<uint64> gpuWaitNs{};
+		std::atomic<uint64> selfDependencyKept{};
+		std::atomic<uint64> selfDependencyOtherSubresource{};
+		std::atomic<uint64> selfDependencyColor{}, selfDependencyDepth{};
+		std::atomic<uint64> selfDependencyReasons[4]{};
+		std::atomic<uint64> textureReadbacks{};
 	};
 	static uint64 s_gpuLastEndNs = 0; // only touched by the render thread
 
@@ -334,7 +341,7 @@ namespace PerfLog
 		seconds << "t_s,frames,fps,ft_avg_ms,ft_p99_ms,low1_fps,ft_max_ms,"
 				   "shaders,shaders_cached,shaders_failed,shader_ms,"
 				   "pipelines,pipelines_sync,pipelines_failed,pipeline_ms,pipeline_sync_ms,gpu_busy_ms,render_passes,draws,"
-				   "rpe_other,rpe_fbo,rpe_buffer_upload,rpe_buffer_copy,rpe_texture_upload,rpe_clear,rpe_copy,rpe_readback,rpe_query,rpe_submit,rpe_self_dependency,buffer_uploads_direct,"
+				   "rpe_other,rpe_fbo,rpe_buffer_upload,rpe_buffer_copy,rpe_texture_upload,rpe_clear,rpe_copy,rpe_readback,rpe_query,rpe_submit,rpe_self_dependency,buffer_uploads_direct,barriers,gpu_wait_ms,readbacks,selfdep_kept,selfdep_other_subresource,selfdep_color,selfdep_depth,selfdep_why_drawwrites,selfdep_why_passwrote,selfdep_why_otherbarrier,selfdep_why_vertex,"
 				   "cpu_process_pct,rss_mb" << freqHeader << "\n";
 		threads << "t_s,tid,name,cpu_pct\n";
 		frames << "t_ms,ft_ms\n";
@@ -425,6 +432,14 @@ namespace PerfLog
 			for (auto& c : s_counters.renderPassEnds)
 				passEnds += fmt::format("{},", c.exchange(0));
 			passEnds += fmt::format("{},", s_counters.bufferUploadsDirect.exchange(0));
+			passEnds += fmt::format("{},", s_counters.pipelineBarriers.exchange(0));
+			passEnds += fmt::format("{:.1f},", s_counters.gpuWaitNs.exchange(0) / 1e6);
+			passEnds += fmt::format("{},", s_counters.textureReadbacks.exchange(0));
+			passEnds += fmt::format("{},", s_counters.selfDependencyKept.exchange(0));
+			passEnds += fmt::format("{},", s_counters.selfDependencyOtherSubresource.exchange(0));
+			passEnds += fmt::format("{},{},", s_counters.selfDependencyColor.exchange(0), s_counters.selfDependencyDepth.exchange(0));
+			for (auto& c : s_counters.selfDependencyReasons)
+				passEnds += fmt::format("{},", c.exchange(0));
 			seconds << fmt::format("{:.0f},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{},{},{},{:.1f},{},{},{},{:.1f},{:.1f},{:.1f},{},{},{}{:.1f},{}{}{}\n",
 								   tS, n, fps, ftAvg, ftP99, low1, ftMax,
 								   shaders, shadersCached, shadersFailed, shaderUs / 1000.0,
@@ -473,6 +488,15 @@ namespace PerfLog
 		for (auto& c : s_counters.renderPassEnds)
 			c = 0;
 		s_counters.bufferUploadsDirect = 0;
+		s_counters.pipelineBarriers = 0;
+		s_counters.gpuWaitNs = 0;
+		s_counters.textureReadbacks = 0;
+		s_counters.selfDependencyKept = 0;
+		s_counters.selfDependencyOtherSubresource = 0;
+		s_counters.selfDependencyColor = 0;
+		s_counters.selfDependencyDepth = 0;
+		for (auto& c : s_counters.selfDependencyReasons)
+			c = 0;
 		s_gpuLastEndNs = 0;
 		{
 			std::scoped_lock lock(s_frameMutex);
@@ -554,6 +578,52 @@ namespace PerfLog
 	{
 		if (IsActive())
 			s_counters.bufferUploadsDirect.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void GpuWait(uint64 ns)
+	{
+		if (IsActive())
+			s_counters.gpuWaitNs.fetch_add(ns, std::memory_order_relaxed);
+	}
+
+	void TextureReadbackScheduled()
+	{
+		if (IsActive())
+			s_counters.textureReadbacks.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void SelfDependencyOtherSubresource()
+	{
+		if (IsActive())
+			s_counters.selfDependencyOtherSubresource.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void SelfDependencyAspects(bool color, bool depth)
+	{
+		if (!IsActive())
+			return;
+		if (color)
+			s_counters.selfDependencyColor.fetch_add(1, std::memory_order_relaxed);
+		if (depth)
+			s_counters.selfDependencyDepth.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void SelfDependencyReason(int reason)
+	{
+		if (IsActive() && reason >= 0 && reason < 4)
+			s_counters.selfDependencyReasons[reason].fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void SelfDependencyKept()
+	{
+		if (IsActive())
+			s_counters.selfDependencyKept.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void PipelineBarrier()
+	{
+		if (IsActive())
+			s_counters.pipelineBarriers.fetch_add(1, std::memory_order_relaxed);
 	}
 
 	void DrawCall()

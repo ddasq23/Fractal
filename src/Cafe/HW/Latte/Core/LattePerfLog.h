@@ -38,6 +38,13 @@ namespace PerfLog
 	// why the renderer ended a render pass (each end costs attachment stores and loads on tiled GPUs)
 	enum class RenderPassEnd : uint8 { Other, Fbo, BufferUpload, BufferCopy, TextureUpload, Clear, Copy, Readback, Query, Submit, SelfDependency, Count };
 	void RenderPassEnded(RenderPassEnd reason);
+	void PipelineBarrier(); // render target barrier between draws
+	void SelfDependencyKept();
+	void SelfDependencyAspects(bool color, bool depth); // diagnostics: which attachment aspects self dependencies sample
+	void SelfDependencyReason(int reason); // diagnostics: why the render pass could not be kept (0..3)
+	void SelfDependencyOtherSubresource(); // sampled another mip/slice of an attachment: no longer treated as a self dependency // a draw sampled an attachment nobody wrote in this render pass: the pass was kept
+	void GpuWait(uint64 ns); // the GPU thread blocked waiting for a command buffer to finish
+	void TextureReadbackScheduled();
 	void BufferUploadDirect(); // buffer cache upload written straight into GPU memory (no copy, no render pass end)
 	void DrawCall();
 

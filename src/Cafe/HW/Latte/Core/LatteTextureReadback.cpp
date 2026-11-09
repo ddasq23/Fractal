@@ -2,6 +2,7 @@
 #include "Cafe/HW/Latte/Core/LattePerformanceMonitor.h"
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "Cafe/HW/Latte/Core/LatteTexture.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 
 #define LOG_READBACK_TIME
 
@@ -92,6 +93,7 @@ void LatteTextureReadback_Initate(LatteTextureView* textureView)
 		}
 	}
 	// queue
+	PerfLog::TextureReadbackScheduled();
 	LatteTextureReadbackQueueEntry queueEntry;
 	queueEntry.initiateTime = HighResolutionTimer().now().getTick();
 	queueEntry.textureView = textureView;

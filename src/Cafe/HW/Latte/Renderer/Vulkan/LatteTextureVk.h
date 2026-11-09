@@ -83,6 +83,7 @@ public:
 
 	uint64 m_vkFlushIndex_read{};
 	uint64 m_vkFlushIndex_write{};
+	uint64 m_vkVertexFlushIndex_write{}; // VulkanRenderer state.currentVertexFlushIndex at the time of the last write
 
 	uint32 m_selfDependencyCheckIndex{}; // used to track if texture is being both sampled and output to during drawcall
 	VkImageAspectFlags m_selfDependencyCheckAspectMask{};

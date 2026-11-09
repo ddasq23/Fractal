@@ -2417,7 +2417,9 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 	{
 		// force wait for the next command buffer
 		cemuLog_logDebug(LogType::Force, "Vulkan: Waiting for available command buffer...");
+		const auto waitStart = std::chrono::steady_clock::now();
 		WaitForNextFinishedCommandBuffer();
+		PerfLog::GpuWait(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - waitStart).count());
 	}
 	m_cmdBufferUniformRingbufIndices[nextCmdBufferIndex] = m_cmdBufferUniformRingbufIndices[m_commandBufferIndex];
 	m_commandBufferIndex = nextCmdBufferIndex;
@@ -2476,8 +2478,12 @@ void VulkanRenderer::WaitCommandBufferFinished(uint64 commandBufferId)
 {
 	if (commandBufferId == m_numSubmittedCmdBuffers)
 		SubmitCommandBuffer();
+	if (HasCommandBufferFinished(commandBufferId))
+		return;
+	const auto waitStart = std::chrono::steady_clock::now();
 	while (HasCommandBufferFinished(commandBufferId) == false)
 		WaitForNextFinishedCommandBuffer();
+	PerfLog::GpuWait(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - waitStart).count());
 }
 
 void VulkanRenderer::PipelineCacheSaveThread(size_t cache_size, fs::path filename)

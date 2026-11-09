@@ -1010,17 +1010,42 @@ void VulkanRenderer::SurfaceSync(Latte::E_COHER_CNTL coher, MPTR address, uint32
 		m_state.colorBufferSyncPending = true;
 }
 
+// Render target barriers on tiled GPUs: a barrier whose destination includes the vertex/geometry shader stages makes the
+// vertex work of the following draws wait for all earlier fragment work, so the GPU cannot overlap the vertex work of a
+// render pass with the fragment work of the previous one. Only vertex/geometry shaders that sample a render target need
+// that, so with barrier_precise the vertex stages are tracked by their own flush index and only included when needed
+static bool BarrierPrecise()
+{
+	static const bool s_precise = PerfLog::Tunable("barrier_precise", 1) != 0;
+	return s_precise;
+}
+
 void VulkanRenderer::sync_inputTexturesChanged(bool withinFeedbackLoopRenderPass)
 {
 	bool writeFlushRequired = withinFeedbackLoopRenderPass; // feedback loop still requires us to emit a barrier
+	bool vertexFlushRequired = false;
+	const bool precise = BarrierPrecise();
+	// Inside an active render pass, textures that are attachments of it can only be sampled in subresources it does not
+	// render to (overlapping ones end the pass, see CheckForSelfDependency). Their earlier writes were already made visible by
+	// the barrier at the start of the pass (sync_RenderPassLoadTextures), so they need none here; a barrier can't be recorded
+	// inside the render pass anyway
+	static const bool s_subresource = PerfLog::Tunable("selfdep_subresource", 1) != 0;
+	CachedFBOVk* insidePassFBO = (s_subresource && !withinFeedbackLoopRenderPass) ? m_state.activeRenderpassFBO : nullptr;
+	auto isAttachmentOfActivePass = [insidePassFBO](LatteTextureVk* tex) -> bool
+	{
+		if (!insidePassFBO)
+			return false;
+		auto& attachments = insidePassFBO->GetTextures();
+		return std::find(attachments.begin(), attachments.end(), static_cast<LatteTexture*>(tex)) != attachments.end();
+	};
 
 	if (m_state.activeVertexDS)
 	{
 		for (auto& tex : m_state.activeVertexDS->list_fboCandidates)
 		{
 			tex->m_vkFlushIndex_read = m_state.currentFlushIndex;
-			if (tex->m_vkFlushIndex_write == m_state.currentFlushIndex)
-				writeFlushRequired = true;
+			if ((precise ? tex->m_vkVertexFlushIndex_write == m_state.currentVertexFlushIndex : tex->m_vkFlushIndex_write == m_state.currentFlushIndex) && !isAttachmentOfActivePass(tex))
+				writeFlushRequired = vertexFlushRequired = true;
 		}
 	}
 	if (m_state.activeGeometryDS)
@@ -1028,8 +1053,8 @@ void VulkanRenderer::sync_inputTexturesChanged(bool withinFeedbackLoopRenderPass
 		for (auto& tex : m_state.activeGeometryDS->list_fboCandidates)
 		{
 			tex->m_vkFlushIndex_read = m_state.currentFlushIndex;
-			if (tex->m_vkFlushIndex_write == m_state.currentFlushIndex)
-				writeFlushRequired = true;
+			if ((precise ? tex->m_vkVertexFlushIndex_write == m_state.currentVertexFlushIndex : tex->m_vkFlushIndex_write == m_state.currentFlushIndex) && !isAttachmentOfActivePass(tex))
+				writeFlushRequired = vertexFlushRequired = true;
 		}
 	}
 	if (m_state.activePixelDS)
@@ -1037,7 +1062,7 @@ void VulkanRenderer::sync_inputTexturesChanged(bool withinFeedbackLoopRenderPass
 		for (auto& tex : m_state.activePixelDS->list_fboCandidates)
 		{
 			tex->m_vkFlushIndex_read = m_state.currentFlushIndex;
-			if (tex->m_vkFlushIndex_write == m_state.currentFlushIndex)
+			if (tex->m_vkFlushIndex_write == m_state.currentFlushIndex && !isAttachmentOfActivePass(tex))
 				writeFlushRequired = true;
 		}
 	}
@@ -1085,11 +1110,18 @@ void VulkanRenderer::sync_inputTexturesChanged(bool withinFeedbackLoopRenderPass
 		}
 
 		VkDependencyFlags dependencyFlags = withinFeedbackLoopRenderPass ? VK_DEPENDENCY_BY_REGION_BIT : 0;
+		static const bool s_fragOnly = PerfLog::Tunable("barrier_frag_only", 0) != 0;
+		const bool includesVertex = !withinFeedbackLoopRenderPass && !s_fragOnly && (!precise || vertexFlushRequired);
+		if (!includesVertex)
+			dstStage &= ~(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT);
+		PerfLog::PipelineBarrier();
 		vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, dependencyFlags, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
 		performanceMonitor.vk.numDrawBarriersPerFrame.increment();
 
 		m_state.currentFlushIndex++;
+		if (includesVertex)
+			m_state.currentVertexFlushIndex++;
 	}
 }
 
@@ -1106,6 +1138,7 @@ void VulkanRenderer::sync_RenderPassLoadTextures(CachedFBOVk* fboVk)
 
 
 		texVk->m_vkFlushIndex_write = m_state.currentFlushIndex;
+		texVk->m_vkVertexFlushIndex_write = m_state.currentVertexFlushIndex;
 		// todo - also check for write-before-write ?
 		if (texVk->m_vkFlushIndex_read == m_state.currentFlushIndex)
 			readFlushRequired = true;
@@ -1135,11 +1168,21 @@ void VulkanRenderer::sync_RenderPassLoadTextures(CachedFBOVk* fboVk)
 		dstStage |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		memoryBarrier.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
 
+		// this barrier orders the attachment writes of the new render pass after earlier attachment accesses; the vertex
+		// stages only need to be included when they have to see earlier writes, which barrier_precise tracks separately.
+		// barrier_frag_only=1 is the old unsafe experiment (drops them always)
+		static const bool s_fragOnly = PerfLog::Tunable("barrier_frag_only", 0) != 0;
+		const bool includesVertex = !s_fragOnly && !BarrierPrecise();
+		if (!includesVertex)
+			dstStage &= ~(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT);
 		vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+		PerfLog::PipelineBarrier();
 
 		performanceMonitor.vk.numDrawBarriersPerFrame.increment();
 
 		m_state.currentFlushIndex++;
+		if (includesVertex)
+			m_state.currentVertexFlushIndex++;
 	}
 }
 
@@ -1150,6 +1193,7 @@ void VulkanRenderer::sync_RenderPassStoreTextures(CachedFBOVk* fboVk)
 	{
 		LatteTextureVk* texVk = (LatteTextureVk*)tex;
 		texVk->m_vkFlushIndex_write = flushIndex;
+		texVk->m_vkVertexFlushIndex_write = m_state.currentVertexFlushIndex;
 	}
 }
 
@@ -1222,10 +1266,29 @@ void VulkanRenderer::draw_setRenderPass()
 	bool feedbackLoopHandlesSelfDependency = UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.HasSelfDependency() && !currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency();
 	bool selfDependencyNeedsPassSplit = currentSelfDependencyInfo.HasSelfDependency() && !feedbackLoopHandlesSelfDependency;
 	bool overridePassReuse = selfDependencyNeedsPassSplit && (GetConfig().vk_accurate_barriers || m_state.activePipelineInfo->neverSkipAccurateBarrier);
+	bool keptForSelfDependency = false;
+	if (overridePassReuse && m_state.activeRenderpassFBO == fboVk && currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency())
+		PerfLog::SelfDependencyReason(3); // vertex/geometry shader samples an attachment
+	if (overridePassReuse && m_state.activeRenderpassFBO == fboVk && !currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency() &&
+		draw_canKeepRenderPassForSelfDependency(fboVk, currentSelfDependencyInfo.GetAspectMask()))
+	{
+		overridePassReuse = false;
+		keptForSelfDependency = true;
+	}
 
 	if (!overridePassReuse && m_state.activeRenderpassFBO == fboVk)
 	{
-		if (m_state.descriptorSetsChanged || feedbackLoopHandlesSelfDependency)
+		if (keptForSelfDependency)
+		{
+			// nothing written the sampled attachments since the render pass began and nothing else needs a barrier
+			// (checked above): only record the reads, as sync_inputTexturesChanged would, without a barrier
+			for (VkDescriptorSetInfo* ds : { m_state.activeVertexDS, m_state.activeGeometryDS, m_state.activePixelDS })
+				if (ds)
+					for (auto& tex : ds->list_fboCandidates)
+						tex->m_vkFlushIndex_read = m_state.currentFlushIndex;
+			PerfLog::SelfDependencyKept();
+		}
+		else if (m_state.descriptorSetsChanged || feedbackLoopHandlesSelfDependency)
 			sync_inputTexturesChanged(feedbackLoopHandlesSelfDependency);
 		if (UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.GetAspectMask() != m_state.feedbackLoopImageAspect)
 		{
@@ -1261,6 +1324,7 @@ void VulkanRenderer::draw_setRenderPass()
 	}
 
 	m_state.activeRenderpassFBO = fboVk;
+	m_state.renderPassWrittenAspects = 0;
 	occlusionQuery_notifyRenderPassBegin();
 	if (UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.GetAspectMask() != m_state.feedbackLoopImageAspect)
 	{
@@ -1273,6 +1337,67 @@ void VulkanRenderer::draw_setRenderPass()
 
 	performanceMonitor.vk.numBeginRenderpassPerFrame.increment();
 	PerfLog::RenderPassBegin();
+}
+
+// Attachment aspects the current draw can write
+VkImageAspectFlags VulkanRenderer::draw_getCurrentWriteAspects(CachedFBOVk* fboVk) const
+{
+	const auto& ctx = LatteGPUState.contextNew;
+	VkImageAspectFlags aspects = 0;
+	const auto specialOp = ctx.CB_COLOR_CONTROL.get_SPECIAL_OP();
+	if (specialOp != Latte::LATTE_CB_COLOR_CONTROL::E_SPECIALOP::NORMAL && specialOp != Latte::LATTE_CB_COLOR_CONTROL::E_SPECIALOP::DISABLE)
+		return VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT; // special states (e.g. clears): assume everything
+	if (specialOp == Latte::LATTE_CB_COLOR_CONTROL::E_SPECIALOP::NORMAL && fboVk->calculateNumColorBuffers() != 0 && ctx.CB_TARGET_MASK.get_MASK() != 0)
+		aspects |= VK_IMAGE_ASPECT_COLOR_BIT;
+	if (fboVk->hasDepthBuffer())
+	{
+		if (ctx.DB_DEPTH_CONTROL.get_Z_ENABLE() && ctx.DB_DEPTH_CONTROL.get_Z_WRITE_ENABLE())
+			aspects |= VK_IMAGE_ASPECT_DEPTH_BIT;
+		if (ctx.DB_DEPTH_CONTROL.get_STENCIL_ENABLE())
+			aspects |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	}
+	return aspects;
+}
+
+// A draw that samples an attachment of the active render pass normally ends the pass (accurate barriers), so that the
+// writes of the earlier draws become visible. That is not needed when no draw of this pass has written the sampled aspects
+// and the draw itself does not write them either (e.g. soft particles reading the depth buffer with depth writes off).
+// Reading an attachment that nobody writes in GENERAL layout is valid inside the pass. BotW split its passes ~350 times per
+// frame for this, each split storing and reloading every attachment on tiled GPUs. selfdep_keep=0 in perf/tuning.txt disables
+bool VulkanRenderer::draw_canKeepRenderPassForSelfDependency(CachedFBOVk* fboVk, VkImageAspectFlags sampledAttachmentAspects)
+{
+	static const bool s_enabled = PerfLog::Tunable("selfdep_keep", 1) != 0;
+	if (!s_enabled)
+		return false;
+	PerfLog::SelfDependencyAspects((sampledAttachmentAspects & VK_IMAGE_ASPECT_COLOR_BIT) != 0, (sampledAttachmentAspects & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0);
+	if ((sampledAttachmentAspects & draw_getCurrentWriteAspects(fboVk)) != 0)
+	{
+		PerfLog::SelfDependencyReason(0); // the draw writes what it samples
+		return false;
+	}
+	if ((sampledAttachmentAspects & m_state.renderPassWrittenAspects) != 0)
+	{
+		PerfLog::SelfDependencyReason(1); // an earlier draw of the pass wrote it
+		return false;
+	}
+	// other sampled textures must not need a barrier, which can't be recorded inside the render pass
+	auto& attachments = fboVk->GetTextures();
+	for (VkDescriptorSetInfo* ds : { m_state.activeVertexDS, m_state.activeGeometryDS, m_state.activePixelDS })
+	{
+		if (!ds)
+			continue;
+		for (auto& tex : ds->list_fboCandidates)
+		{
+			if (std::find(attachments.begin(), attachments.end(), static_cast<LatteTexture*>(tex)) != attachments.end())
+				continue;
+			if (tex->m_vkFlushIndex_write == m_state.currentFlushIndex)
+			{
+				PerfLog::SelfDependencyReason(2); // another sampled texture needs a barrier
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 void VulkanRenderer::draw_endRenderPass(PerfLog::RenderPassEnd reason)
@@ -1781,6 +1906,8 @@ void VulkanRenderer::draw_execute(uint32 baseVertex, uint32 baseInstance, uint32
 		draw_execute_first(baseVertex, baseInstance, instanceCount, count, indexDataMPTR, indexType, drawcallContext);
 	else
 		draw_execute_continued(baseVertex, baseInstance, instanceCount, count, indexDataMPTR, indexType, drawcallContext);
+	if (m_state.activeRenderpassFBO)
+		m_state.renderPassWrittenAspects |= draw_getCurrentWriteAspects(m_state.activeRenderpassFBO);
 	m_state.colorBufferSyncPending = false;
 	LatteGPUState.drawCallCounter++;
 }
