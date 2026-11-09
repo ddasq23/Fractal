@@ -46,6 +46,16 @@ struct VkDescriptorSetInfo
 	uint8 statsNumStorageBuffers{ 0 };
 };
 
+// diagnostics (perf/tuning.txt): diag_color_load / diag_color_store / diag_depth_load / diag_depth_store = 1
+// turn that attachment op into DONT_CARE for every framebuffer, to measure what the attachment traffic costs.
+// The picture is wrong with them; never for normal use
+struct VkDiagAttachmentOps
+{
+	VkAttachmentLoadOp colorLoad, depthLoad;
+	VkAttachmentStoreOp colorStore, depthStore;
+	static const VkDiagAttachmentOps& Get();
+};
+
 class VkException : public std::runtime_error
 {
 public:

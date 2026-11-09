@@ -5025,8 +5025,8 @@ VKRObjectRenderPass::VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint3
 		VkAttachmentDescription entry{};
 		entry.format = attachmentInfo.colorAttachment[i].format;
 		entry.samples = VK_SAMPLE_COUNT_1_BIT;
-		entry.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-		entry.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		entry.loadOp = VkDiagAttachmentOps::Get().colorLoad;
+		entry.storeOp = VkDiagAttachmentOps::Get().colorStore;
 		entry.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		entry.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		entry.initialLayout = attachmentLayout;
@@ -5053,12 +5053,12 @@ VKRObjectRenderPass::VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint3
 		VkAttachmentDescription entry{};
 		entry.format = attachmentInfo.depthAttachment.format;
 		entry.samples = VK_SAMPLE_COUNT_1_BIT;
-		entry.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-		entry.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		entry.loadOp = VkDiagAttachmentOps::Get().depthLoad;
+		entry.storeOp = VkDiagAttachmentOps::Get().depthStore;
 		if (attachmentInfo.depthAttachment.hasStencil)
 		{
-			entry.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-			entry.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+			entry.stencilLoadOp = VkDiagAttachmentOps::Get().depthLoad;
+			entry.stencilStoreOp = VkDiagAttachmentOps::Get().depthStore;
 		}
 		else
 		{
@@ -5211,4 +5211,17 @@ VKRObjectDescriptorSet::~VKRObjectDescriptorSet()
 	auto vkr = VulkanRenderer::GetInstance();
 	vkFreeDescriptorSets(vkr->GetLogicalDevice(), vkr->GetDescriptorPool(), 1, &descriptorSet);
 	performanceMonitor.vk.numDescriptorSets.decrement();
+}
+
+const VkDiagAttachmentOps& VkDiagAttachmentOps::Get()
+{
+	static const VkDiagAttachmentOps s_ops = [] {
+		VkDiagAttachmentOps ops;
+		ops.colorLoad = PerfLog::Tunable("diag_color_load", 0) ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_LOAD;
+		ops.colorStore = PerfLog::Tunable("diag_color_store", 0) ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
+		ops.depthLoad = PerfLog::Tunable("diag_depth_load", 0) ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_LOAD;
+		ops.depthStore = PerfLog::Tunable("diag_depth_store", 0) ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
+		return ops;
+	}();
+	return s_ops;
 }

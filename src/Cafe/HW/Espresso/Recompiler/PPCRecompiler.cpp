@@ -245,6 +245,18 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 		return nullptr;
 	}
 
+	// diagnostics: perf/tuning.txt dump_ppc=<address, decimal> logs the PPC words and the final IML of the function starting there
+	static const uint32 s_dumpPPC = (uint32)PerfLog::Tunable("dump_ppc", 0);
+	if (s_dumpPPC != 0 && range.startAddress == s_dumpPPC)
+	{
+		std::string words;
+		for (uint32 a = range.startAddress; a < range.startAddress + range.length; a += 4)
+			words += fmt::format("{:08x} ", memory_readU32(a));
+		cemuLog_log(LogType::Force, "dump_ppc {:08x} len {}: {}", range.startAddress, range.length, words);
+		IMLDebug_Dump(&ppcImlGenContext);
+		cemuLog_log(LogType::Force, "dump_ppc end");
+	}
+
 #if defined(ARCH_X86_64)
 	// emit x64 code
 	bool x64GenerationSuccess = PPCRecompiler_generateX64Code(ppcRecFunc, &ppcImlGenContext);

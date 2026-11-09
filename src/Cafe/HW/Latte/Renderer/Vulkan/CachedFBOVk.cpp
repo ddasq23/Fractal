@@ -113,8 +113,8 @@ void CachedFBOVk::InitDynamicRenderingData()
 		m_vkColorAttachments[i].resolveImageView = VK_NULL_HANDLE;
 		m_vkColorAttachments[i].resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-		m_vkColorAttachments[i].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-		m_vkColorAttachments[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		m_vkColorAttachments[i].loadOp = VkDiagAttachmentOps::Get().colorLoad;
+		m_vkColorAttachments[i].storeOp = VkDiagAttachmentOps::Get().colorStore;
 
 		// ignore clearValue
 
@@ -175,14 +175,14 @@ void CachedFBOVk::InitDynamicRenderingData()
 		m_vkDepthAttachment.imageLayout = depthTexVk->GetDefaultLayout();
 		m_vkStencilAttachment.imageLayout = depthTexVk->GetDefaultLayout();
 		m_vkDepthAttachment.imageView = depthStencilView->m_textureImageView;
-		m_vkDepthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-		m_vkDepthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		m_vkDepthAttachment.loadOp = VkDiagAttachmentOps::Get().depthLoad;
+		m_vkDepthAttachment.storeOp = VkDiagAttachmentOps::Get().depthStore;
 		m_vkRenderingInfo.pDepthAttachment = &m_vkDepthAttachment;
 		if (hasStencil)
 		{
 			m_vkStencilAttachment.imageView = depthStencilView->m_textureImageView;
-			m_vkStencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-			m_vkStencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			m_vkStencilAttachment.loadOp = VkDiagAttachmentOps::Get().depthLoad;
+			m_vkStencilAttachment.storeOp = VkDiagAttachmentOps::Get().depthStore;
 			m_vkRenderingInfo.pStencilAttachment = &m_vkStencilAttachment;
 		}
 	}
