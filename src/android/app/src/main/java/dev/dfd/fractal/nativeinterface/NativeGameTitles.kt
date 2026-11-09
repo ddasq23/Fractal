@@ -58,6 +58,12 @@ object NativeGameTitles {
     @JvmStatic
     external fun setShaderMultiplicationAccuracyForTitleEnabled(gameTitleId: Long, enabled: Boolean)
 
+    @JvmStatic
+    external fun isFullSyncAtGX2DrawDoneForTitleEnabled(gameTitleId: Long): Boolean
+
+    @JvmStatic
+    external fun setFullSyncAtGX2DrawDoneForTitleEnabled(gameTitleId: Long, enabled: Boolean)
+
     object DriverSettingMode {
         const val GLOBAL: Int = 0
         const val SYSTEM: Int = 1

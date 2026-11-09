@@ -8,6 +8,8 @@
 #include "GX2.h"
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "config/ActiveSettings.h"
+#include "Cafe/GameProfile/GameProfile.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "util/helpers/ConcurrentQueue.h"
 
 namespace GX2
@@ -217,11 +219,18 @@ namespace GX2
 
 	bool GX2DrawDone()
 	{
-		// optional force full sync (texture readback and occlusion queries)
-		bool forceFullSync = false;
+		PerfLog::DrawDone();
+		// full sync: wait for texture readbacks and occlusion queries. Always on for Vulkan unless the game profile
+		// turns it off (fullSyncAtGX2DrawDone); perf/tuning.txt drawdone_sync=0/1 overrides both for A/B tests
+		bool fullSync = ActiveSettings::WaitForGX2DrawDoneEnabled();
 		if (g_renderer && g_renderer->GetType() == RendererAPI::Vulkan)
-			forceFullSync = true;
-		if (forceFullSync || ActiveSettings::WaitForGX2DrawDoneEnabled())
+			fullSync = true;
+		if (g_current_game_profile->GetFullSyncAtGX2DrawDone().has_value())
+			fullSync = g_current_game_profile->GetFullSyncAtGX2DrawDone().value();
+		static const sint64 s_drawDoneSync = PerfLog::Tunable("drawdone_sync", -1);
+		if (s_drawDoneSync >= 0)
+			fullSync = s_drawDoneSync != 0;
+		if (fullSync)
 		{
 			GX2ReserveCmdSpace(2);
 			// write PM4 command

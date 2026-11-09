@@ -248,7 +248,10 @@ void InfoLog_PrintActiveSettings()
 	cemuLog_log(LogType::Force, "CPU-Mode: {}{}", fmt::format("{}", ActiveSettings::GetCPUMode()).c_str(), g_current_game_profile->GetCPUMode().has_value() ? " (gameprofile)" : "");
 	cemuLog_log(LogType::Force, "Load shared libraries: {}{}", ActiveSettings::LoadSharedLibrariesEnabled() ? "true" : "false", g_current_game_profile->ShouldLoadSharedLibraries().has_value() ? " (gameprofile)" : "");
 	cemuLog_log(LogType::Force, "Use precompiled shaders: {}{}", fmt::format("{}", ActiveSettings::GetPrecompiledShadersOption()), g_current_game_profile->GetPrecompiledShadersState().has_value() ? " (gameprofile)" : "");
-	cemuLog_log(LogType::Force, "Full sync at GX2DrawDone: {}", ActiveSettings::WaitForGX2DrawDoneEnabled() ? "true" : "false");
+	if (g_current_game_profile->GetFullSyncAtGX2DrawDone().has_value())
+		cemuLog_log(LogType::Force, "Full sync at GX2DrawDone: {} (gameprofile)", g_current_game_profile->GetFullSyncAtGX2DrawDone().value() ? "true" : "false");
+	else
+		cemuLog_log(LogType::Force, "Full sync at GX2DrawDone: {}", ActiveSettings::WaitForGX2DrawDoneEnabled() ? "true" : "false");
 	cemuLog_log(LogType::Force, "Strict shader mul: {}", g_current_game_profile->GetAccurateShaderMul() == AccurateShaderMulOption::True ? "true" : "false");
 	if (ActiveSettings::GetGraphicsAPI() == GraphicAPI::kVulkan)
 	{

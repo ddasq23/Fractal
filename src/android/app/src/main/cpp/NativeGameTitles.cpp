@@ -102,6 +102,21 @@ Java_dev_dfd_fractal_nativeinterface_NativeGameTitles_setShaderMultiplicationAcc
 	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeGameTitles_isFullSyncAtGX2DrawDoneForTitleEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	return NativeGameTitles::g_currentGameProfile.GetFullSyncAtGX2DrawDone().value_or(true); // Vulkan syncs unless the profile says otherwise
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeGameTitles_setFullSyncAtGX2DrawDoneForTitleEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id, jboolean enabled)
+{
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	NativeGameTitles::g_currentGameProfile.SetFullSyncAtGX2DrawDone(enabled != JNI_FALSE);
+	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT jobject JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeGameTitles_getDriverSettingForTitle(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
 {

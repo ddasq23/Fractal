@@ -72,6 +72,20 @@ fun GameProfileEditScreen(
                 )
             },
         )
+        Toggle(
+            label = tr("Full sync at GX2DrawDone()"),
+            description = tr("If synchronization is requested by the game, the emulated CPU will wait for the GPU to finish all operations.\nThis is more accurate behavior, but may cause lower performance"),
+            initialCheckedState = {
+                NativeGameTitles.isFullSyncAtGX2DrawDoneForTitleEnabled(
+                    titleId
+                )
+            },
+            onCheckedChanged = { enabled ->
+                NativeGameTitles.setFullSyncAtGX2DrawDoneForTitleEnabled(
+                    titleId, enabled
+                )
+            },
+        )
         SingleSelection(
             label = tr("CPU mode"),
             initialChoice = { NativeGameTitles.getCpuModeForTitle(titleId) },
