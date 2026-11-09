@@ -48,8 +48,12 @@ def jit_lookup(ip):
     return None
 
 TIME = ("clock_gettime", "cntvct", "el0_sys", "do_sysinstr", "PPCTimer_getFromRDTSC", "steady_clock::now", "__udivmodti4")
+GPU_DSO = ("vulkan", "libgsl", "adreno", "mali", "panfrost", "freedreno")
 def category(dso, sym, ip):
-    if dso in ("unknown", "[unknown]", "") or sym.startswith("unknown"):
+    # classify by library first: vendor driver symbols are often unresolved ("unknown")
+    if any(g in dso for g in GPU_DSO): return ("GPU driver", None)
+    if dso == "[vdso]": return ("time reads", None)
+    if dso in ("unknown", "[unknown]", "") or (sym.startswith("unknown") and "libCemuAndroid" not in dso):
         j = jit_lookup(ip)
         if j and j[2] == 0:
             return ("JIT glue (" + j[3] + ")", None)
@@ -58,7 +62,6 @@ def category(dso, sym, ip):
     if "PPCInterpreter" in sym or "PPCInterpreterSlim" in sym: return ("interpreter", None)
     if "virtualHLE" in sym or "osLib_" in sym or "HLE" in sym: return ("HLE dispatch", None)
     if "kernel" in dso: return ("kernel (other)", None)
-    if "vulkan" in dso or "libgsl" in dso or "adreno" in dso or "mali" in dso or "panfrost" in dso or "freedreno" in dso: return ("GPU driver", None)
     if "libCemuAndroid" in dso: return ("Cemu (C++)", None)
     return ("libc / other libs", None)
 
