@@ -713,6 +713,10 @@ private:
 	bool m_bufferCacheDirectBlocked{ false };
 	bool bufferCache_isRangeIdle(uint32 bufferOffset, uint32 size) const;
 	void bufferCache_markInUse(uint32 bufferOffset, uint32 size) override;
+	bool bufferCache_canWriteDirect(uint32 bufferOffset, uint32 size) const override
+	{
+		return m_bufferCacheMapped && size > 0 && !m_bufferCacheDirectBlocked && bufferCache_isRangeIdle(bufferOffset, size);
+	}
 	VkBuffer m_importedMem = VK_NULL_HANDLE;
 	VkDeviceMemory m_importedMemMemory = VK_NULL_HANDLE;
 	MPTR m_importedMemBaseAddress = 0;

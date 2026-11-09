@@ -229,6 +229,17 @@ void LatteBufferCache_Sync(uint32 maxVtxIndex, uint32 baseInstance, uint32 insta
 	cemu_assert_debug(parsedFetchShader);
 	uint32 maxInstance = baseInstance + instanceCount - 1;
 
+	extern bool g_bufferCacheNodeMoved;
+	if (g_bufferCacheNodeMoved)
+	{
+		// a node moved to new GPU memory: bindings that weren't refreshed since still point to its old copy
+		g_bufferCacheNodeMoved = false;
+		attribBufferDirtyMask = 0xFFFFFFFF;
+		vsUniformBufferDirtyMask = 0xFFFFFFFF;
+		psUniformBufferDirtyMask = 0xFFFFFFFF;
+		gsUniformBufferDirtyMask = 0xFFFFFFFF;
+	}
+
 	// todo - vertex attribute offsets may eventually be allowed to change between incremental draws, we should set the attrib dirty bits in that case
 	if (isIncremental)
 	{

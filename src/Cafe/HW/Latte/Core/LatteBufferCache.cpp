@@ -2,6 +2,10 @@
 #include "util/ChunkedHeap/ChunkedHeap.h"
 #include "util/helpers/fspinlock.h"
 #include "config/ActiveSettings.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
+
+// set when a node moved to new GPU memory: bindings made before point to the old copy, so the next sync rebinds everything
+bool g_bufferCacheNodeMoved = false;
 
 #define CACHE_PAGE_SIZE		0x400
 #define CACHE_PAGE_SIZE_M1	(CACHE_PAGE_SIZE-1)
@@ -1230,7 +1234,54 @@ private:
 		// reset write tracking
 		checkAndSyncModifications(rangeBegin, rangeEnd, false);
 
+		if (tryMoveForUpload(rangeBegin, rangeEnd))
+			return;
 		g_renderer->bufferCache_upload(memory_getPointerFromPhysicalOffset(rangeBegin), rangeEnd - rangeBegin, getBufferOffset(rangeBegin));
+	}
+
+	// The GPU still reads the range that must be updated, so an upload would end the render pass to copy it in order.
+	// A small node without streamout data can instead move to a fresh allocation: all of its pages are written there
+	// directly from RAM, which is what the cache would hold after syncing them anyway. Draws already recorded keep
+	// reading the old allocation, which is released at the next full sync (after the current draw sequence).
+	bool tryMoveForUpload(MPTR uploadBegin, MPTR uploadEnd)
+	{
+		static const uint32 s_maxBytes = (uint32)PerfLog::Tunable("bufcache_rename_max_kb", 1024) * 1024;
+		static bool s_moving = false;
+		const uint32 nodeSize = m_rangeEnd - m_rangeBegin;
+		if (s_moving || !m_hasCacheAlloc || s_maxBytes == 0)
+			return false;
+		if (g_renderer->bufferCache_canWriteDirect(getBufferOffset(uploadBegin), uploadEnd - uploadBegin))
+			return false; // direct upload works
+		if (m_hasStreamoutData)
+		{
+			PerfLog::BufferCacheRenameSkipped(0);
+			return false;
+		}
+		if (nodeSize > s_maxBytes)
+		{
+			PerfLog::BufferCacheRenameSkipped(1);
+			return false;
+		}
+		uint32 newOffset;
+		if (!g_gpuBufferHeap->allocOffset(nodeSize, CACHE_PAGE_SIZE, newOffset))
+		{
+			PerfLog::BufferCacheRenameSkipped(2);
+			return false;
+		}
+		if (!g_renderer->bufferCache_canWriteDirect(newOffset, nodeSize))
+		{
+			g_gpuBufferHeap->freeOffset(newOffset); // never used
+			PerfLog::BufferCacheRenameSkipped(3);
+			return false; // also when the renderer has no direct writes
+		}
+		g_deallocateQueue.emplace_back(m_cacheOffset);
+		m_cacheOffset = newOffset;
+		s_moving = true;
+		uploadPages(0, (uint32)m_pageInfo.size());
+		s_moving = false;
+		g_bufferCacheNodeMoved = true;
+		PerfLog::BufferCacheRename(nodeSize);
+		return true;
 	}
 
 	void syncFromNode(BufferCacheNode* srcNode)
@@ -1258,6 +1309,8 @@ private:
 		uint32 uploadRangeBegin = m_rangeBegin + firstPage * CACHE_PAGE_SIZE;
 		uint32 uploadRangeEnd = m_rangeBegin + lastPagePlusOne * CACHE_PAGE_SIZE;
 		cemu_assert_debug(uploadRangeEnd > uploadRangeBegin);
+		if (tryMoveForUpload(uploadRangeBegin, uploadRangeEnd))
+			return;
 		// make sure uploaded pages and hashes match
 		uint32 numPages = lastPagePlusOne - firstPage;
 		if (s_pageUploadBuffer.size() < (numPages * CACHE_PAGE_SIZE))
