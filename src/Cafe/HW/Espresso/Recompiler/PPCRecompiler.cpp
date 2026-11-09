@@ -211,10 +211,16 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 	// generate intermediate code
 	ppcImlGenContext_t ppcImlGenContext = { 0 };
 	ppcImlGenContext.debug_entryPPCAddress = range.startAddress;
+	extern uint32 g_recompilerUnsupportedAddress, g_recompilerUnsupportedOpcode;
+	g_recompilerUnsupportedAddress = 0;
+	g_recompilerUnsupportedOpcode = 0;
 	bool compiledSuccessfully = PPCRecompiler_generateIntermediateCode(ppcImlGenContext, ppcRecFunc, entryAddresses, boundaryTracker);
 	if (compiledSuccessfully == false)
 	{
-		PerfLog::JitFailure(range.startAddress, range.length, "frontend");
+		if (g_recompilerUnsupportedAddress != 0)
+			PerfLog::JitFailure(range.startAddress, range.length, fmt::format("frontend op={:08x}@{:08x}", g_recompilerUnsupportedOpcode, g_recompilerUnsupportedAddress).c_str());
+		else
+			PerfLog::JitFailure(range.startAddress, range.length, "frontend");
 		delete ppcRecFunc;
 		return nullptr;
 	}

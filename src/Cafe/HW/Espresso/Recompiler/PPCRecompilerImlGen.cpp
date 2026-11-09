@@ -10,6 +10,10 @@
 
 bool PPCRecompiler_decodePPCInstruction(ppcImlGenContext_t* ppcImlGenContext);
 
+// last instruction the frontend could not translate (read by the performance log; recompiler thread only)
+uint32 g_recompilerUnsupportedAddress = 0;
+uint32 g_recompilerUnsupportedOpcode = 0;
+
 struct PPCBasicBlockInfo
 {
 	PPCBasicBlockInfo(uint32 startAddress, const std::set<uint32>& entryAddresses) : startAddress(startAddress), lastAddress(startAddress)
@@ -2952,6 +2956,8 @@ bool PPCIMLGen_FillBasicBlock(ppcImlGenContext_t& ppcImlGenContext, PPCBasicBloc
 		if (PPCRecompiler_decodePPCInstruction(&ppcImlGenContext))
 		{
 			cemuLog_logDebug(LogType::Force, "PPCRecompiler: Unsupported instruction at 0x{:08x}", addressOfCurrentInstruction);
+			g_recompilerUnsupportedAddress = addressOfCurrentInstruction;
+			g_recompilerUnsupportedOpcode = _swapEndianU32(*(uint32*)(memory_base + addressOfCurrentInstruction));
 			ppcImlGenContext.currentOutputSegment = nullptr;
 			return false;
 		}
