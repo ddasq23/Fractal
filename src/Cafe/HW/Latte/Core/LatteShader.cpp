@@ -3,6 +3,7 @@
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
 #include "Cafe/HW/Latte/ISA/LatteReg.h"
 #include "Cafe/HW/Latte/Core/LatteShader.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompiler.h"
 #include "Cafe/HW/Latte/Core/FetchShader.h"
 #include "Cafe/HW/Latte/Core/LattePerformanceMonitor.h"
@@ -461,7 +462,8 @@ void LatteShader_CleanupAfterCompile(LatteDecompilerShader* shader)
 
 void LatteShader_DumpShader(uint64 baseHash, uint64 auxHash, LatteDecompilerShader* shader)
 {
-	if (!ActiveSettings::DumpShadersEnabled())
+	static const bool s_dumpTunable = PerfLog::Tunable("dump_shaders", 0) != 0; // perf/tuning.txt
+	if (!ActiveSettings::DumpShadersEnabled() && !s_dumpTunable)
 		return;
 
 	const char* suffix = "";

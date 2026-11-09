@@ -828,6 +828,18 @@ VkDescriptorSetInfo* VulkanRenderer::draw_getOrCreateDescriptorSet(PipelineInfo*
 
 			samplerInfo.mipLodBias = (float)iLodBias / 64.0f;
 
+			// diagnostics: perf/tuning.txt diag_ps=<pixel shader base hash, decimal> logs what that shader samples
+			static const sint64 s_diagPs = PerfLog::Tunable("diag_ps", 0);
+			if (s_diagPs != 0 && (sint64)shader->baseHash == s_diagPs)
+			{
+				static std::atomic<int> s_diagCount{0};
+				if (s_diagCount.fetch_add(1) < 24)
+					cemuLog_log(LogType::Force, "diag_ps: unit {} tex {}x{} GX2 {:04x} Vk {} mips {} view mip {}+{} mutable {} | min {} mag {} mipmode {} aniso {} lod {:.2f}..{:.2f} bias {:.2f}",
+						relative_textureUnit, baseTexture->width, baseTexture->height, (uint32)baseTexture->format, (sint32)baseTexture->GetFormat(), baseTexture->mipLevels,
+						textureView->firstMip, textureView->numMip, baseTexture->m_isMutableFormat, (sint32)samplerInfo.minFilter, (sint32)samplerInfo.magFilter, (sint32)samplerInfo.mipmapMode,
+						samplerInfo.anisotropyEnable ? samplerInfo.maxAnisotropy : 0.0f, samplerInfo.minLod, samplerInfo.maxLod, samplerInfo.mipLodBias);
+			}
+
 			// depth compare
 			uint8 depthCompareMode = shader->textureUsesDepthCompare[relative_textureUnit] ? 1 : 0;
 			static const VkCompareOp s_vkCompareOps[]
@@ -1534,6 +1546,22 @@ void VulkanRenderer::draw_beginSequence()
 		m_state.drawSequenceSkip = true;
 }
 
+// diagnostics: perf/tuning.txt skip_ps1..skip_ps4=<pixel shader base hash, decimal> drop the draws of those shaders,
+// to measure what they cost
+static bool DiagSkipDraw()
+{
+	static const sint64 s_skip[4] = { PerfLog::Tunable("skip_ps1", 0), PerfLog::Tunable("skip_ps2", 0), PerfLog::Tunable("skip_ps3", 0), PerfLog::Tunable("skip_ps4", 0) };
+	if (s_skip[0] == 0)
+		return false;
+	LatteDecompilerShader* ps = LatteSHRC_GetActivePixelShader();
+	if (!ps)
+		return false;
+	for (sint64 h : s_skip)
+		if (h != 0 && (sint64)ps->baseHash == h)
+			return true;
+	return false;
+}
+
 void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, uint32 instanceCount, uint32 count, MPTR indexDataMPTR, Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE indexType, const LatteDrawcallContext& drawcallContext)
 {
 	if (m_state.drawSequenceSkip)
@@ -1696,9 +1724,9 @@ void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, 
 	}
 	// draw
 	if (hostIndexType != INDEX_TYPE::NONE)
-		vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
+		if (!DiagSkipDraw()) vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
 	else
-		vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
+		if (!DiagSkipDraw()) vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
 	PerfLog::DrawCall();
 	LatteStreamout_FinishDrawcall(m_useHostMemoryForCache);
 }
@@ -1920,9 +1948,9 @@ void VulkanRenderer::draw_execute_continued(uint32 baseVertex, uint32 baseInstan
 
 	// draw
 	if (hostIndexType != INDEX_TYPE::NONE)
-		vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
+		if (!DiagSkipDraw()) vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
 	else
-		vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
+		if (!DiagSkipDraw()) vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
 
 	PerfLog::DrawCall();
 	LatteStreamout_FinishDrawcall(m_useHostMemoryForCache);
