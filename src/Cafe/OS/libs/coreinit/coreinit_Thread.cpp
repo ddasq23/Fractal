@@ -4,6 +4,7 @@
 #include "Cafe/OS/libs/coreinit/coreinit_Thread.h"
 #include "Cafe/OS/libs/coreinit/coreinit_Time.h"
 #include "Cafe/OS/libs/coreinit/coreinit_Alarm.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/OS/libs/coreinit/coreinit_GHS.h"
 #include "Cafe/OS/libs/snd_core/ax.h"
 #include "Cafe/HW/Espresso/Debugger/GDBStub.h"
@@ -1281,6 +1282,21 @@ namespace coreinit
 
 	Fiber* g_idleLoopFiber[3]{};
 
+	// how long the main core's idle loop may sleep: until the next alarm, at most 250us
+	static std::chrono::microseconds __OSIdleWaitTimeout()
+	{
+		static const uint64 kMaxUs = (uint64)PerfLog::Tunable("idle_wait_max_us", 250);
+		uint64 soonest = OSHostAlarm_GetSoonestAlarmTick();
+		uint64 now = coreinit::OSGetTime();
+		if (soonest <= now)
+			return std::chrono::microseconds(0);
+		uint64 untilAlarm = soonest - now;
+		if (untilAlarm >= (uint64)EspressoTime::GetTimerClock()) // a second or more away (or no alarm at all)
+			return std::chrono::microseconds(kMaxUs);
+		uint64 untilAlarmUs = untilAlarm * 1000000ULL / EspressoTime::GetTimerClock();
+		return std::chrono::microseconds(std::min(untilAlarmUs, kMaxUs));
+	}
+
 	// idle fiber per core if no thread is runnable
 	// this is necessary since we can't block in __OSThreadSwitchToNext() (__OSStoreThread + thread switch must happen inside same scheduler lock)
 	void __OSThreadCoreIdle(void* unusedParam)
@@ -1306,6 +1322,15 @@ namespace coreinit
 				__OSCheckSystemEvents();
 				if(g_isMulticoreMode == false)
 					coreIndex = (coreIndex + 1) % 3;
+				else if (g_coreRunQueueThreadCount[coreIndex].isZero())
+				{
+					// nothing to run: sleep until a thread becomes runnable instead of spinning. The timeout keeps alarms,
+					// audio (every ~3 ms) and amiibo polling going; it is short enough not to delay them noticeably.
+					// Spinning here used to keep a fast host core busy and read the clock millions of times per second.
+					const auto timeout = __OSIdleWaitTimeout();
+					if (timeout.count() > 0)
+						g_coreRunQueueThreadCount[coreIndex].waitUntilNonZeroFor(timeout);
+				}
 			}
 			else
 			{

@@ -73,6 +73,37 @@ namespace TCL
 	std::atomic<uint32> tclRingBufferA_readIndex{0};
 	std::atomic<uint32> tclRingBufferA_writeIndex{0};
 
+	// sleeping GPU thread: woken by TCLGPUWake (seq_cst on both sides, so either the waiter sees the new token or the waker sees it sleeping)
+	static std::mutex s_gpuWakeMutex;
+	static std::condition_variable s_gpuWakeCondition;
+	static std::atomic<uint32> s_gpuWakeSeq{0};
+	static std::atomic<bool> s_gpuSleeping{false};
+
+	uint32 TCLGPUWakeToken()
+	{
+		return s_gpuWakeSeq.load(std::memory_order::seq_cst);
+	}
+
+	void TCLGPUWake()
+	{
+		s_gpuWakeSeq.fetch_add(1, std::memory_order::seq_cst);
+		if (s_gpuSleeping.load(std::memory_order::seq_cst))
+		{
+			std::lock_guard lock(s_gpuWakeMutex);
+			s_gpuWakeCondition.notify_one();
+		}
+	}
+
+	void TCLGPUWaitForWork(uint32 wakeToken, uint32 timeoutUs)
+	{
+		std::unique_lock lock(s_gpuWakeMutex);
+		s_gpuSleeping.store(true, std::memory_order::seq_cst);
+		s_gpuWakeCondition.wait_for(lock, std::chrono::microseconds(timeoutUs), [wakeToken] {
+			return s_gpuWakeSeq.load(std::memory_order::seq_cst) != wakeToken;
+		});
+		s_gpuSleeping.store(false, std::memory_order::relaxed);
+	}
+
 	// GPU code calls this to grab the next command word
 	bool TCLGPUReadRBWord(uint32& cmdWord)
 	{
@@ -115,6 +146,7 @@ namespace TCL
 		}
 
 		tclRingBufferA_writeIndex.store(writeIndex, std::memory_order::release);
+		TCLGPUWake();
 	}
 
 	#define EVENT_TYPE_TS		5

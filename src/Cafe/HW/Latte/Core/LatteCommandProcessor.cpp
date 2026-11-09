@@ -1,3 +1,4 @@
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
 #include "Cafe/OS/libs/gx2/GX2.h" // for write gatherer and special state. Get rid of dependency
 #include "Cafe/OS/libs/gx2/GX2_Event.h" // for notification callbacks
@@ -165,8 +166,16 @@ void LatteCP_signalEnterWait()
 * Read a U32 from the command buffer
 * If no data is available then wait in a busy loop
 */
+uint32 LatteTiming_GetMicrosecondsUntilNextVSync(uint32 maxUs);
+
 uint32 LatteCP_readU32Deprc()
 {
+	// spin for a few rounds (new commands usually follow quickly), then sleep until woken by new commands,
+	// another job or the next vsync. Spinning all the time kept a fast host core busy and read the clock
+	// on every round (expensive where the kernel traps counter reads)
+	static const uint32 kSpinRoundsBeforeSleep = (uint32)PerfLog::Tunable("gpu_spin_rounds", 32); // 0: never sleep
+	static const uint32 kMaxSleepUs = (uint32)PerfLog::Tunable("gpu_max_sleep_us", 1000);
+	uint32 idleRounds = 0;
 	// no display list active
 	while (true)
 	{
@@ -174,6 +183,7 @@ uint32 LatteCP_readU32Deprc()
 		if ( TCL::TCLGPUReadRBWord(cmdWord) )
 			return cmdWord;
 
+		const uint32 wakeToken = TCL::TCLGPUWakeToken(); // taken before checking the work sources, so no wake-up is lost
 		g_renderer->NotifyLatteCommandProcessorIdle(); // let the renderer know in case it wants to flush any commands
 		performanceMonitor.gpuTime_idleTime.beginMeasuring();
 		// no command data available, spin in a busy loop for a bit then check again
@@ -191,7 +201,10 @@ uint32 LatteCP_readU32Deprc()
 		// still no command data available, do some other tasks
 		LatteTiming_HandleTimedVsync();
 		LatteAsyncCommands_checkAndExecute();
-		std::this_thread::yield();
+		if (kSpinRoundsBeforeSleep == 0 || ++idleRounds < kSpinRoundsBeforeSleep)
+			std::this_thread::yield();
+		else
+			TCL::TCLGPUWaitForWork(wakeToken, LatteTiming_GetMicrosecondsUntilNextVSync(kMaxSleepUs));
 		performanceMonitor.gpuTime_idleTime.endMeasuring();
 	}
 	UNREACHABLE;

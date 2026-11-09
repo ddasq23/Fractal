@@ -152,6 +152,16 @@ void LatteTiming_NotifyHostVSync()
 	LatteTiming_signalVsync();
 }
 
+// how long the GPU thread may sleep before the next simulated vsync is due (at most maxUs)
+uint32 LatteTiming_GetMicrosecondsUntilNextVSync(uint32 maxUs)
+{
+	uint64 currentTimer = HighResolutionTimer::now().getTick();
+	if (currentTimer >= LatteGPUState.timer_nextVSync)
+		return 0;
+	uint64 untilUs = (LatteGPUState.timer_nextVSync - currentTimer) * 1000000ULL / LatteGPUState.timer_frequency;
+	return (uint32)std::min<uint64>(untilUs, maxUs);
+}
+
 // handle timed vsync event
 void LatteTiming_HandleTimedVsync()
 {

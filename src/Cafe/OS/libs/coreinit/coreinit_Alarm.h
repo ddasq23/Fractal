@@ -6,6 +6,7 @@ namespace coreinit
 	class OSHostAlarm;
 	OSHostAlarm* OSHostAlarmCreate(uint64 nextFire, uint64 period, void(*callbackFunc)(uint64 currentTick, void* context), void* context);
 	void OSHostAlarmDestroy(OSHostAlarm* hostAlarm);
+	uint64 OSHostAlarm_GetSoonestAlarmTick(); // OSGetTime() ticks, max if there is no alarm
 
 	struct OSAlarm_t;
 

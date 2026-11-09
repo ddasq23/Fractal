@@ -20,6 +20,12 @@ namespace TCL
 
 	// called from Latte code
 	bool TCLGPUReadRBWord(uint32& cmdWord);
+
+	// lets the GPU thread sleep while it has no work instead of spinning:
+	// take a token, check every work source, then wait with the token; any TCLGPUWake() after the token was taken ends the wait
+	uint32 TCLGPUWakeToken();
+	void TCLGPUWaitForWork(uint32 wakeToken, uint32 timeoutUs);
+	void TCLGPUWake(); // new ring buffer data or another job for the GPU thread
 	void TCLGPUNotifyNewRetirementTimestamp();
 
 	COSModule* GetModule();

@@ -53,6 +53,8 @@ namespace PerfLog
 		std::atomic<uint64> gpuBusyNs{};
 		std::atomic<uint64> renderPasses{};
 		std::atomic<uint64> draws{};
+		std::atomic<uint64> renderPassEnds[(size_t)RenderPassEnd::Count]{};
+		std::atomic<uint64> bufferUploadsDirect{};
 	};
 	static uint64 s_gpuLastEndNs = 0; // only touched by the render thread
 
@@ -332,6 +334,7 @@ namespace PerfLog
 		seconds << "t_s,frames,fps,ft_avg_ms,ft_p99_ms,low1_fps,ft_max_ms,"
 				   "shaders,shaders_cached,shaders_failed,shader_ms,"
 				   "pipelines,pipelines_sync,pipelines_failed,pipeline_ms,pipeline_sync_ms,gpu_busy_ms,render_passes,draws,"
+				   "rpe_other,rpe_fbo,rpe_buffer_upload,rpe_buffer_copy,rpe_texture_upload,rpe_clear,rpe_copy,rpe_readback,rpe_query,rpe_submit,buffer_uploads_direct,"
 				   "cpu_process_pct,rss_mb" << freqHeader << "\n";
 		threads << "t_s,tid,name,cpu_pct\n";
 		frames << "t_ms,ft_ms\n";
@@ -418,10 +421,14 @@ namespace PerfLog
 			const uint64 gpuBusyNs = s_counters.gpuBusyNs.exchange(0);
 			const uint64 renderPasses = s_counters.renderPasses.exchange(0);
 			const uint64 draws = s_counters.draws.exchange(0);
-			seconds << fmt::format("{:.0f},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{},{},{},{:.1f},{},{},{},{:.1f},{:.1f},{:.1f},{},{},{:.1f},{}{}{}\n",
+			std::string passEnds;
+			for (auto& c : s_counters.renderPassEnds)
+				passEnds += fmt::format("{},", c.exchange(0));
+			passEnds += fmt::format("{},", s_counters.bufferUploadsDirect.exchange(0));
+			seconds << fmt::format("{:.0f},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{},{},{},{:.1f},{},{},{},{:.1f},{:.1f},{:.1f},{},{},{}{:.1f},{}{}{}\n",
 								   tS, n, fps, ftAvg, ftP99, low1, ftMax,
 								   shaders, shadersCached, shadersFailed, shaderUs / 1000.0,
-								   pipelines, pipelinesSync, pipelinesFailed, pipelineUs / 1000.0, pipelineSyncUs / 1000.0, gpuBusyNs / 1e6, renderPasses, draws,
+								   pipelines, pipelinesSync, pipelinesFailed, pipelineUs / 1000.0, pipelineSyncUs / 1000.0, gpuBusyNs / 1e6, renderPasses, draws, passEnds,
 								   processPct, ReadRssMb(), cpuCount ? "," : "", freqs);
 			seconds.flush();
 			threads.flush();
@@ -463,6 +470,9 @@ namespace PerfLog
 		s_counters.gpuBusyNs = 0;
 		s_counters.renderPasses = 0;
 		s_counters.draws = 0;
+		for (auto& c : s_counters.renderPassEnds)
+			c = 0;
+		s_counters.bufferUploadsDirect = 0;
 		s_gpuLastEndNs = 0;
 		{
 			std::scoped_lock lock(s_frameMutex);
@@ -505,6 +515,45 @@ namespace PerfLog
 	{
 		if (IsActive())
 			s_counters.renderPasses.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	sint64 Tunable(std::string_view key, sint64 defaultValue)
+	{
+		static std::once_flag s_once;
+		static std::unordered_map<std::string, sint64> s_values;
+		std::call_once(s_once, [] {
+			std::ifstream file(ActiveSettings::GetUserDataPath("perf/tuning.txt"));
+			std::string line;
+			while (std::getline(file, line))
+			{
+				const size_t eq = line.find('=');
+				if (eq == std::string::npos || line.empty() || line[0] == '#')
+					continue;
+				try
+				{
+					s_values[line.substr(0, eq)] = std::stoll(line.substr(eq + 1));
+				}
+				catch (...)
+				{
+				}
+			}
+			for (auto& [k, v] : s_values)
+				cemuLog_log(LogType::Force, "PerfLog: tuning {}={}", k, v);
+		});
+		auto it = s_values.find(std::string(key));
+		return it != s_values.end() ? it->second : defaultValue;
+	}
+
+	void RenderPassEnded(RenderPassEnd reason)
+	{
+		if (IsActive())
+			s_counters.renderPassEnds[(size_t)reason].fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void BufferUploadDirect()
+	{
+		if (IsActive())
+			s_counters.bufferUploadsDirect.fetch_add(1, std::memory_order_relaxed);
 	}
 
 	void DrawCall()

@@ -31,7 +31,14 @@ namespace PerfLog
 	// a command buffer ran on the GPU from startNs to endNs (GPU clock); overlapping work is counted once
 	void GpuWork(uint64 startNs, uint64 endNs);
 	// render thread: one per render pass begun / per draw submitted to the host API
+	// experiment knobs: "key=value" lines in <user data>/perf/tuning.txt, read once per process (default if absent)
+	sint64 Tunable(std::string_view key, sint64 defaultValue);
+
 	void RenderPassBegin();
+	// why the renderer ended a render pass (each end costs attachment stores and loads on tiled GPUs)
+	enum class RenderPassEnd : uint8 { Other, Fbo, BufferUpload, BufferCopy, TextureUpload, Clear, Copy, Readback, Query, Submit, Count };
+	void RenderPassEnded(RenderPassEnd reason);
+	void BufferUploadDirect(); // buffer cache upload written straight into GPU memory (no copy, no render pass end)
 	void DrawCall();
 
 	// PPC recompiler, for profiling (simpleperf samples in JIT code are mapped back to PPC functions):

@@ -1,3 +1,4 @@
+#include "Cafe/OS/libs/TCL/TCL.h"
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
 #include "Cafe/OS/libs/gx2/GX2.h" // todo - remove dependency
 #include "Cafe/HW/Latte/Core/Latte.h"
@@ -238,6 +239,7 @@ void Latte_Stop()
 		return;
 	sLatteThreadRunning = false;
 	_lock.unlock();
+	TCL::TCLGPUWake(); // in case the GPU thread sleeps waiting for commands
 	sLatteThread.join();
 }
 

@@ -1,3 +1,4 @@
+#include "Cafe/OS/libs/TCL/TCL.h"
 #include "Cafe/HW/Latte/Core/Latte.h"
 #include "Cafe/HW/Latte/Core/LatteAsyncCommands.h"
 #include "Cafe/HW/Latte/Core/LatteShader.h"
@@ -74,6 +75,7 @@ void LatteAsyncCommands_queueForceTextureReadback(MPTR physAddr, MPTR mipAddr, u
 	swl_gpuAsyncCommands.LockWrite();
 	LatteAsyncCommandQueue.push(asyncCommand);
 	swl_gpuAsyncCommands.UnlockWrite();
+	TCL::TCLGPUWake();
 }
 
 void LatteAsyncCommands_queueDeleteShader(uint64 shaderBaseHash, uint64 shaderAuxHash, LatteConst::ShaderType shaderType)
@@ -89,6 +91,7 @@ void LatteAsyncCommands_queueDeleteShader(uint64 shaderBaseHash, uint64 shaderAu
 	swl_gpuAsyncCommands.LockWrite();
 	LatteAsyncCommandQueue.push(asyncCommand);
 	swl_gpuAsyncCommands.UnlockWrite();
+	TCL::TCLGPUWake();
 }
 
 void LatteAsyncCommand_queueTextureCopy(const LatteSurfaceCopyParam& src, const LatteSurfaceCopyParam& dst, const LatteSurfaceCopyRect& rect)
@@ -103,6 +106,7 @@ void LatteAsyncCommand_queueTextureCopy(const LatteSurfaceCopyParam& src, const 
 	swl_gpuAsyncCommands.LockWrite();
 	LatteAsyncCommandQueue.push(asyncCommand);
 	swl_gpuAsyncCommands.UnlockWrite();
+	TCL::TCLGPUWake();
 }
 
 void LatteAsyncCommands_waitUntilAllProcessed()

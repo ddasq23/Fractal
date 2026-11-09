@@ -110,6 +110,11 @@ namespace coreinit
 			return m_nextFire;
 		}
 
+		static uint64 getSoonestAlarmTick()
+		{
+			return g_soonestAlarm;
+		}
+
 		static bool quickCheckForAlarm(uint64 currentTick)
 		{
 			// fast way to check if any alarm was triggered without requiring scheduler lock
@@ -171,6 +176,11 @@ namespace coreinit
 		__OSLockScheduler();
 		OSHostAlarm::updateAlarms(currentTick);
 		__OSUnlockScheduler();
+	}
+
+	uint64 OSHostAlarm_GetSoonestAlarmTick()
+	{
+		return OSHostAlarm::getSoonestAlarmTick();
 	}
 
 	/* alarm API */

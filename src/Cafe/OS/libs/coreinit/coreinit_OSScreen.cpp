@@ -1,3 +1,4 @@
+#include "Cafe/OS/libs/TCL/TCL.h"
 #include "Cafe/OS/common/OSCommon.h"
 #include "Cafe/OS/libs/gx2/GX2.h"
 #include "Cafe/HW/Latte/Core/Latte.h"
@@ -82,6 +83,8 @@ namespace coreinit
 		cemu_assert(screenIndex < 2);
 		LatteGPUState.osScreen.screen[screenIndex].flipRequestCount++;
 		_updateCurrentDrawScreen(screenIndex);
+		TCL::TCLGPUWake(); // the GPU thread presents OSScreen frames
+
 	}
 
 	void OSScreenPutPixelEx(uint32 screenIndex, sint32 x, sint32 y, uint32 color)

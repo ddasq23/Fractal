@@ -112,6 +112,14 @@ public:
 			m_condition.wait(lock);
 	}
 
+	// returns false if the count was still zero when the timeout ran out
+	template<typename TDuration>
+	bool waitUntilNonZeroFor(TDuration timeout)
+	{
+		std::unique_lock lock(m_mutex);
+		return m_condition.wait_for(lock, timeout, [this] { return m_count != 0; });
+	}
+
 	bool isZero() const
 	{
 		return m_count == 0;
