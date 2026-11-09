@@ -487,6 +487,52 @@ na tela de boot no RP5 (`613dc67b`).
     passes por frame terminam por upload de buffer que caiu no caminho lento (faixa ainda em uso).
   - Bayonetta 2 no RP5: nenhum pass domina.
 
+### Tarde de 09/11
+
+**Buffer cache: mover em vez de quebrar o pass** (`ec46fba8`, `a74fbb56`). Quando o upload cai numa
+faixa ainda em uso pela GPU, nós de até 1 MB vão para memória nova (e o vertex/uniform binding é
+refeito) em vez de terminar o render pass. SM3DW: RP5 54,0 → 55,7, RG Cube 41,1 → 42,9; passes por
+frame no Cube 36 → 30. MK8 no Cube: mesma média, 1 % low 21,7 → 23,0.
+
+**Compressão de framebuffer** (`017be0ef`). Toda imagem de cor era criada com
+`VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT`, que desliga a AFBC (Mali) e a UBWC (Adreno). Agora só as
+imagens com compressão em bloco ficam mutáveis. Uma view com outro VkFormat numa imagem não mutável é
+recusada (`texture_isViewFormatCompatible`), e o core cria uma textura separada sincronizada por
+cópia, como já fazia para formatos incompatíveis. Nas 5 cenas nenhum jogo precisou disso para
+render targets.
+
+| cena | RP5 antes → depois | RG Cube antes → depois |
+|---|---|---|
+| SM3DW | 57,0 (30,1) → 59,8 (44,5); GPU 87 → 64 % | 42,4–43,3 → 43,7–43,8 |
+| MK8 | 46,1 → 48,2–48,4 | 29,6–29,7 → 30,0–31,6 |
+| Bayonetta 2 | 23,6 → 24,9 | 11,1 → 11,3 |
+| XCX | 30,1 → 30,1 | 30,1 → 30,1 |
+| BotW | 9,3 → 9,5 | 4,5 → 4,6 |
+
+A/B alternado no mesmo build (`mutable_off=0` restaura a flag), MK8:
+
+- RP5: sem compressão 46,0 / 45,9 (GPU 96–97 %), com compressão 47,8 / 48,2 (GPU 84–87 %).
+- RG Cube, 3 pares: sem 31,6 / 29,0 / 29,7, com 30,3 / 31,0 / 30,3. Empate dentro do ruído, que
+  no Cube chega a 2–3 fps entre rodadas; só A/B alternado serve lá.
+
+Bateria final do RP5 com o build do fim da tarde (5 cenas seguidas, 13:20): SM3DW 59,9 (48,0),
+MK8 47,8 (23,5), Bayonetta 2 25,1 (15,6), XCX 30,1 (29,5), BotW 9,5 (6,7).
+
+**Perfis na Mali não são confiáveis por pass.** A Mali grava timestamps por job, então o
+`pass_profile` atribui o trabalho anterior aos passes pequenos que dependem dele. No Bayonetta 2,
+um pass de 320×180 com uma única leitura de textura aparece com 4 ms. Antes de confiar em um custo
+por pass no Cube, pular os draws (`skip_ps1..4=<hash>`) e medir o FPS.
+
+**Bug do driver do Adreno 650.** Sem a flag, o XCX caía aos ~160 s no RP5 com
+`vkQueueSubmit` = `VK_ERROR_OUT_OF_HOST_MEMORY`. Restaurando a flag em qualquer metade da lista de
+formatos o jogo roda; limitar a compressão a imagens grandes não resolve. A causa é o
+`vkCmdCopyImage` entre duas imagens UBWC de formatos diferentes (RGBA8 ↔ R32F e parecidos, ~25 por
+segundo no XCX). Essas cópias agora passam por um buffer de staging
+(`vkCmdCopyImageToBuffer` + `vkCmdCopyBufferToImage`), contador `copies_via_buffer` no log.
+
+**Bug achado de passagem:** `FormatInfoVK::isCompressed` nunca é verdadeiro, então
+`VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT` nunca é usado. Não mexido.
+
 ## Pendências e limitações
 
 - O RG Cube foi perfilado sem root (só espaço de usuário): o tempo de kernel e o custo das
