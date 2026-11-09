@@ -79,6 +79,7 @@ object DriverGuard {
             }
             NativeSettings.getCustomDriverPath() == driverPath -> {
                 DriverCaches.setGlobalDriver(null)
+                DriverCaches.clearForGlobalChange()
                 true
             }
             else -> false // the user already picked another driver

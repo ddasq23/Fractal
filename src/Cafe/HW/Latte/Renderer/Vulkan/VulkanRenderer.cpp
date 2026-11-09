@@ -2478,10 +2478,10 @@ void VulkanRenderer::WaitCommandBufferFinished(uint64 commandBufferId)
 		WaitForNextFinishedCommandBuffer();
 }
 
-void VulkanRenderer::PipelineCacheSaveThread(size_t cache_size)
+void VulkanRenderer::PipelineCacheSaveThread(size_t cache_size, fs::path filename)
 {
 	SetThreadName("vkDriverPlCache");
-	const auto dir = ActiveSettings::GetCachePath("shaderCache/driver/vk");
+	const auto dir = filename.parent_path();
 	if (!fs::exists(dir))
 	{
 		try
@@ -2494,8 +2494,6 @@ void VulkanRenderer::PipelineCacheSaveThread(size_t cache_size)
 			return;
 		}
 	}
-
-	const auto filename = dir / fmt::format(L"{:016x}.bin", CafeSystem::GetForegroundTitleId());
 
 	while (true)
 	{
@@ -2555,23 +2553,65 @@ void VulkanRenderer::PipelineCacheSaveThread(size_t cache_size)
 	}
 }
 
+// true if a VkPipelineCache blob was written by this device and driver (VkPipelineCacheHeaderVersionOne)
+static bool PipelineCacheMatchesDevice(const std::vector<uint8_t>& data, const VkPhysicalDeviceProperties& props)
+{
+	if (data.size() < 32)
+		return false;
+	uint32 header[4];
+	memcpy(header, data.data(), sizeof(header));
+	return header[0] >= 32 && header[1] == VK_PIPELINE_CACHE_HEADER_VERSION_ONE && header[2] == props.vendorID && header[3] == props.deviceID &&
+		memcmp(data.data() + 16, props.pipelineCacheUUID, VK_UUID_SIZE) == 0;
+}
+
+static std::vector<uint8_t> ReadWholeFile(const fs::path& path)
+{
+	std::vector<uint8_t> data;
+	auto file = std::ifstream(path, std::ios::in | std::ios::binary | std::ios::ate);
+	if (file.is_open())
+	{
+		data.resize((size_t)file.tellg());
+		file.seekg(0, std::ifstream::beg);
+		file.read((char*)data.data(), data.size());
+	}
+	return data;
+}
+
 void VulkanRenderer::CreatePipelineCache()
 {
-	std::vector<uint8_t> cacheData;
-	const auto dir = ActiveSettings::GetCachePath("shaderCache/driver/vk");
-	if (fs::exists(dir))
+	// one cache per driver: shaderCache/driver/vk/<pipeline cache UUID>_<driver version>/<title id>.bin, so switching
+	// between drivers (system driver, Turnip, ...) keeps each driver's cache instead of throwing it away
+	VkPhysicalDeviceProperties props{};
+	vkGetPhysicalDeviceProperties(m_physicalDevice, &props);
+	std::string driverKey;
+	for (uint8 b : props.pipelineCacheUUID)
+		driverKey += fmt::format("{:02x}", b);
+	driverKey += fmt::format("_{:08x}", props.driverVersion);
+	const auto baseDir = ActiveSettings::GetCachePath("shaderCache/driver/vk");
+	const auto titleFile = fmt::format("{:016x}.bin", CafeSystem::GetForegroundTitleId());
+	const auto filename = baseDir / driverKey / titleFile;
+
+	std::vector<uint8_t> cacheData = ReadWholeFile(filename);
+	if (cacheData.empty())
 	{
-		const auto filename = dir / fmt::format("{:016x}.bin", CafeSystem::GetForegroundTitleId());
-		auto file = std::ifstream(filename, std::ios::in | std::ios::binary | std::ios::ate);
-		if (file.is_open())
+		// cache from before the per-driver folders: adopt it only if this driver wrote it
+		const auto legacyFile = baseDir / titleFile;
+		std::vector<uint8_t> legacyData = ReadWholeFile(legacyFile);
+		if (PipelineCacheMatchesDevice(legacyData, props))
 		{
-			const size_t fileSize = file.tellg();
-			file.seekg(0, std::ifstream::beg);
-			cacheData.resize(fileSize);
-			file.read((char*)cacheData.data(), cacheData.size());
-			file.close();
+			std::error_code ec;
+			fs::create_directories(filename.parent_path(), ec);
+			fs::rename(legacyFile, filename, ec);
+			cemuLog_log(LogType::Force, "Vulkan: moved the pipeline cache of this driver to {} ({})", driverKey, ec ? ec.message() : "ok");
+			cacheData = std::move(legacyData);
 		}
 	}
+	if (!cacheData.empty() && !PipelineCacheMatchesDevice(cacheData, props))
+	{
+		cemuLog_log(LogType::Force, "Vulkan: pipeline cache was written by another driver, starting empty");
+		cacheData.clear();
+	}
+	cemuLog_log(LogType::Force, "Vulkan: driver pipeline cache {} ({} KB)", driverKey, cacheData.size() / 1024);
 
 	VkPipelineCacheCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
@@ -2593,7 +2633,7 @@ void VulkanRenderer::CreatePipelineCache()
 	size_t cache_size = 0;
 	vkGetPipelineCacheData(m_logicalDevice, m_pipeline_cache, &cache_size, nullptr);
 
-	m_pipeline_cache_save_thread = std::thread(&VulkanRenderer::PipelineCacheSaveThread, this, cache_size);
+	m_pipeline_cache_save_thread = std::thread(&VulkanRenderer::PipelineCacheSaveThread, this, cache_size, filename);
 }
 
 void VulkanRenderer::swapchain_createDescriptorSetLayout()

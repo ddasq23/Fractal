@@ -275,7 +275,7 @@ public:
 	FSpinlock m_spinlockDestructionQueue;
 	std::vector<VKRDestructibleObject*> m_destructionQueue;
 
-	void PipelineCacheSaveThread(size_t cache_size);
+	void PipelineCacheSaveThread(size_t cache_size, fs::path filename);
 
 	void ClearColorbuffer(bool padView) override;
 	void ClearColorImageRaw(VkImage image, uint32 sliceIndex, uint32 mipIndex, const VkClearColorValue& color, VkImageLayout inputLayout, VkImageLayout outputLayout);

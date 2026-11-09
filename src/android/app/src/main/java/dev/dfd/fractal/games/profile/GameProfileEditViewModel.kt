@@ -6,12 +6,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import dev.dfd.fractal.common.customdrivers.DriverCaches
 import dev.dfd.fractal.common.customdrivers.parseInstalledDrivers
 import dev.dfd.fractal.nativeinterface.NativeGameTitles
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.DriverSettingMode
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
-import dev.dfd.fractal.nativeinterface.NativeSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -44,16 +42,11 @@ class GameProfileEditViewModel(val game: Game) : ViewModel() {
             driverSetting.customDriverData?.customPath
         )
 
-        // the caches that depend on the driver are cleared only if the driver this game uses changes
-        val globalDriver = NativeSettings.getCustomDriverPath()
-        val before = DriverCaches.effectiveDriver(NativeGameTitles.getDriverSettingForTitle(game.titleId), globalDriver)
+        // each driver keeps its own pipeline cache, so switching needs no clearing
         NativeGameTitles.setDriverSettingForTitle(
             game.titleId,
             nativeDriverSetting
         )
-        if (before != DriverCaches.effectiveDriver(nativeDriverSetting, globalDriver)) {
-            viewModelScope.launch { DriverCaches.clearForTitle(game.titleId) }
-        }
 
         _selectedDriverSetting.value = driverSetting
     }

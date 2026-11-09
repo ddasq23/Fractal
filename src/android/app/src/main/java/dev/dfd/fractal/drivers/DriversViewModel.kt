@@ -145,16 +145,13 @@ class DriversViewModel(application: Application) : AndroidViewModel(application)
         reloadInstalled()
     }
 
-    /** Uses [path] as the global driver (null = system driver) and clears the caches that depend on it. */
+    /** Uses [path] as the global driver (null = system driver). Each driver keeps its own pipeline cache. */
     fun select(path: String?) = viewModelScope.launch {
         if (_globalDriver.value == path) return@launch
-        val cleared = DriverCaches.setGlobalDriver(path)
+        DriverCaches.setGlobalDriver(path)
         _globalDriver.value = path
         val name = _installed.value.firstOrNull { it.driver.path == path }?.driver?.metadata?.name ?: tr("System driver")
-        show(
-            if (cleared > 0) tr("Now using {0}. Cleared {1} driver cache files.", name, cleared)
-            else tr("Now using {0}", name)
-        )
+        show(tr("Now using {0}", name))
     }
 
     fun delete(item: InstalledDriver) = viewModelScope.launch {
