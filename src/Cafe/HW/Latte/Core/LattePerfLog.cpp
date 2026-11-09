@@ -24,6 +24,10 @@
 #include <sys/system_properties.h>
 #endif
 
+#if defined(__aarch64__)
+void PPCRecompilerAArch64Gen_reportInterfaceFunctionsToPerfLog(); // BackendAArch64.cpp
+#endif
+
 namespace PerfLog
 {
 	using Clock = std::chrono::steady_clock;
@@ -465,10 +469,7 @@ namespace PerfLog
 			s_jitFail.open(dir / "jitfail.txt", std::ios::trunc);
 		}
 #if defined(__aarch64__)
-		{
-			void PPCRecompilerAArch64Gen_reportInterfaceFunctionsToPerfLog();
-			PPCRecompilerAArch64Gen_reportInterfaceFunctionsToPerfLog();
-		}
+		PPCRecompilerAArch64Gen_reportInterfaceFunctionsToPerfLog();
 #endif
 		s_sessionStart = Clock::now();
 		s_hasLastFrame = false;
