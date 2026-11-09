@@ -1,3 +1,4 @@
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "BackendAArch64.h"
 
 #pragma push_macro("CSIZE")
@@ -1734,6 +1735,15 @@ AArch64GenContext_t enterRecompilerCode_ctx{};
 
 AArch64GenContext_t leaveRecompilerCode_unvisited_ctx{};
 AArch64GenContext_t leaveRecompilerCode_visited_ctx{};
+
+void PPCRecompilerAArch64Gen_reportInterfaceFunctionsToPerfLog()
+{
+	if (!initializedInterfaceFunctions)
+		return;
+	PerfLog::JitGlue(enterRecompilerCode_ctx.getCode<const void*>(), (uint32)enterRecompilerCode_ctx.getSize(), "enterRecompilerCode");
+	PerfLog::JitGlue(leaveRecompilerCode_unvisited_ctx.getCode<const void*>(), (uint32)leaveRecompilerCode_unvisited_ctx.getSize(), "leaveRecompilerCode_unvisited");
+	PerfLog::JitGlue(leaveRecompilerCode_visited_ctx.getCode<const void*>(), (uint32)leaveRecompilerCode_visited_ctx.getSize(), "leaveRecompilerCode_visited");
+}
 void PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions()
 {
 	if (initializedInterfaceFunctions)

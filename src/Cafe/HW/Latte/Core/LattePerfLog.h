@@ -36,6 +36,8 @@ namespace PerfLog
 	//   jitfail.txt  "<ppc address> <ppc size> <stage>" per function left to the interpreter
 	void JitFunction(uint32 ppcAddress, uint32 ppcSize, const void* hostCode, uint32 hostSize);
 	void JitFailure(uint32 ppcAddress, uint32 ppcSize, const char* stage);
+	// generated code that is not a PPC function (enter/leave thunks): "<host address> <host size> 0 <name>"
+	void JitGlue(const void* hostCode, uint32 hostSize, const char* name);
 
 	// Input script for reproducible benchmark scenes: <user data>/perf/input_<titleid>.txt (or
 	// input.txt), one press per line: "<seconds since the game started> <button> [hold ms, default 150]".

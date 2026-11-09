@@ -464,6 +464,12 @@ namespace PerfLog
 			s_jitMap.open(dir / "jitmap.txt", std::ios::trunc);
 			s_jitFail.open(dir / "jitfail.txt", std::ios::trunc);
 		}
+#if defined(__aarch64__)
+		{
+			void PPCRecompilerAArch64Gen_reportInterfaceFunctionsToPerfLog();
+			PPCRecompilerAArch64Gen_reportInterfaceFunctionsToPerfLog();
+		}
+#endif
 		s_sessionStart = Clock::now();
 		s_hasLastFrame = false;
 		s_stop = false;
@@ -511,6 +517,15 @@ namespace PerfLog
 		if (!s_jitMap.is_open())
 			return;
 		s_jitMap << fmt::format("{:x} {:x} {:08x} {}\n", (uint64)(uintptr_t)hostCode, hostSize, ppcAddress, ppcSize);
+		s_jitMap.flush();
+	}
+
+	void JitGlue(const void* hostCode, uint32 hostSize, const char* name)
+	{
+		std::scoped_lock lock(s_jitMutex);
+		if (!s_jitMap.is_open())
+			return;
+		s_jitMap << fmt::format("{:x} {:x} 0 {}\n", (uint64)(uintptr_t)hostCode, hostSize, name);
 		s_jitMap.flush();
 	}
 

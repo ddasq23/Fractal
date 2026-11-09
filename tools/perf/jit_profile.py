@@ -30,7 +30,8 @@ jit = []
 for line in open(os.path.join(a.session, "jitmap.txt")):
     p = line.split()
     if len(p) == 4:
-        jit.append((int(p[0], 16), int(p[1], 16), int(p[2], 16), int(p[3])))
+        # PPC function: host, size, ppc address, ppc size; glue (thunks): host, size, 0, name
+        jit.append((int(p[0], 16), int(p[1], 16), int(p[2], 16), p[3]))
 jit.sort()
 starts = [j[0] for j in jit]
 fails = {}
@@ -50,6 +51,8 @@ TIME = ("clock_gettime", "cntvct", "el0_sys", "do_sysinstr", "PPCTimer_getFromRD
 def category(dso, sym, ip):
     if dso in ("unknown", "[unknown]", "") or sym.startswith("unknown"):
         j = jit_lookup(ip)
+        if j and j[2] == 0:
+            return ("JIT glue (" + j[3] + ")", None)
         return ("JIT", j[2]) if j else ("anon (not in jitmap)", None)
     if any(t in sym for t in TIME): return ("time reads", None)
     if "PPCInterpreter" in sym or "PPCInterpreterSlim" in sym: return ("interpreter", None)
