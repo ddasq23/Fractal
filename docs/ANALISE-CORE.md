@@ -533,6 +533,37 @@ segundo no XCX). Essas cópias agora passam por um buffer de staging
 **Bug achado de passagem:** `FormatInfoVK::isCompressed` nunca é verdadeiro, então
 `VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT` nunca é usado. Não mexido.
 
+**Uploads de textura num command buffer de prólogo** (`2eeceaea`). Todo upload de textura dentro
+de um render pass encerrava o pass, que depois reabria no mesmo FBO: 14 vezes por frame no
+Bayonetta 2, nos dois aparelhos. Agora cada textura guarda o último command buffer que a usou
+(`GetImageObj`, amostragem pelos descriptor sets ativos em cada draw, attachment no início do pass,
+apresentação). Se o buffer atual ainda não usou a imagem, o upload vai para um command buffer de
+prólogo, submetido logo antes do principal no mesmo `vkQueueSubmit`, e o pass continua aberto.
+Contador `uploads_prologue`, tunable `upload_prologue` (padrão 1).
+
+| Bayonetta 2, A/B alternado | com prólogo | sem prólogo |
+|---|---|---|
+| RG Cube (GPU 100 %) | 11,8 / 11,6 fps; 1 % low 8,1 / 8,0 | 11,2 / 11,1 fps; 1 % low 6,0 / 6,3 |
+| RP5 (núcleo PPC 92 %) | 24,6 / 24,9 | 24,7 / 24,6 |
+
+No RP5 os render passes caem de 52 para 36 por frame, mas o FPS não muda porque a CPU é o limite.
+SM3DW, MK8, XCX e BotW não mudam e rodam sem crash nos dois aparelhos.
+
+**Bug introduzido e corrigido no mesmo dia.** O `skip_ps` do `c56440e0` aninhou um `if` sem chaves
+dentro do `if` indexado/não indexado, e o `else` passou a pertencer ao `if` interno: draws não
+indexadas nunca eram gravadas (`f2cf8808` corrige). As medições feitas com os builds desse
+intervalo (12:50–14:34) não valem como números absolutos: o teste de pular os passes minúsculos do
+MK8 no Cube e os A/Bs do laço ocioso. As tabelas acima usam builds anteriores ou posteriores.
+
+**Laço ocioso que dorme, de novo** (`idle_wait_max_us=250`; build com o bug acima, vale só como
+comparação relativa). BotW no RP5: mesmo FPS (9,6 contra 9,5) com 180 % de CPU no lugar de 239 %.
+MK8 no Cube: 30,3 contra 30,8, com 210 % no lugar de 259 %. Mas no RP5 o SM3DW cai de 59,9 para
+53,2 e o MK8 de 48,0 para 46,5, com o 1 % low do SM3DW indo de 48,7 para 26,9. Continua desligado.
+
+**ADPF descartado.** `dumpsys performance_hint` mostra `HAL Support: false` no RP5 e no RG Cube
+(Android 13): `APerformanceHint_createSession` não cria sessão. O item F da seção 5 não se aplica a
+esses aparelhos.
+
 ## Pendências e limitações
 
 - O RG Cube foi perfilado sem root (só espaço de usuário): o tempo de kernel e o custo das
