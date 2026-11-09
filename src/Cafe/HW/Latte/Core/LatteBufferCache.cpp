@@ -1248,7 +1248,7 @@ private:
 		static const uint32 s_maxBytes = (uint32)PerfLog::Tunable("bufcache_rename_max_kb", 1024) * 1024;
 		static bool s_moving = false;
 		const uint32 nodeSize = m_rangeEnd - m_rangeBegin;
-		if (s_moving || !m_hasCacheAlloc || s_maxBytes == 0)
+		if (s_moving || !m_hasCacheAlloc || s_maxBytes == 0 || !g_renderer->bufferCache_hasDirectWrites())
 			return false;
 		if (g_renderer->bufferCache_canWriteDirect(getBufferOffset(uploadBegin), uploadEnd - uploadBegin))
 			return false; // direct upload works
@@ -1262,16 +1262,30 @@ private:
 			PerfLog::BufferCacheRenameSkipped(1);
 			return false;
 		}
-		uint32 newOffset;
-		if (!g_gpuBufferHeap->allocOffset(nodeSize, CACHE_PAGE_SIZE, newOffset))
+		// the heap tends to hand out space that was just released and is still read by the GPU: hold on to such
+		// allocations while trying a few others
+		uint32 newOffset = 0;
+		bool found = false;
+		uint32 busyOffsets[4];
+		sint32 numBusy = 0;
+		for (sint32 attempt = 0; attempt < 4; attempt++)
 		{
-			PerfLog::BufferCacheRenameSkipped(2);
-			return false;
+			uint32 offset;
+			if (!g_gpuBufferHeap->allocOffset(nodeSize, CACHE_PAGE_SIZE, offset))
+				break;
+			if (g_renderer->bufferCache_canWriteDirect(offset, nodeSize))
+			{
+				newOffset = offset;
+				found = true;
+				break;
+			}
+			busyOffsets[numBusy++] = offset;
 		}
-		if (!g_renderer->bufferCache_canWriteDirect(newOffset, nodeSize))
+		for (sint32 i = 0; i < numBusy; i++)
+			g_gpuBufferHeap->freeOffset(busyOffsets[i]); // never used
+		if (!found)
 		{
-			g_gpuBufferHeap->freeOffset(newOffset); // never used
-			PerfLog::BufferCacheRenameSkipped(3);
+			PerfLog::BufferCacheRenameSkipped(numBusy > 0 ? 3 : 2);
 			return false; // also when the renderer has no direct writes
 		}
 		g_deallocateQueue.emplace_back(m_cacheOffset);

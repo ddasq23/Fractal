@@ -38,6 +38,7 @@ namespace PerfLog
 	// why the renderer ended a render pass (each end costs attachment stores and loads on tiled GPUs)
 	enum class RenderPassEnd : uint8 { Other, Fbo, BufferUpload, BufferCopy, TextureUpload, Clear, Copy, Readback, Query, Submit, SelfDependency, Count };
 	void RenderPassEnded(RenderPassEnd reason);
+	void RenderPassRestarted(RenderPassEnd previousEnd); // a render pass began on the same framebuffer the previous one ended on
 	void PipelineBarrier(); // render target barrier between draws
 	void SelfDependencyKept();
 	void SelfDependencyAspects(bool color, bool depth); // diagnostics: which attachment aspects self dependencies sample

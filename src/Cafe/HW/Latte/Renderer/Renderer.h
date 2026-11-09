@@ -137,6 +137,7 @@ public:
 	virtual void bufferCache_upload(uint8* buffer, sint32 size, uint32 bufferOffset) = 0;
 	virtual void bufferCache_copy(uint32 srcOffset, uint32 dstOffset, uint32 size) = 0;
 	virtual void bufferCache_markInUse(uint32 bufferOffset, uint32 size) {} // the next GPU work reads this range of the buffer cache
+	virtual bool bufferCache_hasDirectWrites() const { return false; } // the buffer cache is host visible memory
 	virtual bool bufferCache_canWriteDirect(uint32 bufferOffset, uint32 size) const { return false; } // an upload to this range would be a host write that ends no render pass
 	virtual void bufferCache_copyStreamoutToMainBuffer(uint32 srcOffset, uint32 dstOffset, uint32 size) = 0;
 

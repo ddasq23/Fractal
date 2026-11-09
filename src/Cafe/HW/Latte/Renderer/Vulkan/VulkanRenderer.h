@@ -434,7 +434,9 @@ private:
 		uint64 currentFlushIndex{0}; // incremented by every render target barrier
 		uint64 currentVertexFlushIndex{0};
 		VkImageAspectFlags renderPassWrittenAspects{0}; // attachment aspects written by draws since the current render pass began
-		uint8 renderPassWrittenColorMask{0}; // color attachments (render target indices) written since the current render pass began // incremented only by barriers that also make writes visible to vertex/geometry shaders
+		uint8 renderPassWrittenColorMask{0};
+		class CachedFBOVk* lastEndedFbo{nullptr}; // diagnostics: render passes restarted on the same framebuffer
+		PerfLog::RenderPassEnd lastEndReason{PerfLog::RenderPassEnd::Other}; // color attachments (render target indices) written since the current render pass began // incremented only by barriers that also make writes visible to vertex/geometry shaders
 		bool colorBufferSyncPending{false}; // guest color-buffer sync since the previous draw; survives command-buffer resets
 		bool requestFlush{ false }; // flush after every draw operation. The renderpass dependencies dont handle dependencies across multiple drawcalls inside a single renderpass
 
@@ -713,6 +715,7 @@ private:
 	bool m_bufferCacheDirectBlocked{ false };
 	bool bufferCache_isRangeIdle(uint32 bufferOffset, uint32 size) const;
 	void bufferCache_markInUse(uint32 bufferOffset, uint32 size) override;
+	bool bufferCache_hasDirectWrites() const override { return m_bufferCacheMapped != nullptr; }
 	bool bufferCache_canWriteDirect(uint32 bufferOffset, uint32 size) const override
 	{
 		return m_bufferCacheMapped && size > 0 && !m_bufferCacheDirectBlocked && bufferCache_isRangeIdle(bufferOffset, size);

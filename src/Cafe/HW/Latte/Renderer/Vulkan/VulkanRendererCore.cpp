@@ -1306,6 +1306,8 @@ void VulkanRenderer::draw_setRenderPass()
 
 	sync_RenderPassLoadTextures(fboVk);
 	PassProfileBeginPass(fboVk);
+	if (fboVk == m_state.lastEndedFbo)
+		PerfLog::RenderPassRestarted(m_state.lastEndReason);
 
 	if (m_featureControl.deviceExtensions.dynamic_rendering)
 	{
@@ -1428,6 +1430,8 @@ void VulkanRenderer::draw_endRenderPass(PerfLog::RenderPassEnd reason)
 	if (!m_state.activeRenderpassFBO)
 		return;
 	PerfLog::RenderPassEnded(reason);
+	m_state.lastEndedFbo = m_state.activeRenderpassFBO;
+	m_state.lastEndReason = reason;
 	occlusionQuery_notifyRenderPassEnd();
 	if (m_featureControl.deviceExtensions.dynamic_rendering)
 		vkCmdEndRenderingKHR(m_state.currentCommandBuffer);
