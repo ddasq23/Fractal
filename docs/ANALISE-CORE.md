@@ -438,6 +438,55 @@ Também entram em A, de carona: o possível erro do `fctiwz` (saturação em int
 7. **H1 e H2.** Compatibilidade na Mali, quando a lista de jogos afetados (pelo log de streamout)
    justificar.
 
+## 7. Resultados de 09/11
+
+Build final do dia (`613dc67b` + `d9606be8`), mesmas cenas e janelas do baseline das 05:56. FPS médio
+na janela; entre parênteses, o 1 % low.
+
+| cena | RP5 manhã | RP5 agora | RG Cube manhã | RG Cube agora |
+|---|---|---|---|---|
+| SM3DW | 52,9 (27,4) | 54,5 (27,6) | 35,4 (22,5) | 40,9 (27,3) |
+| MK8 | 43,8 (25,4) | 45,6 (26,4) | 16,1 (13,8) ¹ | 27,4–30,5 (20–22) ² |
+| Bayonetta 2 | 23,2 (13,8) | 23,7 (15,0) | 11,1 (6,3) | 11,1 (6,5) |
+| XCX | 30,1 (29,7) | 30,1 (29,5) | 30,1 (29,6) | 30,1 (29,1) |
+| BotW | 9,5 (6,0) | 9,3 (6,7) | 3,7 (3,3) | 4,5 (4,0) |
+
+¹ Controle medido de manhã com o build antigo; a tabela de base registrou 12,0.
+² Varia com o trecho da corrida que cai na janela (episódios de uploads de buffer, ver abaixo).
+
+**O que entrou, em ordem de efeito (RG Cube, MK8):**
+
+1. **Uploads diretos no cache de buffers** (`2c1895ac`): o cache fica em memória visível ao host e,
+   quando a faixa não está em uso pela GPU, o upload é um `memcpy` sem encerrar o render pass.
+   17,7 → 23,0 fps.
+2. **Barreiras sem os estágios de vértice** (`7b36890f`): numa GPU de tiles, uma barreira com destino
+   no vertex shader faz o trabalho de vértice do próximo pass esperar todo o fragmento do anterior.
+   Agora o estágio de vértice só entra quando um shader de vértice ou geometria lê um alvo escrito.
+   24,3 → 30,5 fps; GPU por frame 41,0 → 32,5 ms. Sem efeito no Adreno.
+3. **Occlusion queries dentro do render pass** (`2c1895ac`): 16,0 → 17,7 fps.
+4. **Laço ocioso e LatteThread sem espera ativa** (`ff38f5b4`): mesmo FPS, menos CPU. XCX: processo
+   204 → 119 % no RP5 e 222 → 163 % no RG Cube; LatteThread 99 → 15 % e 96 → 25 %.
+
+**Erro encontrado e corrigido:** o `mfspr UPIR` no JIT (A2) não emitia a leitura, porque os backends
+só tratavam SPRs abaixo de 999 (o UPIR é o 1007). O Bayonetta 2 caía em 3 s no RG Cube e travava
+na tela de boot no RP5 (`613dc67b`).
+
+**O que se aprendeu:**
+
+- **RP5 com GPU limitada a 400 de 905 MHz** o dia todo: o limite vem do sensor de carcaça
+  (`skin-therm` ~52 °C, aparelho no carregador rodando sem parar), não da bateria (35 °C). Os
+  números do RP5 acima estão nessa condição. `run_scene.sh` agora registra a temperatura da
+  carcaça (`skin_c`).
+- **BotW no RP5 não é limitado por render passes:** desligar as barreiras precisas tira 350
+  quebras por frame (513 → 164 passes) e o FPS fica em 9,2.
+- **Perfil de GPU por render pass** (`pass_profile=1` em `perf/tuning.txt`): timestamps em volta de
+  cada pass, somados por assinatura (tamanho, formatos, pixel shader) e escritos no log a cada 10 s.
+  - MK8 no RP5: GPU ocupada 88 % a 400 MHz; o pass principal (1280×720, 11-11-10 float + D32F)
+    leva 23 %. Há ~40 passes de 32×32 e 16×16 por frame com 6 alvos e 1 draw cada, 8 % da GPU.
+  - SM3DW no RP5: o G-buffer (4 alvos + D32F a 720p) aparece ~4 vezes por frame. ~9 dos ~37
+    passes por frame terminam por upload de buffer que caiu no caminho lento (faixa ainda em uso).
+  - Bayonetta 2 no RP5: nenhum pass domina.
+
 ## Pendências e limitações
 
 - O RG Cube foi perfilado sem root (só espaço de usuário): o tempo de kernel e o custo das
