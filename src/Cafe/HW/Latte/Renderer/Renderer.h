@@ -138,6 +138,9 @@ public:
 	virtual void bufferCache_copy(uint32 srcOffset, uint32 dstOffset, uint32 size) = 0;
 	virtual void bufferCache_markInUse(uint32 bufferOffset, uint32 size) {} // the next GPU work reads this range of the buffer cache
 	virtual bool bufferCache_hasDirectWrites() const { return false; } // the buffer cache is host visible memory
+	virtual bool texture_canReinterpretFormat() const { return true; } // views may use another format of the same texel size
+	// whether baseTexture can be accessed through a view of viewFormat. Otherwise a separate texture is created and synchronized by copies
+	virtual bool texture_isViewFormatCompatible(class LatteTexture* baseTexture, Latte::E_GX2SURFFMT viewFormat, bool isDepth) { return true; }
 	virtual bool bufferCache_canWriteDirect(uint32 bufferOffset, uint32 size) const { return false; } // an upload to this range would be a host write that ends no render pass
 	virtual void bufferCache_copyStreamoutToMainBuffer(uint32 srcOffset, uint32 dstOffset, uint32 size) = 0;
 

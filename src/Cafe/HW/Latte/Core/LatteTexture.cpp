@@ -847,6 +847,8 @@ VIEWCOMPATIBILITY LatteTexture_CanTextureBeRepresentedAsView(LatteTexture* baseT
 	}
 	if (LatteTexture_IsFormatViewCompatible(baseTexture->format, format) == false)
 		return VIEW_NOT_COMPATIBLE;
+	if (!g_renderer->texture_isViewFormatCompatible(baseTexture, format, isDepth))
+		return VIEW_NOT_COMPATIBLE; // separate texture, synchronized by copies
 	if (baseTexture->physAddress == physAddr && baseTexture->pitch == pitch)
 	{
 		if (baseTexture->isDepth != isDepth)

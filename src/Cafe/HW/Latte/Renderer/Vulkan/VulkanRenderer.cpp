@@ -2786,6 +2786,19 @@ void VulkanRenderer::swapchain_createDescriptorSetLayout()
 		UnrecoverableError("failed to create descriptor set layout for swapchain");
 }
 
+bool VulkanRenderer::texture_isViewFormatCompatible(LatteTexture* baseTexture, Latte::E_GX2SURFFMT viewFormat, bool isDepth)
+{
+	if (texture_canReinterpretFormat() || isDepth || baseTexture->isDepth || baseTexture->format == viewFormat)
+		return true;
+	// only images created with VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT accept views of another format
+	if (static_cast<LatteTextureVk*>(baseTexture)->m_isMutableFormat)
+		return true;
+	const VkFormat baseFormat = static_cast<LatteTextureVk*>(baseTexture)->GetFormat();
+	FormatInfoVK viewFormatInfo;
+	GetTextureFormatInfoVK(viewFormat, false, baseTexture->dim, baseTexture->width, baseTexture->height, &viewFormatInfo);
+	return viewFormatInfo.vkImageFormat == baseFormat;
+}
+
 void VulkanRenderer::GetTextureFormatInfoVK(Latte::E_GX2SURFFMT format, bool isDepth, Latte::E_DIM dim, sint32 width, sint32 height, FormatInfoVK* formatInfoOut)
 {
 	formatInfoOut->texelCountX = width;
@@ -4317,6 +4330,18 @@ void VulkanRenderer::texture_setLatteTexture(LatteTextureView* textureView, uint
 	m_state.boundTexture[textureUnit] = static_cast<LatteTextureViewVk*>(textureView);
 }
 
+// bytes per texel of uncompressed color formats, 0 for anything else
+static uint32 VkFormatTexelSize(VkFormat format)
+{
+	const sint32 f = (sint32)format;
+	if (f >= 9 && f <= 15) return 1; // R8
+	if ((f >= 2 && f <= 8) || (f >= 16 && f <= 22) || (f >= 70 && f <= 76)) return 2; // 16-bit packed, R8G8, R16
+	if ((f >= 37 && f <= 69) || (f >= 77 && f <= 83) || (f >= 98 && f <= 100) || f == 122 || f == 123) return 4;
+	if ((f >= 91 && f <= 97) || (f >= 101 && f <= 103)) return 8; // R16G16B16A16, R32G32
+	if (f >= 107 && f <= 109) return 16; // R32G32B32A32
+	return 0;
+}
+
 void VulkanRenderer::texture_copyImageSubData(LatteTexture* src, sint32 srcMip, sint32 effectiveSrcX, sint32 effectiveSrcY, sint32 srcSlice, LatteTexture* dst, sint32 dstMip, sint32 effectiveDstX, sint32 effectiveDstY, sint32 dstSlice, sint32 effectiveCopyWidth, sint32 effectiveCopyHeight, sint32 srcDepth)
 {
 	LatteTextureVk* srcVk = static_cast<LatteTextureVk*>(src);
@@ -4393,7 +4418,34 @@ void VulkanRenderer::texture_copyImageSubData(LatteTexture* src, sint32 srcMip, 
 	// make sure all read and write operations to the dst image have finished
 	barrier_image<SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE | SYNC_OP::ANY_TRANSFER, SYNC_OP::ANY_TRANSFER>(dstVk, region.dstSubresource, VK_IMAGE_LAYOUT_GENERAL);
 
-	vkCmdCopyImage(m_state.currentCommandBuffer, srcVkObj->m_image, VK_IMAGE_LAYOUT_GENERAL, dstVkObj->m_image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+	// copies between two non-mutable images of different formats go through a buffer: with framebuffer compression on
+	// both images the Adreno 650 driver fails command buffer submission (Xenoblade Chronicles X)
+	static const bool s_copyViaBuffer = PerfLog::Tunable("copy_via_buffer", 1) != 0;
+	const uint32 texelSize = VkFormatTexelSize(srcVkObj->m_format);
+	if (s_copyViaBuffer && srcVkObj->m_format != dstVkObj->m_format && !srcVk->m_isMutableFormat && !dstVk->m_isMutableFormat &&
+		texelSize != 0 && texelSize == VkFormatTexelSize(dstVkObj->m_format) &&
+		region.srcSubresource.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT && region.dstSubresource.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT)
+	{
+		const uint32 copySize = region.extent.width * region.extent.height * region.extent.depth * region.srcSubresource.layerCount * texelSize;
+		auto stagingResv = memoryManager->getStagingAllocator().AllocateBufferMemory(copySize, 16);
+		VkBufferImageCopy toBuffer{};
+		toBuffer.bufferOffset = stagingResv.bufferOffset;
+		toBuffer.imageSubresource = region.srcSubresource;
+		toBuffer.imageOffset = region.srcOffset;
+		toBuffer.imageExtent = region.extent;
+		vkCmdCopyImageToBuffer(m_state.currentCommandBuffer, srcVkObj->m_image, VK_IMAGE_LAYOUT_GENERAL, stagingResv.vkBuffer, 1, &toBuffer);
+		VkMemoryBarrier memBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+		memBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		memBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		vkCmdPipelineBarrier(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
+		VkBufferImageCopy fromBuffer = toBuffer;
+		fromBuffer.imageSubresource = region.dstSubresource;
+		fromBuffer.imageOffset = region.dstOffset;
+		vkCmdCopyBufferToImage(m_state.currentCommandBuffer, stagingResv.vkBuffer, dstVkObj->m_image, VK_IMAGE_LAYOUT_GENERAL, 1, &fromBuffer);
+		PerfLog::ImageCopyViaBuffer();
+	}
+	else
+		vkCmdCopyImage(m_state.currentCommandBuffer, srcVkObj->m_image, VK_IMAGE_LAYOUT_GENERAL, dstVkObj->m_image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
 
 	// make sure the transfer is finished before the image is read or written
 	barrier_image<SYNC_OP::ANY_TRANSFER, SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE | SYNC_OP::ANY_TRANSFER>(srcVk, region.srcSubresource, srcVk->GetDefaultLayout());

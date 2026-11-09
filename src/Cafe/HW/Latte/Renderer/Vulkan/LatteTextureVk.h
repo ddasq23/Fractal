@@ -89,6 +89,9 @@ public:
 	VkImageAspectFlags m_selfDependencyCheckAspectMask{};
 
 	bool m_isAlternateFormat{}; // true if host pixel format does not 1:1 match the emulated guest texture pixel format
+public:
+	bool m_isMutableFormat{}; // created with VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT
+private:
 private:
 	class VulkanRenderer* m_vkr{};
 

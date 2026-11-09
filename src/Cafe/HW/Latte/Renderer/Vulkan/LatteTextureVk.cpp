@@ -55,8 +55,13 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	{
 		imageInfo.flags |= VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
 	}
-	if (isDepth == false)
+	// mutable images can't use framebuffer compression (AFBC/UBWC) on mobile GPUs. Without format reinterpretation
+	// (see VulkanRenderer::texture_isViewFormatCompatible) textures of another format are separate and synchronized by
+	// copies. Block compressed formats (BC/ETC2/ASTC) stay mutable: they get no framebuffer compression anyway
+	const bool isBlockCompressed = imageInfo.format >= VK_FORMAT_BC1_RGB_UNORM_BLOCK && imageInfo.format <= VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
+	if (isDepth == false && (static_cast<Renderer*>(m_vkr)->texture_canReinterpretFormat() || isBlockCompressed))
 		imageInfo.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+	m_isMutableFormat = (imageInfo.flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) != 0;
 
 	if (isDepth)
 	{

@@ -716,6 +716,14 @@ private:
 	bool bufferCache_isRangeIdle(uint32 bufferOffset, uint32 size) const;
 	void bufferCache_markInUse(uint32 bufferOffset, uint32 size) override;
 	bool bufferCache_hasDirectWrites() const override { return m_bufferCacheMapped != nullptr; }
+	bool texture_canReinterpretFormat() const override
+	{
+		// framebuffer compression (AFBC/UBWC) needs images without VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT, so views can't
+		// reinterpret their format. perf/tuning.txt mutable_off=0 restores the old behavior (all color images mutable)
+		static const bool s_mutableOff = PerfLog::Tunable("mutable_off", 1) != 0;
+		return !s_mutableOff;
+	}
+	bool texture_isViewFormatCompatible(LatteTexture* baseTexture, Latte::E_GX2SURFFMT viewFormat, bool isDepth) override;
 	bool bufferCache_canWriteDirect(uint32 bufferOffset, uint32 size) const override
 	{
 		return m_bufferCacheMapped && size > 0 && !m_bufferCacheDirectBlocked && bufferCache_isRangeIdle(bufferOffset, size);
