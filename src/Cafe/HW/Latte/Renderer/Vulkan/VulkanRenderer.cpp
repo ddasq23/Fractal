@@ -1410,6 +1410,11 @@ VkDeviceCreateInfo VulkanRenderer::CreateDeviceCreateInfo(const std::vector<VkDe
 		used_extensions.emplace_back(VK_EXT_ATTACHMENT_FEEDBACK_LOOP_LAYOUT_EXTENSION_NAME);
 		used_extensions.emplace_back(VK_EXT_ATTACHMENT_FEEDBACK_LOOP_DYNAMIC_STATE_EXTENSION_NAME);
 	}
+	if (m_featureControl.deviceExtensions.load_store_op_none)
+		used_extensions.emplace_back(VK_EXT_LOAD_STORE_OP_NONE_EXTENSION_NAME);
+	if (m_featureControl.deviceExtensions.qcom_render_pass_store_ops)
+		used_extensions.emplace_back(VK_QCOM_RENDER_PASS_STORE_OPS_EXTENSION_NAME);
+	cemuLog_log(LogType::Force, "Vulkan: store op NONE: {}", HasStoreOpNone() ? "supported" : "unsupported");
 
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1511,6 +1516,8 @@ bool VulkanRenderer::CheckDeviceExtensionSupport(const VkPhysicalDevice device, 
 	info.deviceExtensions.vertex_attribute_divisor = isExtensionAvailable(VK_KHR_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME);
 	info.deviceExtensions.attachment_feedback_loop_layout = isExtensionAvailable(VK_EXT_ATTACHMENT_FEEDBACK_LOOP_LAYOUT_EXTENSION_NAME);
 	info.deviceExtensions.attachment_feedback_loop_dynamic_state = isExtensionAvailable(VK_EXT_ATTACHMENT_FEEDBACK_LOOP_DYNAMIC_STATE_EXTENSION_NAME);
+	info.deviceExtensions.load_store_op_none = isExtensionAvailable(VK_EXT_LOAD_STORE_OP_NONE_EXTENSION_NAME);
+	info.deviceExtensions.qcom_render_pass_store_ops = !info.deviceExtensions.load_store_op_none && isExtensionAvailable(VK_QCOM_RENDER_PASS_STORE_OPS_EXTENSION_NAME);
 	// dynamic rendering doesn't provide any benefits for us right now. Driver implementations are very unoptimized as of Feb 2022
 	info.deviceExtensions.present_wait = isExtensionAvailable(VK_KHR_PRESENT_WAIT_EXTENSION_NAME) && isExtensionAvailable(VK_KHR_PRESENT_ID_EXTENSION_NAME);
 
@@ -4981,7 +4988,7 @@ void VKRObjectSampler::DestroyCache()
 	s_samplerCache.clear();
 }
 
-VKRObjectRenderPass::VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint32 colorAttachmentCount)
+VKRObjectRenderPass::VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint32 colorAttachmentCount, bool depthStoreNone)
 {
 	VulkanRenderer* vkRenderer = VulkanRenderer::GetInstance();
 	bool useAttachmentFeedbackLoop = vkRenderer->UseAttachmentFeedbackLoop();
@@ -5054,11 +5061,11 @@ VKRObjectRenderPass::VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint3
 		entry.format = attachmentInfo.depthAttachment.format;
 		entry.samples = VK_SAMPLE_COUNT_1_BIT;
 		entry.loadOp = VkDiagAttachmentOps::Get().depthLoad;
-		entry.storeOp = VkDiagAttachmentOps::Get().depthStore;
+		entry.storeOp = depthStoreNone ? VK_ATTACHMENT_STORE_OP_NONE_EXT : VkDiagAttachmentOps::Get().depthStore;
 		if (attachmentInfo.depthAttachment.hasStencil)
 		{
 			entry.stencilLoadOp = VkDiagAttachmentOps::Get().depthLoad;
-			entry.stencilStoreOp = VkDiagAttachmentOps::Get().depthStore;
+			entry.stencilStoreOp = entry.storeOp;
 		}
 		else
 		{

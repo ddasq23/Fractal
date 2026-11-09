@@ -190,7 +190,8 @@ public:
 	}
 
 public:
-	VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint32 colorAttachmentCount = Latte::GPU_LIMITS::NUM_COLOR_ATTACHMENTS);
+	// depthStoreNone: depth/stencil use VK_ATTACHMENT_STORE_OP_NONE (compatible with the variant that stores them)
+	VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint32 colorAttachmentCount = Latte::GPU_LIMITS::NUM_COLOR_ATTACHMENTS, bool depthStoreNone = false);
 	~VKRObjectRenderPass() override;
 	VkRenderPass m_renderPass{ VK_NULL_HANDLE };
 	VkFormat m_colorAttachmentFormat[Latte::GPU_LIMITS::NUM_COLOR_ATTACHMENTS];

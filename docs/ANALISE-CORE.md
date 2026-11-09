@@ -564,6 +564,25 @@ MK8 no Cube: 30,3 contra 30,8, com 210 % no lugar de 259 %. Mas no RP5 o SM3DW c
 (Android 13): `APerformanceHint_createSession` não cria sessão. O item F da seção 5 não se aplica a
 esses aparelhos.
 
+**Sem store de profundidade nos passes que não a escrevem** (`depth_store_none=1`, padrão 0).
+Quando nem a draw que abre o pass nem o pass anterior no mesmo framebuffer escreveram
+profundidade/stencil, o pass começa com `STORE_OP_NONE` (`VK_EXT_load_store_op_none` ou
+`VK_QCOM_render_pass_store_ops`; os dois aparelhos têm). Se uma draw depois escreve, o pass
+recomeça com o store. Contadores `depth_passes`, `depth_unused`, `depth_readonly`,
+`depth_store_skipped`, `depth_store_restarts`.
+
+| A/B alternado | com | sem | stores pulados/s | recomeços/s |
+|---|---|---|---|---|
+| Cube MK8 | 29,6 / 30,6 | 28,6 / 30,1 | ~354 | 0 |
+| Cube SM3DW | 42,4 | 43,6 | ~272 | 9 |
+| Cube Bayonetta 2 | 11,5 / 11,6 | 11,2 / 11,7 | ~9 | 1 |
+| RP5 MK8 | 47,5 / 48,3 | 47,9 / 47,3 | ~529 | 0 |
+| RP5 SM3DW | 59,8 (1 % low 45,5) | 59,8 (43,5) | ~478 | 17 |
+| RP5 BotW | 9,4 | 9,4 | ~251 | 0 |
+
+Sem crash em nenhuma cena. Tudo dentro do ruído: nem a Mali nem a Adreno pagam caro pelo store
+de uma profundidade que não mudou. Fica desligado.
+
 ## Pendências e limitações
 
 - O RG Cube foi perfilado sem root (só espaço de usuário): o tempo de kernel e o custo das

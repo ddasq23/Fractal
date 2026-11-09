@@ -443,11 +443,13 @@ private:
 
 		// invalidation / flushing
 		uint64 currentFlushIndex{0}; // incremented by every render target barrier
-		uint64 currentVertexFlushIndex{0};
+		uint64 currentVertexFlushIndex{0}; // incremented only by barriers that also make writes visible to vertex/geometry shaders
 		VkImageAspectFlags renderPassWrittenAspects{0}; // attachment aspects written by draws since the current render pass began
-		uint8 renderPassWrittenColorMask{0};
+		bool renderPassDepthTested{}; // a draw of the current render pass had the depth or stencil test on
+		bool renderPassDepthStoreNone{}; // the current render pass doesn't store depth/stencil
+		uint8 renderPassWrittenColorMask{0}; // color attachments (render target indices) written since the current render pass began
 		class CachedFBOVk* lastEndedFbo{nullptr}; // diagnostics: render passes restarted on the same framebuffer
-		PerfLog::RenderPassEnd lastEndReason{PerfLog::RenderPassEnd::Other}; // color attachments (render target indices) written since the current render pass began // incremented only by barriers that also make writes visible to vertex/geometry shaders
+		PerfLog::RenderPassEnd lastEndReason{PerfLog::RenderPassEnd::Other}; // diagnostics: why the last render pass ended
 		bool colorBufferSyncPending{false}; // guest color-buffer sync since the previous draw; survives command-buffer resets
 		bool requestFlush{ false }; // flush after every draw operation. The renderpass dependencies dont handle dependencies across multiple drawcalls inside a single renderpass
 
@@ -499,6 +501,8 @@ private:
 			bool vertex_attribute_divisor = false; // VK_KHR_vertex_attribute_divisor (with supportsNonZeroFirstInstance, vertexAttributeInstanceRateDivisor and maxVertexAttribDivisor >= 0xFFFF)
 			bool attachment_feedback_loop_layout = false; // VK_EXT_attachment_feedback_loop_layout
 			bool attachment_feedback_loop_dynamic_state = false; // VK_EXT_attachment_feedback_loop_dynamic_state (this is forced to false if VK_EXT_attachment_feedback_loop_layout is not supported)
+			bool load_store_op_none = false; // VK_EXT_load_store_op_none
+			bool qcom_render_pass_store_ops = false; // VK_QCOM_render_pass_store_ops (VK_ATTACHMENT_STORE_OP_NONE_QCOM)
 		}deviceExtensions;
 
 		struct
@@ -1078,6 +1082,7 @@ public:
 	bool HasSPRIVRoundingModeRTE32() const { return m_featureControl.shaderFloatControls.shaderRoundingModeRTEFloat32; }
 	bool IsDebugMarkersEnabled() const { return m_featureControl.usingDebugMarkerTool; }
 	bool IsTracingToolEnabled() const { return m_featureControl.usingTracingTool; }
+	bool HasStoreOpNone() const { return m_featureControl.deviceExtensions.load_store_op_none || m_featureControl.deviceExtensions.qcom_render_pass_store_ops; }
 	bool UseAttachmentFeedbackLoop() const { return m_featureControl.deviceExtensions.attachment_feedback_loop_dynamic_state; }
 
 private:

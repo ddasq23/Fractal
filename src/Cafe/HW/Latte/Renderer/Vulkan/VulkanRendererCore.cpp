@@ -1290,6 +1290,14 @@ void VulkanRenderer::draw_setRenderPass()
 		overridePassReuse = false;
 		keptForSelfDependency = true;
 	}
+	// the active pass skips the depth/stencil store, but this draw writes them: restart it with the store
+	constexpr VkImageAspectFlags kDepthStencil = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	if (m_state.renderPassDepthStoreNone && m_state.activeRenderpassFBO == fboVk && (draw_getCurrentWriteAspects(fboVk, nullptr) & kDepthStencil))
+	{
+		overridePassReuse = true;
+		keptForSelfDependency = false;
+		PerfLog::DepthStoreSkipped(true);
+	}
 
 	if (!overridePassReuse && m_state.activeRenderpassFBO == fboVk)
 	{
@@ -1323,12 +1331,25 @@ void VulkanRenderer::draw_setRenderPass()
 	if (fboVk == m_state.lastEndedFbo)
 		PerfLog::RenderPassRestarted(m_state.lastEndReason);
 
+	// Skip storing depth/stencil when this draw doesn't write them and the previous pass on this framebuffer didn't
+	// either; a later draw that writes them restarts the pass with the store (see above). Nothing was written
+	// before the restart, so the memory still holds what the new pass loads
+	static const bool s_depthStoreNone = PerfLog::Tunable("depth_store_none", 0) != 0;
+	const bool canSkipDepthStore = s_depthStoreNone && fboVk->hasDepthBuffer() &&
+		(m_featureControl.deviceExtensions.dynamic_rendering || fboVk->GetRenderPassObjNoDepthStore());
+	m_state.renderPassDepthStoreNone = canSkipDepthStore && !fboVk->m_depthWrittenLastPass && !(draw_getCurrentWriteAspects(fboVk, nullptr) & kDepthStencil);
+	if (m_state.renderPassDepthStoreNone)
+		PerfLog::DepthStoreSkipped(false);
 	if (m_featureControl.deviceExtensions.dynamic_rendering)
 	{
+		if (canSkipDepthStore)
+			fboVk->SetDepthStoreNone(m_state.renderPassDepthStoreNone);
 		vkCmdBeginRenderingKHR(m_state.currentCommandBuffer, fboVk->GetRenderingInfo());
 	}
 	else
 	{
+		if (m_state.renderPassDepthStoreNone)
+			vkObjRenderPass = fboVk->GetRenderPassObjNoDepthStore();
 		VkRenderPass renderPass = vkObjRenderPass->m_renderPass;
 		VkFramebuffer framebuffer = vkObjFramebuffer->m_frameBuffer;
 		VkExtent2D extend = fboVk->GetExtend();
@@ -1345,6 +1366,7 @@ void VulkanRenderer::draw_setRenderPass()
 
 	m_state.activeRenderpassFBO = fboVk;
 	m_state.renderPassWrittenAspects = 0;
+	m_state.renderPassDepthTested = false;
 	m_state.renderPassWrittenColorMask = 0;
 	occlusionQuery_notifyRenderPassBegin();
 	if (UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.GetAspectMask() != m_state.feedbackLoopImageAspect)
@@ -1452,6 +1474,12 @@ void VulkanRenderer::draw_endRenderPass(PerfLog::RenderPassEnd reason)
 	else
 		vkCmdEndRenderPass(m_state.currentCommandBuffer);
 	PassProfileEndPass();
+	if (m_state.activeRenderpassFBO->hasDepthBuffer())
+	{
+		const bool depthWritten = (m_state.renderPassWrittenAspects & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) != 0;
+		PerfLog::DepthAttachmentUse(m_state.renderPassDepthTested, depthWritten);
+		m_state.activeRenderpassFBO->m_depthWrittenLastPass = depthWritten;
+	}
 	sync_RenderPassStoreTextures(m_state.activeRenderpassFBO);
 	m_state.activeRenderpassFBO = nullptr;
 }
@@ -1986,6 +2014,8 @@ void VulkanRenderer::draw_execute(uint32 baseVertex, uint32 baseInstance, uint32
 		uint8 colorWrites = 0;
 		m_state.renderPassWrittenAspects |= draw_getCurrentWriteAspects(m_state.activeRenderpassFBO, &colorWrites);
 		m_state.renderPassWrittenColorMask |= colorWrites;
+		const auto& depthControl = LatteGPUState.contextNew.DB_DEPTH_CONTROL;
+		m_state.renderPassDepthTested |= depthControl.get_Z_ENABLE() || depthControl.get_STENCIL_ENABLE();
 		PassProfileCountDraw();
 	}
 	m_state.colorBufferSyncPending = false;

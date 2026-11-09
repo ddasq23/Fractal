@@ -38,6 +38,8 @@ void CachedFBOVk::CreateRenderPass()
 	}
 
 	m_vkrObjRenderPass = new VKRObjectRenderPass(attachmentInfo);
+	if (attachmentInfo.depthAttachment.viewObj && VulkanRenderer::GetInstance()->HasStoreOpNone())
+		m_vkrObjRenderPassNoDepthStore = new VKRObjectRenderPass(attachmentInfo, Latte::GPU_LIMITS::NUM_COLOR_ATTACHMENTS, true);
 }
 
 CachedFBOVk::~CachedFBOVk()
@@ -49,6 +51,9 @@ CachedFBOVk::~CachedFBOVk()
 	m_vkrObjFramebuffer = nullptr;
 	vkr->ReleaseDestructibleObject(m_vkrObjRenderPass);
 	m_vkrObjRenderPass = nullptr;
+	if (m_vkrObjRenderPassNoDepthStore)
+		vkr->ReleaseDestructibleObject(m_vkrObjRenderPassNoDepthStore);
+	m_vkrObjRenderPassNoDepthStore = nullptr;
 }
 
 VKRObjectTextureView* CachedFBOVk::GetColorBufferImageView(uint32 index)
@@ -295,4 +300,11 @@ CachedFBOVk::RendertargetSelfDependencyMask CachedFBOVk::CheckForSelfDependency(
 		}
 	}
 	return selfDepInfo;
+}
+
+void CachedFBOVk::SetDepthStoreNone(bool none)
+{
+	m_vkDepthAttachment.storeOp = none ? VK_ATTACHMENT_STORE_OP_NONE_KHR : VkDiagAttachmentOps::Get().depthStore;
+	if (m_vkRenderingInfo.pStencilAttachment)
+		m_vkStencilAttachment.storeOp = m_vkDepthAttachment.storeOp;
 }

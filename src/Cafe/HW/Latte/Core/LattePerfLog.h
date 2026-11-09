@@ -45,6 +45,8 @@ namespace PerfLog
 	void SelfDependencyReason(int reason); // diagnostics: why the render pass could not be kept (0..3)
 	void ImageCopyViaBuffer(); // image copy between formats that both have framebuffer compression went through a buffer
 	void TextureUploadInPrologue(); // texture upload recorded ahead of the command buffer instead of ending the render pass
+	void DepthAttachmentUse(bool tested, bool written); // at the end of a render pass with a depth attachment: did a draw test or write it
+	void DepthStoreSkipped(bool restarted); // a render pass began without the depth/stencil store, or had to restart with it
 	void BufferCacheRename(uint32 bytes); // a buffer cache node moved to new GPU memory instead of ending the render pass
 	void BufferCacheRenameSkipped(int reason); // 0 streamout data, 1 node too large, 2 no heap space, 3 new allocation still in use
 	void BufferUploadFallback(int reason); // diagnostics: why a buffer upload could not be written directly (0 blocked, 1 used by the command buffer being recorded, 2 used by a submitted one)

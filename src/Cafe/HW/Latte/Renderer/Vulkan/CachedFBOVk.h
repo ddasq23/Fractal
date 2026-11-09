@@ -27,8 +27,16 @@ public:
 	{
 		return m_vkrObjRenderPass;
 	}
+	VKRObjectRenderPass* GetRenderPassObjNoDepthStore() const
+	{
+		return m_vkrObjRenderPassNoDepthStore;
+	}
 
 	// for KHR_dynamic_rendering
+	// dynamic rendering: skip the depth/stencil store of the next render pass (nothing will write them)
+	void SetDepthStoreNone(bool none);
+	bool m_depthWrittenLastPass{ true }; // the last render pass on this framebuffer wrote depth or stencil
+
 	VkRenderingInfoKHR* GetRenderingInfo()
 	{
 		return &m_vkRenderingInfo;
@@ -88,6 +96,7 @@ private:
 
 	VkDevice m_device;
 	VKRObjectRenderPass* m_vkrObjRenderPass{};
+	VKRObjectRenderPass* m_vkrObjRenderPassNoDepthStore{}; // same, without the depth/stencil store (null without depth or store op NONE)
 	VKRObjectFramebuffer* m_vkrObjFramebuffer{};
 
 	VkExtent2D m_extend;
