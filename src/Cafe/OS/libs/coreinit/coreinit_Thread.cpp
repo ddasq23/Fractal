@@ -1282,10 +1282,13 @@ namespace coreinit
 
 	Fiber* g_idleLoopFiber[3]{};
 
-	// how long the main core's idle loop may sleep: until the next alarm, at most 250us
+	// how long the main core's idle loop may sleep: until the next alarm, at most idle_wait_max_us.
+	// Off by default: on the Retroid Pocket 5, sleeping here together with the GPU thread's wait lowered the load
+	// enough for the CPU governor to drop clocks (SM3DW 52.8 -> 43.5 fps). Each wait alone costs nothing
+	// and the GPU thread's wait saves more CPU, so only that one is on
 	static std::chrono::microseconds __OSIdleWaitTimeout()
 	{
-		static const uint64 kMaxUs = (uint64)PerfLog::Tunable("idle_wait_max_us", 250);
+		static const uint64 kMaxUs = (uint64)PerfLog::Tunable("idle_wait_max_us", 0);
 		uint64 soonest = OSHostAlarm_GetSoonestAlarmTick();
 		uint64 now = coreinit::OSGetTime();
 		if (soonest <= now)
