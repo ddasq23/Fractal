@@ -1305,6 +1305,7 @@ void VulkanRenderer::draw_setRenderPass()
 		sync_inputTexturesChanged();
 
 	sync_RenderPassLoadTextures(fboVk);
+	PassProfileBeginPass(fboVk);
 
 	if (m_featureControl.deviceExtensions.dynamic_rendering)
 	{
@@ -1432,6 +1433,7 @@ void VulkanRenderer::draw_endRenderPass(PerfLog::RenderPassEnd reason)
 		vkCmdEndRenderingKHR(m_state.currentCommandBuffer);
 	else
 		vkCmdEndRenderPass(m_state.currentCommandBuffer);
+	PassProfileEndPass();
 	sync_RenderPassStoreTextures(m_state.activeRenderpassFBO);
 	m_state.activeRenderpassFBO = nullptr;
 }
@@ -1933,6 +1935,7 @@ void VulkanRenderer::draw_execute(uint32 baseVertex, uint32 baseInstance, uint32
 		uint8 colorWrites = 0;
 		m_state.renderPassWrittenAspects |= draw_getCurrentWriteAspects(m_state.activeRenderpassFBO, &colorWrites);
 		m_state.renderPassWrittenColorMask |= colorWrites;
+		PassProfileCountDraw();
 	}
 	m_state.colorBufferSyncPending = false;
 	LatteGPUState.drawCallCounter++;

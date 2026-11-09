@@ -42,6 +42,7 @@ namespace PerfLog
 	void SelfDependencyKept();
 	void SelfDependencyAspects(bool color, bool depth); // diagnostics: which attachment aspects self dependencies sample
 	void SelfDependencyReason(int reason); // diagnostics: why the render pass could not be kept (0..3)
+	void BufferUploadFallback(int reason); // diagnostics: why a buffer upload could not be written directly (0 blocked, 1 used by the command buffer being recorded, 2 used by a submitted one)
 	void SelfDependencyOtherSubresource(); // sampled another mip/slice of an attachment: no longer treated as a self dependency // a draw sampled an attachment nobody wrote in this render pass: the pass was kept
 	void GpuWait(uint64 ns); // the GPU thread blocked waiting for a command buffer to finish
 	void TextureReadbackScheduled();

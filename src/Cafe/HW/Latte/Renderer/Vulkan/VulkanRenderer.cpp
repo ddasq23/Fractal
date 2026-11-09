@@ -12,6 +12,7 @@
 #include "Cafe/HW/Latte/Core/LatteOverlay.h"
 
 #include "Cafe/HW/Latte/LegacyShaderDecompiler/LatteDecompiler.h"
+#include "Cafe/HW/Latte/Core/LatteShader.h"
 
 #include "Cafe/CafeSystem.h"
 
@@ -911,6 +912,11 @@ VulkanRenderer::~VulkanRenderer()
 	SubmitCommandBuffer();
 	WaitDeviceIdle();
 	WaitCommandBufferFinished(GetCurrentCommandBufferId());
+	if (m_passProfileQueryPool != VK_NULL_HANDLE)
+	{
+		vkDestroyQueryPool(m_logicalDevice, m_passProfileQueryPool, nullptr);
+		m_passProfileQueryPool = VK_NULL_HANDLE;
+	}
 	if (m_perfQueryPool != VK_NULL_HANDLE)
 	{
 		vkDestroyQueryPool(m_logicalDevice, m_perfQueryPool, nullptr);
@@ -2321,6 +2327,7 @@ void VulkanRenderer::PerfTimestampBegin()
 	vkCmdResetQueryPool(m_state.currentCommandBuffer, m_perfQueryPool, first, 2);
 	vkCmdWriteTimestamp(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_perfQueryPool, first);
 	m_perfQueryWritten[m_commandBufferIndex] = true;
+	PassProfileBeginCommandBuffer();
 }
 
 void VulkanRenderer::PerfTimestampEnd()
@@ -2341,6 +2348,116 @@ void VulkanRenderer::PerfTimestampCollect(size_t commandBufferIndex)
 	ts[1] &= m_perfTimestampMask;
 	if (ts[1] > ts[0])
 		PerfLog::GpuWork((uint64)(ts[0] * m_perfTimestampPeriodNs), (uint64)(ts[1] * m_perfTimestampPeriodNs));
+	PassProfileCollect(commandBufferIndex);
+}
+
+void VulkanRenderer::PassProfileBeginCommandBuffer()
+{
+	static const bool s_enabled = PerfLog::Tunable("pass_profile", 0) != 0;
+	m_passProfileEnabled = false;
+	if (!s_enabled)
+		return;
+	if (m_passProfileQueryPool == VK_NULL_HANDLE)
+	{
+		VkQueryPoolCreateInfo info{};
+		info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+		info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+		info.queryCount = kCommandBufferPoolSize * kPassProfileMaxPerCommandBuffer * 2;
+		if (vkCreateQueryPool(m_logicalDevice, &info, nullptr, &m_passProfileQueryPool) != VK_SUCCESS)
+		{
+			m_passProfileQueryPool = VK_NULL_HANDLE;
+			return;
+		}
+		cemuLog_log(LogType::Force, "PassProfile: enabled");
+	}
+	m_passProfile[m_commandBufferIndex].clear();
+	m_passProfileOpen = false;
+	vkCmdResetQueryPool(m_state.currentCommandBuffer, m_passProfileQueryPool, (uint32)m_commandBufferIndex * kPassProfileMaxPerCommandBuffer * 2, kPassProfileMaxPerCommandBuffer * 2);
+	m_passProfileEnabled = true;
+}
+
+void VulkanRenderer::PassProfileBeginPass(CachedFBOVk* fboVk)
+{
+	if (!m_passProfileEnabled)
+		return;
+	auto& list = m_passProfile[m_commandBufferIndex];
+	if (list.size() >= kPassProfileMaxPerCommandBuffer)
+		return;
+	const VkExtent2D ext = fboVk->GetExtend();
+	std::string sig = fmt::format("{}x{}", ext.width, ext.height);
+	for (sint32 i = 0; i < 8; i++)
+		if (fboVk->colorBuffer[i].texture)
+			sig += fmt::format(" c{}:{:x}", i, (uint32)fboVk->colorBuffer[i].texture->format);
+	if (fboVk->depthBuffer.texture)
+		sig += fmt::format(" d:{:x}", (uint32)fboVk->depthBuffer.texture->format);
+	if (auto* ps = LatteSHRC_GetActivePixelShader())
+		sig += fmt::format(" ps:{:016x}", ps->baseHash);
+	vkCmdWriteTimestamp(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_passProfileQueryPool, (uint32)(m_commandBufferIndex * kPassProfileMaxPerCommandBuffer + list.size()) * 2);
+	list.push_back({ std::move(sig), 0 });
+	m_passProfileOpen = true;
+}
+
+void VulkanRenderer::PassProfileCountDraw()
+{
+	if (m_passProfileOpen)
+		m_passProfile[m_commandBufferIndex].back().draws++;
+}
+
+void VulkanRenderer::PassProfileEndPass()
+{
+	if (!m_passProfileOpen)
+		return;
+	m_passProfileOpen = false;
+	auto& list = m_passProfile[m_commandBufferIndex];
+	vkCmdWriteTimestamp(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_passProfileQueryPool, (uint32)(m_commandBufferIndex * kPassProfileMaxPerCommandBuffer + list.size() - 1) * 2 + 1);
+}
+
+void VulkanRenderer::PassProfileCollect(size_t commandBufferIndex)
+{
+	struct Stats { uint64 ns; uint32 passes; uint32 draws; };
+	static std::unordered_map<std::string, Stats> s_stats;
+	static uint64 s_lastEnd = 0;
+	static uint64 s_totalNs = 0;
+	static auto s_lastDump = std::chrono::steady_clock::now();
+	auto& list = m_passProfile[commandBufferIndex];
+	if (list.empty() || m_passProfileQueryPool == VK_NULL_HANDLE)
+		return;
+	std::vector<uint64> ts(list.size() * 2);
+	VkResult r = vkGetQueryPoolResults(m_logicalDevice, m_passProfileQueryPool, (uint32)(commandBufferIndex * kPassProfileMaxPerCommandBuffer * 2), (uint32)ts.size(), ts.size() * sizeof(uint64), ts.data(), sizeof(uint64), VK_QUERY_RESULT_64_BIT);
+	if (r == VK_SUCCESS)
+	{
+		for (size_t i = 0; i < list.size(); i++)
+		{
+			const uint64 start = (uint64)((ts[i * 2] & m_perfTimestampMask) * m_perfTimestampPeriodNs);
+			const uint64 end = (uint64)((ts[i * 2 + 1] & m_perfTimestampMask) * m_perfTimestampPeriodNs);
+			if (end < start || end - start > 1000000000ull)
+				continue;
+			if (s_lastEnd > end + 1000000000ull)
+				s_lastEnd = 0;
+			// exclusive time: tiled GPUs overlap the vertex work of a pass with the fragment work of the previous one
+			const uint64 from = std::max(start, s_lastEnd);
+			const uint64 ns = end > from ? end - from : 0;
+			s_lastEnd = std::max(s_lastEnd, end);
+			auto& st = s_stats[list[i].signature];
+			st.ns += ns;
+			st.passes++;
+			st.draws += list[i].draws;
+			s_totalNs += ns;
+		}
+	}
+	list.clear();
+	const auto now = std::chrono::steady_clock::now();
+	const double secs = std::chrono::duration<double>(now - s_lastDump).count();
+	if (secs < 10.0)
+		return;
+	std::vector<std::pair<std::string, Stats>> sorted(s_stats.begin(), s_stats.end());
+	std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.second.ns > b.second.ns; });
+	cemuLog_log(LogType::Force, "PassProfile: {:.1f} ms GPU per second in {} signatures", s_totalNs / 1e6 / secs, sorted.size());
+	for (size_t i = 0; i < std::min<size_t>(sorted.size(), 12); i++)
+		cemuLog_log(LogType::Force, "PassProfile: {:6.1f} ms/s {:5.0f} passes/s {:6.0f} draws/s  {}", sorted[i].second.ns / 1e6 / secs, sorted[i].second.passes / secs, sorted[i].second.draws / secs, sorted[i].first);
+	s_stats.clear();
+	s_totalNs = 0;
+	s_lastDump = now;
 }
 
 void VulkanRenderer::WaitForNextFinishedCommandBuffer()
@@ -4465,13 +4582,27 @@ void VulkanRenderer::bufferCache_markInUse(uint32 bufferOffset, uint32 size)
 
 void VulkanRenderer::bufferCache_upload(uint8* buffer, sint32 size, uint32 bufferOffset)
 {
-	if (m_bufferCacheMapped && size > 0 && !m_bufferCacheDirectBlocked && bufferCache_isRangeIdle(bufferOffset, size))
+	static const bool s_unsafe = PerfLog::Tunable("upload_unsafe", 0) != 0; // experiment: ignore GPU use (racy)
+	if (m_bufferCacheMapped && size > 0 && (s_unsafe || (!m_bufferCacheDirectBlocked && bufferCache_isRangeIdle(bufferOffset, size))))
 	{
 		// no submitted or recorded GPU work uses this range anymore: write it directly. Host writes are visible to the
 		// command buffer that is being recorded once it is submitted, and no render pass has to end
 		memcpy(m_bufferCacheMapped + bufferOffset, buffer, size);
 		PerfLog::BufferUploadDirect();
 		return;
+	}
+	if (m_bufferCacheMapped && size > 0 && PerfLog::IsActive())
+	{
+		int reason = 0;
+		if (!m_bufferCacheDirectBlocked)
+		{
+			reason = 2;
+			const uint64 current = GetCurrentCommandBufferId() + 1;
+			for (uint32 i = bufferOffset >> kBufferCacheUseBlockShift; i <= (bufferOffset + size - 1) >> kBufferCacheUseBlockShift; i++)
+				if (m_bufferCacheLastUse[i] == current)
+					reason = 1;
+		}
+		PerfLog::BufferUploadFallback(reason);
 	}
 	draw_endRenderPass(PerfLog::RenderPassEnd::BufferUpload);
 	bufferCache_markInUse(bufferOffset, size); // the copy below writes it

@@ -738,6 +738,24 @@ private:
 	void PerfTimestampEnd();
 	void PerfTimestampCollect(size_t commandBufferIndex);
 
+	// GPU time per render pass (perf/tuning.txt pass_profile=1): timestamps around every render pass, summed per
+	// render target signature and logged every 10 seconds
+	static constexpr uint32 kPassProfileMaxPerCommandBuffer = 256;
+	struct PassProfileEntry
+	{
+		std::string signature;
+		uint32 draws;
+	};
+	bool m_passProfileEnabled = false;
+	bool m_passProfileOpen = false; // the active render pass has a begin timestamp
+	VkQueryPool m_passProfileQueryPool = VK_NULL_HANDLE;
+	std::array<std::vector<PassProfileEntry>, kCommandBufferPoolSize> m_passProfile;
+	void PassProfileBeginCommandBuffer();
+	void PassProfileBeginPass(class CachedFBOVk* fboVk);
+	void PassProfileEndPass();
+	void PassProfileCountDraw();
+	void PassProfileCollect(size_t commandBufferIndex);
+
 	VkSemaphore GetLastSubmittedCmdBufferSemaphore()
 	{
 		return m_commandBufferSemaphores[(m_commandBufferIndex + m_commandBufferSemaphores.size() - 1) % m_commandBufferSemaphores.size()];

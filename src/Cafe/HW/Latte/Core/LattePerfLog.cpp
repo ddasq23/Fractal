@@ -61,6 +61,7 @@ namespace PerfLog
 		std::atomic<uint64> selfDependencyOtherSubresource{};
 		std::atomic<uint64> selfDependencyColor{}, selfDependencyDepth{};
 		std::atomic<uint64> selfDependencyReasons[4]{};
+		std::atomic<uint64> uploadFallbackReasons[3]{};
 		std::atomic<uint64> textureReadbacks{};
 	};
 	static uint64 s_gpuLastEndNs = 0; // only touched by the render thread
@@ -341,7 +342,7 @@ namespace PerfLog
 		seconds << "t_s,frames,fps,ft_avg_ms,ft_p99_ms,low1_fps,ft_max_ms,"
 				   "shaders,shaders_cached,shaders_failed,shader_ms,"
 				   "pipelines,pipelines_sync,pipelines_failed,pipeline_ms,pipeline_sync_ms,gpu_busy_ms,render_passes,draws,"
-				   "rpe_other,rpe_fbo,rpe_buffer_upload,rpe_buffer_copy,rpe_texture_upload,rpe_clear,rpe_copy,rpe_readback,rpe_query,rpe_submit,rpe_self_dependency,buffer_uploads_direct,barriers,gpu_wait_ms,readbacks,selfdep_kept,selfdep_other_subresource,selfdep_color,selfdep_depth,selfdep_why_drawwrites,selfdep_why_passwrote,selfdep_why_otherbarrier,selfdep_why_vertex,"
+				   "rpe_other,rpe_fbo,rpe_buffer_upload,rpe_buffer_copy,rpe_texture_upload,rpe_clear,rpe_copy,rpe_readback,rpe_query,rpe_submit,rpe_self_dependency,buffer_uploads_direct,barriers,gpu_wait_ms,readbacks,selfdep_kept,selfdep_other_subresource,selfdep_color,selfdep_depth,selfdep_why_drawwrites,selfdep_why_passwrote,selfdep_why_otherbarrier,selfdep_why_vertex,upload_fb_blocked,upload_fb_current,upload_fb_inflight,"
 				   "cpu_process_pct,rss_mb" << freqHeader << "\n";
 		threads << "t_s,tid,name,cpu_pct\n";
 		frames << "t_ms,ft_ms\n";
@@ -440,6 +441,8 @@ namespace PerfLog
 			passEnds += fmt::format("{},{},", s_counters.selfDependencyColor.exchange(0), s_counters.selfDependencyDepth.exchange(0));
 			for (auto& c : s_counters.selfDependencyReasons)
 				passEnds += fmt::format("{},", c.exchange(0));
+			for (auto& c : s_counters.uploadFallbackReasons)
+				passEnds += fmt::format("{},", c.exchange(0));
 			seconds << fmt::format("{:.0f},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{},{},{},{:.1f},{},{},{},{:.1f},{:.1f},{:.1f},{},{},{}{:.1f},{}{}{}\n",
 								   tS, n, fps, ftAvg, ftP99, low1, ftMax,
 								   shaders, shadersCached, shadersFailed, shaderUs / 1000.0,
@@ -496,6 +499,8 @@ namespace PerfLog
 		s_counters.selfDependencyColor = 0;
 		s_counters.selfDependencyDepth = 0;
 		for (auto& c : s_counters.selfDependencyReasons)
+			c = 0;
+		for (auto& c : s_counters.uploadFallbackReasons)
 			c = 0;
 		s_gpuLastEndNs = 0;
 		{
@@ -612,6 +617,12 @@ namespace PerfLog
 	{
 		if (IsActive() && reason >= 0 && reason < 4)
 			s_counters.selfDependencyReasons[reason].fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void BufferUploadFallback(int reason)
+	{
+		if (IsActive() && reason >= 0 && reason < 3)
+			s_counters.uploadFallbackReasons[reason].fetch_add(1, std::memory_order_relaxed);
 	}
 
 	void SelfDependencyKept()
