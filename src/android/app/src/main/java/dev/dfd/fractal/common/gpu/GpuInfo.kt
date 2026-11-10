@@ -9,6 +9,7 @@ package dev.dfd.fractal.common.gpu
 import android.opengl.EGL14
 import android.opengl.EGLConfig
 import android.opengl.GLES20
+import dev.dfd.fractal.common.ui.localization.tr
 import java.io.File
 
 enum class GpuVendor { ADRENO, MALI, OTHER }
@@ -27,7 +28,7 @@ data class Gpu(
         get() = when (vendor) {
             GpuVendor.ADRENO -> model?.let { "Adreno $it" } ?: renderer.ifBlank { "Adreno" }
             GpuVendor.MALI -> model?.let { "Mali-G$it" } ?: renderer.ifBlank { "Mali" }
-            GpuVendor.OTHER -> renderer.ifBlank { "Unknown GPU" }
+            GpuVendor.OTHER -> renderer.ifBlank { tr("Unknown GPU") }
         }
 }
 

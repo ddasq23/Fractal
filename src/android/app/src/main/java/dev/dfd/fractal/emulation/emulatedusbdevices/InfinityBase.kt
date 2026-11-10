@@ -62,15 +62,15 @@ fun InfinityBaseTab(
             Button(onClick = { showInstalledFigures = true }) { Text(tr("Manage list")) }
         }
 
-        InfinityRow("Play Set/Power Disc", 0)
-        InfinityRow("Power Disc Two", 1)
-        InfinityRow("Power Disc Three", 2)
-        InfinityRow("Player One", 3)
-        InfinityRow("Player One Ability One", 4)
-        InfinityRow("Player One Ability Two", 5)
-        InfinityRow("Player Two", 6)
-        InfinityRow("Player Two Ability One", 7)
-        InfinityRow("Player Two Ability Two", 8)
+        InfinityRow(tr("Play Set/Power Disc"), 0)
+        InfinityRow(tr("Power Disc Two"), 1)
+        InfinityRow(tr("Power Disc Three"), 2)
+        InfinityRow(tr("Player One"), 3)
+        InfinityRow(tr("Player One Ability One"), 4)
+        InfinityRow(tr("Player One Ability Two"), 5)
+        InfinityRow(tr("Player Two"), 6)
+        InfinityRow(tr("Player Two Ability One"), 7)
+        InfinityRow(tr("Player Two Ability Two"), 8)
     }
 
     if (showCreateDialog) {

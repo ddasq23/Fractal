@@ -41,6 +41,7 @@ import dev.dfd.fractal.BuildConfig
 import dev.dfd.fractal.R
 import dev.dfd.fractal.common.ui.components.ScreenContentLazy
 import dev.dfd.fractal.common.ui.localization.tr
+import dev.dfd.fractal.common.ui.localization.trNoop
 
 typealias AboutLibrary = com.mikepenz.aboutlibraries.entity.Library
 
@@ -230,7 +231,7 @@ private fun Library(library: Library) {
                     )
                 )
             ) {
-                append(source.name ?: source.url)
+                append(source.name?.let { tr(it) } ?: source.url)
             }
             append(")")
         }
@@ -262,7 +263,7 @@ private val UsedLibraries: List<Library> = listOf(
         "Modified ih264 from Android project",
         LibrarySource(
             "https://github.com/cemu-project/Cemu/tree/main/dependencies/ih264d",
-            "Source"
+            trNoop("Source"),
         )
     )
 )
