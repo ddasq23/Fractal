@@ -78,6 +78,10 @@ data class InputOverlaySettings(
     val inputOverlayRectMap: Map<OverlayInputConfig, InputOverlayRect> = emptyMap(),
     val profiles: List<OverlayLayoutProfile> = emptyList(),
     val activeProfileIds: Map<OverlayControllerType, String> = emptyMap(),
+    /** Colors of the inputs: the app theme's, or a style of their own. */
+    val style: OverlayStyle = OverlayStyle.THEME,
+    /** Color of [OverlayStyle.CUSTOM], ARGB. */
+    val customColor: Int = DEFAULT_OVERLAY_CUSTOM_COLOR,
 )
 
 @Serializable

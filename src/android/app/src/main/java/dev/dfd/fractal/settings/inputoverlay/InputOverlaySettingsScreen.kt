@@ -24,6 +24,11 @@ import dev.dfd.fractal.common.settings.deleteProfile
 import dev.dfd.fractal.common.settings.renameProfile
 import dev.dfd.fractal.common.settings.selectProfile
 import dev.dfd.fractal.common.settings.upsertMacro
+import dev.dfd.fractal.common.settings.OverlayShortcut
+import dev.dfd.fractal.common.settings.deleteShortcut
+import dev.dfd.fractal.common.settings.upsertShortcut
+import dev.dfd.fractal.emulation.inputoverlay.ui.ShortcutEditorDialog
+import dev.dfd.fractal.emulation.inputoverlay.ui.ShortcutList
 import dev.dfd.fractal.common.ui.fractal.FractalButton
 import dev.dfd.fractal.common.ui.fractal.FractalScreen
 import dev.dfd.fractal.common.ui.fractal.SectionTitle
@@ -79,6 +84,8 @@ fun InputOverlaySettingsScreen(
     val overlaySettings by viewModel.overlaySettings.collectAsState()
     var layoutType by rememberSaveable { mutableStateOf(OverlayControllerType.VPAD) }
     var macroEditing by remember { mutableStateOf<MacroEditing?>(null) }
+    var shortcutEditing by remember { mutableStateOf<OverlayShortcut?>(null) }
+    var creatingShortcut by remember { mutableStateOf(false) }
 
     // follow the type of the controller the overlay drives
     LaunchedEffect(overlaySettings.controllerIndex) {
@@ -140,6 +147,19 @@ fun InputOverlaySettingsScreen(
         )
         FractalButton(tr("New macro"), onClick = { macroEditing = MacroEditing.New }, icon = FractalIcons.FolderAdd)
 
+        SectionTitle(tr("Shortcuts"))
+        Text(
+            tr("Shortcuts of the profile \"{0}\". A shortcut is an extra overlay button that runs an emulator action, like opening the menu, pausing or taking a screenshot.", activeProfile.displayName()),
+            style = MaterialTheme.typography.bodySmall,
+            color = FractalTheme.colors.textSecondary,
+        )
+        ShortcutList(
+            shortcuts = activeProfile.shortcuts,
+            onEdit = { shortcutEditing = it },
+            onDelete = { shortcut -> viewModel.update { it.deleteShortcut(layoutType, shortcut.id) } },
+        )
+        FractalButton(tr("New shortcut"), onClick = { creatingShortcut = true }, icon = FractalIcons.Shortcut)
+
         SectionTitle(tr("Visible Inputs"))
         for (input in VisibleInputsOrder) {
             OverlayToggleRow(
@@ -148,6 +168,21 @@ fun InputOverlaySettingsScreen(
                 onCheckedChange = { viewModel.setInputVisibility(input, it) },
             )
         }
+    }
+
+    if (creatingShortcut || shortcutEditing != null) {
+        ShortcutEditorDialog(
+            initial = shortcutEditing,
+            onSave = { shortcut ->
+                viewModel.update { it.upsertShortcut(layoutType, shortcut) }
+                creatingShortcut = false
+                shortcutEditing = null
+            },
+            onDismiss = {
+                creatingShortcut = false
+                shortcutEditing = null
+            },
+        )
     }
 
     macroEditing?.let { editing ->

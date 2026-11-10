@@ -123,6 +123,9 @@ data class OverlayLayoutProfile(
     val rects: Map<OverlayInputConfig, NormalizedRect> = emptyMap(),
     val behaviors: Map<OverlayInputConfig, ButtonBehavior> = emptyMap(),
     val macros: List<OverlayMacro> = emptyList(),
+    val shortcuts: List<OverlayShortcut> = emptyList(),
+    /** Per input look, keyed by [styleKey] for built in inputs and by id for macros and shortcuts. */
+    val styles: Map<String, OverlayInputStyle> = emptyMap(),
 )
 
 fun defaultProfileId(type: OverlayControllerType) = "default-${type.name.lowercase()}"
@@ -167,12 +170,18 @@ fun InputOverlaySettings.createProfile(
 ): InputOverlaySettings {
     // the stand-in default profile must be saved too, or it would vanish once another exists
     val base = if (profiles.none { it.controllerType == type }) withProfile(defaultProfile(type)) else this
+    // macros and shortcuts get new ids so the copy can be edited on its own
+    val newIds = HashMap<String, String>()
+    fun newId(old: String) = UUID.randomUUID().toString().also { newIds[old] = it }
+    val macros = copyFrom?.macros?.map { it.copy(id = newId(it.id)) } ?: emptyList()
+    val shortcuts = copyFrom?.shortcuts?.map { it.copy(id = newId(it.id)) } ?: emptyList()
     val profile = (copyFrom ?: OverlayLayoutProfile(controllerType = type)).copy(
         id = UUID.randomUUID().toString(),
         name = name,
         controllerType = type,
-        // macros get new ids so the copy can be edited on its own
-        macros = copyFrom?.macros?.map { it.copy(id = UUID.randomUUID().toString()) } ?: emptyList(),
+        macros = macros,
+        shortcuts = shortcuts,
+        styles = copyFrom?.styles?.mapKeys { (key, _) -> newIds[key] ?: key } ?: emptyMap(),
     )
     return base.withProfile(profile).selectProfile(type, profile.id)
 }
@@ -191,10 +200,41 @@ fun InputOverlaySettings.deleteProfile(type: OverlayControllerType, id: String):
     return copy(profiles = remaining, activeProfileIds = newActive)
 }
 
-/** Clears positions and sizes of the active profile; behaviors and macros are kept. */
+/** Clears positions and sizes of the active profile; behaviors, macros, shortcuts, opacity and shapes are kept. */
 fun InputOverlaySettings.resetActiveLayout(type: OverlayControllerType): InputOverlaySettings =
     updateActiveProfile(type) { profile ->
-        profile.copy(rects = emptyMap(), macros = profile.macros.map { it.copy(rect = null) })
+        profile.copy(
+            rects = emptyMap(),
+            macros = profile.macros.map { it.copy(rect = null) },
+            shortcuts = profile.shortcuts.map { it.copy(rect = null) },
+            styles = profile.styles.mapValues { (_, style) -> style.copy(scale = 1f) }.filterValues { !it.isDefault },
+        )
+    }
+
+/** Sets the look of one input of the active profile; [key] comes from [styleKey] or is a macro/shortcut id. */
+fun InputOverlaySettings.setInputStyle(
+    type: OverlayControllerType,
+    key: String,
+    style: OverlayInputStyle,
+): InputOverlaySettings = updateActiveProfile(type) { profile ->
+    profile.copy(styles = if (style.isDefault) profile.styles - key else profile.styles + (key to style))
+}
+
+fun InputOverlaySettings.upsertShortcut(type: OverlayControllerType, shortcut: OverlayShortcut): InputOverlaySettings =
+    updateActiveProfile(type) { profile ->
+        val index = profile.shortcuts.indexOfFirst { it.id == shortcut.id }
+        profile.copy(
+            shortcuts = if (index >= 0) {
+                profile.shortcuts.toMutableList().apply { this[index] = shortcut }
+            } else {
+                profile.shortcuts + shortcut
+            }
+        )
+    }
+
+fun InputOverlaySettings.deleteShortcut(type: OverlayControllerType, shortcutId: String): InputOverlaySettings =
+    updateActiveProfile(type) { profile ->
+        profile.copy(shortcuts = profile.shortcuts.filterNot { it.id == shortcutId }, styles = profile.styles - shortcutId)
     }
 
 fun InputOverlaySettings.setBehavior(
@@ -220,7 +260,9 @@ fun InputOverlaySettings.upsertMacro(type: OverlayControllerType, macro: Overlay
     }
 
 fun InputOverlaySettings.deleteMacro(type: OverlayControllerType, macroId: String): InputOverlaySettings =
-    updateActiveProfile(type) { profile -> profile.copy(macros = profile.macros.filterNot { it.id == macroId }) }
+    updateActiveProfile(type) { profile ->
+        profile.copy(macros = profile.macros.filterNot { it.id == macroId }, styles = profile.styles - macroId)
+    }
 
 /** Merges positions edited on the overlay into the active profile of [type]. */
 fun InputOverlaySettings.applyEditedRects(
@@ -231,6 +273,7 @@ fun InputOverlaySettings.applyEditedRects(
     profile.copy(
         rects = profile.rects + rects,
         macros = profile.macros.map { macro -> macroRects[macro.id]?.let { macro.copy(rect = it) } ?: macro },
+        shortcuts = profile.shortcuts.map { s -> macroRects[s.id]?.let { s.copy(rect = it) } ?: s },
     )
 }
 

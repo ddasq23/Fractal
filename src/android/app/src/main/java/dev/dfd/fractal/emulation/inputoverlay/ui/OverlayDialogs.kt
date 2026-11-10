@@ -49,8 +49,13 @@ import dev.dfd.fractal.common.ui.icons.FractalIcons
 import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.common.ui.theme.FractalTheme
 import dev.dfd.fractal.common.ui.theme.fractalSurface
+import dev.dfd.fractal.common.settings.OverlayInputStyle
+import dev.dfd.fractal.common.settings.OverlayShortcut
+import dev.dfd.fractal.emulation.input.shortLabel
 import dev.dfd.fractal.emulation.inputoverlay.OverlayTarget
 import dev.dfd.fractal.emulation.inputoverlay.displayName
+import dev.dfd.fractal.emulation.inputoverlay.styleKey
+import dev.dfd.fractal.emulation.input.displayName as hotkeyDisplayName
 import dev.dfd.fractal.emulation.inputoverlay.macroInputsFor
 import kotlin.math.roundToInt
 
@@ -105,9 +110,26 @@ fun InputOptionsDialog(
     onEditMacro: (OverlayMacro) -> Unit,
     onDeleteMacro: (OverlayMacro) -> Unit,
     onDismiss: () -> Unit,
+    onStyleChange: (OverlayInputStyle) -> Unit = {},
+    onStylePreview: (OverlayInputStyle) -> Unit = {},
+    onEditShortcut: (OverlayShortcut) -> Unit = {},
+    onDeleteShortcut: (OverlayShortcut) -> Unit = {},
 ) {
     val profile = settings.activeProfile(controllerType)
     var confirmDelete by remember { mutableStateOf(false) }
+    val inputStyle = profile.styles[target.styleKey] ?: OverlayInputStyle()
+
+    @Composable
+    fun StyleSection(canChangeShape: Boolean) {
+        SectionLabel(tr("Look"))
+        InputStyleEditor(
+            style = inputStyle,
+            globalAlpha = settings.alpha,
+            canChangeShape = canChangeShape,
+            onPreview = onStylePreview,
+            onChange = onStyleChange,
+        )
+    }
     when (target) {
         is OverlayTarget.Builtin -> {
             val config = target.config
@@ -131,6 +153,7 @@ fun InputOptionsDialog(
                         color = FractalTheme.colors.textSecondary,
                     )
                 }
+                StyleSection(canChangeShape = config.isButton)
                 Text(
                     tr("Hidden inputs can be shown again in the input overlay settings."),
                     style = MaterialTheme.typography.bodySmall,
@@ -161,6 +184,7 @@ fun InputOptionsDialog(
                     onChange = onBehaviorChange,
                     isSequence = macro.kind == MacroKind.SEQUENCE,
                 )
+                StyleSection(canChangeShape = true)
             }
             if (confirmDelete) {
                 ConfirmDialog(
@@ -175,7 +199,54 @@ fun InputOptionsDialog(
                 )
             }
         }
+
+        is OverlayTarget.Shortcut -> {
+            val shortcut = profile.shortcuts.firstOrNull { it.id == target.id }
+            if (shortcut == null) {
+                LaunchedEffect(Unit) { onDismiss() }
+                return
+            }
+            val name = shortcut.label.ifBlank { shortcut.action.shortLabel() }
+            OverlayDialog(
+                title = tr("Shortcut {0}", name),
+                onDismiss = onDismiss,
+                actions = {
+                    DialogTextButton(tr("Delete"), { confirmDelete = true }, destructive = true)
+                    DialogTextButton(tr("Edit"), { onEditShortcut(shortcut) })
+                    DialogTextButton(tr("Close"), onDismiss)
+                },
+            ) {
+                Text(
+                    tr("Runs: {0}", shortcut.action.hotkeyDisplayName()),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = FractalTheme.colors.textSecondary,
+                )
+                StyleSection(canChangeShape = true)
+            }
+            if (confirmDelete) {
+                ConfirmDialog(
+                    title = tr("Delete shortcut"),
+                    message = tr("Delete the shortcut \"{0}\"?", name),
+                    confirmText = tr("Delete"),
+                    onConfirm = {
+                        confirmDelete = false
+                        onDeleteShortcut(shortcut)
+                    },
+                    onDismiss = { confirmDelete = false },
+                )
+            }
+        }
     }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text.uppercase(),
+        style = MaterialTheme.typography.labelLarge,
+        color = FractalTheme.colors.accent,
+        modifier = Modifier.padding(top = 6.dp),
+    )
 }
 
 fun OverlayMacro.summary(): String = when (kind) {
@@ -541,6 +612,7 @@ fun OverlayAppearanceOptions(
     onUpdate: ((InputOverlaySettings) -> InputOverlaySettings) -> Unit,
     onPreview: (alpha: Int?, scale: Float?) -> Unit = { _, _ -> },
 ) {
+    OverlayStyleOptions(settings, onUpdate)
     OverlaySliderRow(
         title = tr("Inputs opacity"),
         value = settings.alpha.toFloat(),
