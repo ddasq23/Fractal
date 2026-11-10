@@ -52,7 +52,14 @@ import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.dfd.fractal.BuildConfig
+import androidx.compose.runtime.CompositionLocalProvider
+import dev.dfd.fractal.common.ui.fractal.ButtonHint
+import dev.dfd.fractal.common.ui.fractal.ButtonHints
 import dev.dfd.fractal.common.ui.fractal.FractalButton
+import dev.dfd.fractal.common.ui.fractal.LocalScreenFocus
+import dev.dfd.fractal.common.ui.fractal.PadButton
+import dev.dfd.fractal.common.ui.fractal.rememberScreenFocus
+import dev.dfd.fractal.common.ui.fractal.screenFocusContainer
 import dev.dfd.fractal.common.ui.fractal.FractalIconButton
 import dev.dfd.fractal.common.ui.fractal.FractalWordmark
 import dev.dfd.fractal.common.ui.fractal.SectionTitle
@@ -97,9 +104,23 @@ fun WelcomeScreen(navigation: WelcomeNavigation) {
 
     BackHandler(enabled = stepIndex > 0) { stepIndex-- }
 
+    val focus = rememberScreenFocus()
+    ButtonHints(
+        buildList {
+            add(ButtonHint(PadButton.A, tr("Select")))
+            add(ButtonHint(PadButton.B, tr("Back")))
+            add(ButtonHint(PadButton.START, if (step == Step.DONE) tr("Go to library") else tr("Next")) { next() })
+            add(ButtonHint(listOf(PadButton.L1, PadButton.R1), tr("Step")) {
+                if (it == PadButton.R1) { if (step != Step.DONE) stepIndex++ } else if (stepIndex > 0) stepIndex--
+            })
+        }
+    )
+
     // handhelds are short and wide (Odin 2 Mini: ~830x420 dp) or square (RG Cube): keep it compact
     val wide = LocalConfiguration.current.screenWidthDp >= 700
-    Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    CompositionLocalProvider(LocalScreenFocus provides focus) {
+    // each step starts with the focus on its first item
+    Row(Modifier.fillMaxSize().screenFocusContainer(focus, stepIndex).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         // left: brand and progress (hidden on narrow screens)
         if (wide) {
             Column(Modifier.width(190.dp).padding(top = 6.dp, start = 6.dp)) {
@@ -151,6 +172,7 @@ fun WelcomeScreen(navigation: WelcomeNavigation) {
                 )
             }
         }
+    }
     }
 }
 
