@@ -42,7 +42,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.dfd.fractal.common.gpu.Gpu
 import dev.dfd.fractal.common.gpu.GpuVendor
+import dev.dfd.fractal.common.ui.fractal.ButtonHint
 import dev.dfd.fractal.common.ui.fractal.FractalButton
+import dev.dfd.fractal.common.ui.fractal.PadButton
 import dev.dfd.fractal.common.ui.fractal.FractalIconButton
 import dev.dfd.fractal.common.ui.fractal.FractalScreen
 import dev.dfd.fractal.common.ui.fractal.SectionTitle
@@ -68,7 +70,16 @@ fun DriversScreen(navigateBack: () -> Unit, viewModel: DriversViewModel = viewMo
         uri?.let(viewModel::importFromFile)
     }
 
-    FractalScreen(title = tr("Drivers"), onBack = navigateBack) {
+    FractalScreen(
+        title = tr("Drivers"),
+        onBack = navigateBack,
+        extraHints = buildList {
+            if (viewModel.supportsCustomDrivers) add(ButtonHint(PadButton.X, tr("Import from file")) {
+                importLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
+            })
+            if (viewModel.visibleSources(gpu).isNotEmpty()) add(ButtonHint(PadButton.Y, tr("Refresh")) { viewModel.refresh() })
+        },
+    ) {
         GpuCard(gpu, viewModel.supportsCustomDrivers)
         message?.let { Banner(it) }
 

@@ -21,7 +21,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import dev.dfd.fractal.common.ui.components.FractalAlertDialog
+import dev.dfd.fractal.common.ui.fractal.ButtonHint
+import dev.dfd.fractal.common.ui.fractal.DialogButtonLegend
+import dev.dfd.fractal.common.ui.fractal.dialogHints
+import dev.dfd.fractal.common.ui.fractal.focusOnOpen
+import dev.dfd.fractal.common.ui.fractal.PadButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -150,6 +155,14 @@ fun TitleManagerScreen(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         appBarText = tr("Title manager"),
         navigateBack = navigateBack,
+        extraHints = listOf(
+            ButtonHint(PadButton.X, tr("Install title")) { installTitleLauncher.launch(null) },
+            ButtonHint(PadButton.Y, tr("Filter")) { showFilterSheet = true },
+            ButtonHint(PadButton.SELECT, tr("Refresh")) {
+                titleListViewModel.refresh()
+                showNotificationMessage(tr("Refreshing titles"))
+            },
+        ),
         actions = {
             IconButton(onClick = {
                 titleListViewModel.refresh()
@@ -256,7 +269,7 @@ private fun TitleCompressProgressDialog(
 ) {
     var showCancelConfirmDialog by rememberSaveable { mutableStateOf(false) }
 
-    AlertDialog(
+    FractalAlertDialog(
         title = { Text(tr("Compressing title")) },
         text = {
             Column(
@@ -298,7 +311,7 @@ private fun TitleCompressProgressDialog(
     )
 
     if (showCancelConfirmDialog)
-        AlertDialog(
+        FractalAlertDialog(
             title = { Text(tr("Cancel compressing title")) },
             text = { Text(tr("Do you really want to cancel compressing the title?")) },
             onDismissRequest = { showCancelConfirmDialog = false },
@@ -338,7 +351,7 @@ private fun TitleCompressConfirmationDialog(
             text = entryPrintPath ?: tr("Not installed")
         )
     }
-    AlertDialog(
+    FractalAlertDialog(
         title = { Text(tr("Confirmation")) },
         text = {
             Column(
@@ -383,7 +396,7 @@ private fun TitleInstallProgressDialog(
 ) {
     var showCancelConfirmDialog by rememberSaveable { mutableStateOf(false) }
 
-    AlertDialog(
+    FractalAlertDialog(
         title = { Text(tr("Installing title")) },
         text = {
             val progressModifiers = Modifier
@@ -419,7 +432,7 @@ private fun TitleInstallProgressDialog(
     )
 
     if (showCancelConfirmDialog)
-        AlertDialog(
+        FractalAlertDialog(
             title = { Text(tr("Cancel installing title")) },
             text = {
                 Text(tr("Do you really want to cancel the installation process?\n\nCanceling the process will delete the applied files."))
@@ -458,7 +471,7 @@ Do you still want to continue with the installation? It will replace the current
         }
     }
 
-    AlertDialog(
+    FractalAlertDialog(
         icon = {
             Icon(
                 painter = painterResource(R.drawable.ic_warning),
@@ -505,12 +518,15 @@ private fun TitleFilterBottomSheet(
                 onValueChange = onFilterQueryChanged,
                 label = { Text(tr("Search titles")) }
             )
-            FilterRow(
-                filterRowLabel = tr("Types"),
-                filterValues = EntryType.entries.map { (it to (it in filter.types)) },
-                valueToLabel = { entryTypeToString(it) },
-                onToggle = onToggleType,
-            )
+            // with a gamepad start on the filters, not on the search field (it would open the keyboard)
+            Box(Modifier.focusOnOpen()) {
+                FilterRow(
+                    filterRowLabel = tr("Types"),
+                    filterValues = EntryType.entries.map { (it to (it in filter.types)) },
+                    valueToLabel = { entryTypeToString(it) },
+                    onToggle = onToggleType,
+                )
+            }
             FilterRow(
                 filterRowLabel = tr("Formats"),
                 filterValues = EntryFormat.entries.map { (it to (it in filter.formats)) },
@@ -522,6 +538,10 @@ private fun TitleFilterBottomSheet(
                 filterValues = EntryPath.entries.map { (it to (it in filter.paths)) },
                 valueToLabel = { pathToString(it) },
                 onToggle = onTogglePath,
+            )
+            DialogButtonLegend(
+                dialogHints(confirm = tr("Select"), cancel = tr("Close")),
+                Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             )
         }
     }
@@ -687,7 +707,7 @@ private fun TitleDropDownMenu(
 
 @Composable
 private fun DeleteTitleProgressDialog(titleEntry: TitleEntry) {
-    AlertDialog(
+    FractalAlertDialog(
         icon = {
             Icon(
                 painter = painterResource(R.drawable.ic_warning),
@@ -722,7 +742,7 @@ private fun DeleteTitleConfirmationDialog(
     onDismissRequest: () -> Unit,
     onConfirmDelete: () -> Unit,
 ) {
-    AlertDialog(
+    FractalAlertDialog(
         icon = {
             Icon(
                 painter = painterResource(R.drawable.ic_warning),
