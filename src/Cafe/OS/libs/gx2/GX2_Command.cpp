@@ -8,6 +8,7 @@
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
 #include "GX2.h"
 #include "GX2_Command.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "GX2_Shader.h"
 #include "GX2_Misc.h"
 #include "OS/libs/coreinit/coreinit_MEM.h"
@@ -318,7 +319,9 @@ namespace GX2
 	bool GX2WaitTimeStamp(uint64 tsWait)
 	{
 		// handle GPU timeout here? But for now we timeout after 60 seconds
+		const auto waitStart = std::chrono::steady_clock::now();
 		TCL::TCLWaitTimestamp(TCL::TCLTimestampId::TIMESTAMP_LAST_BUFFER_RETIRED, tsWait, Espresso::TIMER_CLOCK * 60);
+		PerfLog::GuestWaited(PerfLog::GuestWait::Timestamp, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - waitStart).count());
 		return true;
 	}
 

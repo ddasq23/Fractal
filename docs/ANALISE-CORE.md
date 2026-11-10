@@ -619,15 +619,48 @@ milissegundos depois:
 
 Virou opção por jogo: `fullSyncAtGX2DrawDone` no perfil do jogo (desligada nos perfis padrão do BotW
 JPN/USA/EUR) e um botão "Sincronização total com o GX2DrawDone()" na tela de perfil do jogo. Sem a
-opção no perfil, nada muda. Com o perfil padrão e sem tunable, o BotW do RP5 roda a 11,2. No MK8 a
+opção no perfil, nada muda. Com o perfil padrão e sem tunable, o BotW do RP5 roda a 11,2 e o do Cube
+a 6,0, contra 4,5 com o sync forçado (+33 %). No MK8 a
 espera equivalente é 1 ms por frame (consultas de oclusão), então não vale mexer nos outros jogos.
 
-**Multiplicação exata nos shaders custa ~10 % na Mali.** Todo produto passa por `mul_nonIEEE`
-(0 × inf = 0, como no Wii U). `strict_mul=0` (multiplicação comum) no Cube MK8: 32,7 / 34,1 contra
-30,3 / 31,3 do normal. Variantes exatas mais baratas não recuperam nada: `strict_mul=2` (NaN → 0)
-29,7 / 29,2; `strict_mul=3` (zera as entradas, permite FMA) 31,2. O perfil de jogo já tem
-"Precisão da multiplicação em shaders"; os perfis padrão do Cemu desligam-na em 9 jogos (SM3DW, XCX,
-Captain Toad...), mas não no MK8.
+**Multiplicação exata nos shaders custa ~6 % na Mali.** Todo produto passa por `mul_nonIEEE`
+(0 × inf = 0, como no Wii U). Cube MK8, rodadas alternadas: `strict_mul=0` (multiplicação comum)
+32,7 / 34,1 / 31,7 (média 32,8) contra 30,3 / 31,3 / 30,7 do normal (média 30,8). Variantes exatas mais
+baratas não recuperam nada: NaN → 0 deu 29,7 / 29,2; zerar as entradas (permite FMA) deu 31,2 / 30,4.
+Ambas foram removidas. No RP5 o MK8 é limitado pela CPU, então não há ganho. As capturas do MK8 com
+multiplicação comum são iguais às normais. O padrão não muda: o Cemu também não desliga a opção no MK8
+e só uma pista foi verificada. Quem quiser pode desligar por jogo em "Precisão da multiplicação em
+shaders". Os perfis padrão do Cemu já a desligam em 9 jogos (SM3DW, XCX, Captain Toad...).
+
+**Depois do sync, o BotW do RP5 fica preso na CPU.** Sem o sync completo, a espera pela GPU cai de
+15,4 para 0,02 ms por frame e o núcleo PPC 1 fica a 93 %, como no MK8. O próximo ganho tem de vir do
+recompilador.
+
+**O que ainda segura o BotW: a espera pela LatteThread.** Contadores novos medem o tempo que as
+threads do jogo ficam bloqueadas em esperas do GX2 (`wait_timestamp_ms`, `wait_flip_ms`,
+`wait_vsync_ms`). No BotW do RP5, de ~88 ms por frame, 27,4 ms são `GX2WaitTimeStamp` (o
+`GX2DrawDone` esperando a LatteThread processar tudo o que foi enviado; o marcador é escrito quando a
+LatteThread chega ao EOP, não quando a GPU termina) e 15,7 ms são vsync. No MK8, 2,4 e 1,6 ms de
+20,6. Por isso o núcleo 1 do BotW passa 37 % no laço ocioso. Pular essa espera derruba o jogo em
+`LatteBufferCache_reserveRange` (o jogo reaproveita buffers que a LatteThread ainda não leu): a espera é
+necessária e o ganho tem de vir de encurtar a LatteThread. Dela, 19 % é `clock_gettime` girando em
+`LatteCP_itWaitRegMem`, ~15 % é o driver Adreno e o resto é tradução espalhada (hash de textura 2,8 %,
+conversão de índices 2,1 %).
+
+**Turnip no RP5: pior em tudo.** Mesa Turnip v26.0.0 R8, com aquecimento antes de medir:
+
+| RP5 | driver de fábrica | Turnip R8 |
+|---|---|---|
+| BotW | 11,2 | `VK_ERROR_DEVICE_LOST` no envio do command buffer (uma vez aos 16 s) |
+| MK8 | 47,9 | 35,8 |
+| SM3DW | 59,8 | 48,3 |
+
+O driver de fábrica continua o recomendado no RP5. No Cube, nenhum driver alternativo é viável (ver
+`MALI-ACHADOS.md`).
+
+**Bayonetta 2 não serve para A/B entre builds com caches de shader diferentes.** O script escorrega:
+no segundo 250, uma rodada está no combate e outra numa parte mais leve da fase (11,6 contra 16,9 e
+27,7 fps). Comparar só rodadas com a mesma captura.
 
 ## Pendências e limitações
 

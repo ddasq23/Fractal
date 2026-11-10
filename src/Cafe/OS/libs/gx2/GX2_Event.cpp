@@ -203,18 +203,22 @@ namespace GX2
 
 	void GX2WaitForVsync()
 	{
+		const auto waitStart = std::chrono::steady_clock::now();
 		__OSLockScheduler();
 		g_vsyncThreadQueue.GetPtr()->queueAndWait(coreinit::OSGetCurrentThread());
 		__OSUnlockScheduler();
+		PerfLog::GuestWaited(PerfLog::GuestWait::Vsync, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - waitStart).count());
 	}
 
 	void GX2WaitForFlip()
 	{
 		if ((sint32)(_swapEndianU32(LatteGPUState.sharedArea->flipRequestCountBE) == _swapEndianU32(LatteGPUState.sharedArea->flipExecuteCountBE)))
 			return; // dont wait if no flip is requested
+		const auto waitStart = std::chrono::steady_clock::now();
 		__OSLockScheduler();
 		g_flipThreadQueue.GetPtr()->queueAndWait(coreinit::OSGetCurrentThread());
 		__OSUnlockScheduler();
+		PerfLog::GuestWaited(PerfLog::GuestWait::Flip, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - waitStart).count());
 	}
 
 	bool GX2DrawDone()

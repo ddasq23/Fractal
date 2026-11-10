@@ -69,6 +69,7 @@ namespace PerfLog
 		std::atomic<uint64> imageCopiesViaBuffer{};
 		std::atomic<uint64> uploadsInPrologue{};
 		std::atomic<uint64> drawDoneCalls{};
+		std::atomic<uint64> guestWaitNs[(size_t)GuestWait::Count]{};
 		std::atomic<uint64> depthPasses{}, depthPassesUnused{}, depthPassesReadOnly{}, depthStoreSkipped{}, depthStoreRestarts{};
 		std::atomic<uint64> renderPassRestarts[(size_t)RenderPassEnd::Count]{};
 		std::atomic<uint64> textureReadbacks{};
@@ -352,7 +353,7 @@ namespace PerfLog
 				   "shaders,shaders_cached,shaders_failed,shader_ms,"
 				   "pipelines,pipelines_sync,pipelines_failed,pipeline_ms,pipeline_sync_ms,gpu_busy_ms,render_passes,draws,"
 				   "rpe_other,rpe_fbo,rpe_buffer_upload,rpe_buffer_copy,rpe_texture_upload,rpe_clear,rpe_copy,rpe_readback,rpe_query,rpe_submit,rpe_self_dependency,buffer_uploads_direct,barriers,gpu_wait_ms,readbacks,selfdep_kept,selfdep_other_subresource,selfdep_color,selfdep_depth,selfdep_why_drawwrites,selfdep_why_passwrote,selfdep_why_otherbarrier,selfdep_why_vertex,upload_fb_blocked,upload_fb_current,upload_fb_inflight,buffer_renames,buffer_rename_kb,rename_skip_streamout,rename_skip_size,rename_skip_heap,rename_skip_busy,copies_via_buffer,uploads_prologue,depth_passes,depth_unused,depth_readonly,depth_store_skipped,depth_store_restarts,drawdone,gw_other_ms,gw_present_ms,gw_readback_ms,gw_query_ms,gw_flush_ms,gw_pool_ms,"
-				   "rs_other,rs_fbo,rs_buffer_upload,rs_buffer_copy,rs_texture_upload,rs_clear,rs_copy,rs_readback,rs_query,rs_submit,rs_self_dependency,"
+				   "rs_other,rs_fbo,rs_buffer_upload,rs_buffer_copy,rs_texture_upload,rs_clear,rs_copy,rs_readback,rs_query,rs_submit,rs_self_dependency,wait_timestamp_ms,wait_flip_ms,wait_vsync_ms,"
 				   "cpu_process_pct,rss_mb" << freqHeader << "\n";
 		threads << "t_s,tid,name,cpu_pct\n";
 		frames << "t_ms,ft_ms\n";
@@ -465,6 +466,8 @@ namespace PerfLog
 				passEnds += fmt::format("{:.1f},", c.exchange(0) / 1e6);
 			for (auto& c : s_counters.renderPassRestarts)
 				passEnds += fmt::format("{},", c.exchange(0));
+			for (auto& c : s_counters.guestWaitNs)
+				passEnds += fmt::format("{:.1f},", c.exchange(0) / 1e6);
 			seconds << fmt::format("{:.0f},{},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{},{},{},{:.1f},{},{},{},{:.1f},{:.1f},{:.1f},{},{},{}{:.1f},{}{}{}\n",
 								   tS, n, fps, ftAvg, ftP99, low1, ftMax,
 								   shaders, shadersCached, shadersFailed, shaderUs / 1000.0,
@@ -536,6 +539,8 @@ namespace PerfLog
 		s_counters.depthStoreSkipped = 0;
 		s_counters.depthStoreRestarts = 0;
 		s_counters.drawDoneCalls = 0;
+		for (auto& c : s_counters.guestWaitNs)
+			c = 0;
 		for (auto& c : s_counters.gpuWaitNsByReason)
 			c = 0;
 		for (auto& c : s_counters.renderPassRestarts)
@@ -704,6 +709,12 @@ namespace PerfLog
 	{
 		if (IsActive())
 			s_counters.drawDoneCalls.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	void GuestWaited(GuestWait what, uint64 ns)
+	{
+		if (IsActive())
+			s_counters.guestWaitNs[(size_t)what].fetch_add(ns, std::memory_order_relaxed);
 	}
 
 	void TextureUploadInPrologue()

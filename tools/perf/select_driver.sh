@@ -39,6 +39,16 @@ row=$(dump | grep "^$NAME|" | head -1); IFS='|' read -r _ _ ry1 _ ry2 <<<"$row"
 btn=$(dump | awk -F'|' -v a=$ry1 -v b=$((ry2+40)) '($1=="Use"||$1=="In use") && $3>=a-10 && $3<=b {print; exit}')
 IFS='|' read -r label x1 y1 x2 y2 <<<"$btn"
 [ "$label" = "Use" ] && { $A shell input tap $(( (x1+x2)/2 )) $(( (y1+y2)/2 )); sleep 3; }
+# the screen marks the selected row "In use"; settings.xml is written a moment later, so check the screen first
+inuse=""
+for try in $(seq 1 10); do
+  row=$(dump | grep "^$NAME|" | head -1); IFS='|' read -r _ _ ry1 _ ry2 <<<"$row"
+  inuse=$(dump | awk -F'|' -v a=$ry1 -v b=$((ry2+40)) '$1=="In use" && $3>=a-10 && $3<=b {print; exit}')
+  [ -n "$inuse" ] && break
+  sleep 1
+done
+[ -n "$inuse" ] || echo "warning: $NAME is not marked In use"
+sleep 2
 $A shell am force-stop dev.dfd.fractal; sleep 1
 cur=$($A shell "grep custom_driver_path /sdcard/Android/data/dev.dfd.fractal/files/settings.xml" | sed 's/.*_path>//; s/<.*//' | tr -d '\r')
 echo "$NAME -> custom_driver_path: ${cur:-(system driver)}"
