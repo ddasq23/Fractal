@@ -523,9 +523,6 @@ msgstr "Editar perfil do jogo"
 msgid "Edit input positions"
 msgstr "Editar posição dos controles"
 
-msgid "Edit inputs"
-msgstr "Editar controles"
-
 msgid "Edit macro"
 msgstr "Editar macro"
 
@@ -1565,9 +1562,6 @@ msgstr "Renderização"
 msgid "Repeat"
 msgstr "Repetir"
 
-msgid "Replace TV with PAD"
-msgstr "Trocar TV pelo GamePad"
-
 msgid "Replaces the save with one from a zip; the current save is backed up first"
 msgstr "Substitui o save por um de um zip; antes é feita uma cópia do save atual"
 
@@ -1721,17 +1715,11 @@ msgstr "Mostrar janela de dispositivos USB emulados"
 msgid "Show fewer versions"
 msgstr "Mostrar menos versões"
 
-msgid "Show input overlay"
-msgstr "Mostrar controles na tela"
-
 msgid "Show online status"
 msgstr "Mostrar status online"
 
 msgid "Show only enabled packs"
 msgstr "Mostrar só os packs ativados"
-
-msgid "Show PAD"
-msgstr "Mostrar GamePad"
 
 msgid "show screen"
 msgstr "Mostrar tela"
@@ -2252,3 +2240,231 @@ msgstr "Resolução e FPS"
 
 msgid "The community graphic packs add resolution and FPS options for most games"
 msgstr "Os packs gráficos da comunidade adicionam opções de resolução e FPS para a maioria dos jogos"
+
+msgid "A shortcut is an on-screen button that runs an emulator action, the same ones controller hotkeys can run."
+msgstr "Um atalho é um botão na tela que executa uma ação do emulador, as mesmas que as hotkeys do controle executam."
+
+msgid "Add shortcut"
+msgstr "Adicionar atalho"
+
+msgid "Aspect"
+msgstr "Proporção"
+
+msgid "Changes apply to the running game right away."
+msgstr "As mudanças valem na hora para o jogo em execução."
+
+msgid "Classic"
+msgstr "Clássico"
+
+msgid "Colors of the on-screen controls. Follow app theme uses the accent of the theme you picked in Appearance."
+msgstr "Cores dos controles na tela. Seguir o tema do app usa a cor de destaque do tema escolhido em Aparência."
+
+msgid "Controller button combos for emulator actions"
+msgstr "Combinações de botões do controle para ações do emulador"
+
+msgid "Controller mapping"
+msgstr "Mapeamento do controle"
+
+msgid "Could not take a screenshot"
+msgstr "Não foi possível capturar a tela"
+
+msgid "Custom color"
+msgstr "Cor personalizada"
+
+msgid "Dark"
+msgstr "Escuro"
+
+msgid "Delete shortcut"
+msgstr "Excluir atalho"
+
+msgid "Delete the shortcut \"{0}\"?"
+msgstr "Excluir o atalho \"{0}\"?"
+
+msgid "Devices"
+msgstr "Dispositivos"
+
+msgid "Display"
+msgstr "Tela"
+
+msgid "Double buffering"
+msgstr "Buffer duplo"
+
+msgid "Edit on-screen controls"
+msgstr "Editar controles na tela"
+
+msgid "Edit shortcut"
+msgstr "Editar atalho"
+
+msgid "Emulated controller type and button mapping"
+msgstr "Tipo de controle emulado e mapeamento dos botões"
+
+msgid "Enable / disable motion"
+msgstr "Ligar / desligar movimento"
+
+msgid "Filter"
+msgstr "Filtro"
+
+msgid "Filters and VSync apply right away and are kept for every game. Resolution and other graphic packs are set in the game's settings in the library and apply the next time the game starts."
+msgstr "Filtros e VSync valem na hora e ficam salvos para todos os jogos. A resolução e outros packs gráficos são definidos nas configurações do jogo na biblioteca e valem na próxima vez que o jogo abrir."
+
+msgid "Follow app theme"
+msgstr "Seguir o tema do app"
+
+msgid "Frame rate in the corner of the screen. More counters are in the overlay settings"
+msgstr "Taxa de quadros no canto da tela. Mais contadores ficam nas configurações do overlay"
+
+msgid "Game menu"
+msgstr "Menu do jogo"
+
+msgid "Keep aspect ratio / stretch"
+msgstr "Manter proporção / esticar"
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "Look"
+msgstr "Visual"
+
+msgid "Look of the on-screen controls"
+msgstr "Visual dos controles na tela"
+
+msgid "Menu"
+msgstr "Menu"
+
+msgid "Motion"
+msgstr "Movimento"
+
+msgid "Motion disabled"
+msgstr "Movimento desligado"
+
+msgid "Motion enabled"
+msgstr "Movimento ligado"
+
+msgid "Move, resize, add macros and shortcuts, per button opacity and shape"
+msgstr "Mover, redimensionar, adicionar macros e atalhos, opacidade e formato por botão"
+
+msgid "New shortcut"
+msgstr "Novo atalho"
+
+msgid "New shortcuts appear at the top of the screen; move them in edit mode."
+msgstr "Os atalhos novos aparecem no topo da tela; mova-os no modo de edição."
+
+msgid "Next upscale filter"
+msgstr "Próximo filtro de upscale"
+
+msgid "Off follows the opacity of the whole overlay"
+msgstr "Desligado segue a opacidade do overlay inteiro"
+
+msgid "Opacity"
+msgstr "Opacidade"
+
+msgid "Own opacity"
+msgstr "Opacidade própria"
+
+msgid "Pad"
+msgstr "Pad"
+
+msgid "Pause"
+msgstr "Pausar"
+
+msgid "Pause / resume"
+msgstr "Pausar / continuar"
+
+msgid "Paused"
+msgstr "Pausado"
+
+msgid "Resume"
+msgstr "Continuar"
+
+msgid "Resumed"
+msgstr "Continuando"
+
+msgid "Round"
+msgstr "Redondo"
+
+msgid "Runs: {0}"
+msgstr "Executa: {0}"
+
+msgid "Screenshot"
+msgstr "Captura de tela"
+
+msgid "Screenshot saved to Pictures/Fractal"
+msgstr "Captura salva em Pictures/Fractal"
+
+msgid "Shape"
+msgstr "Formato"
+
+msgid "Shortcut {0}"
+msgstr "Atalho {0}"
+
+msgid "Shortcuts"
+msgstr "Atalhos"
+
+msgid "Shortcuts of the profile \"{0}\". A shortcut is an extra overlay button that runs an emulator action, like opening the menu, pausing or taking a screenshot."
+msgstr "Atalhos do perfil \"{0}\". Um atalho é um botão extra do overlay que executa uma ação do emulador, como abrir o menu, pausar ou capturar a tela."
+
+msgid "Shot"
+msgstr "Foto"
+
+msgid "Show / hide FPS"
+msgstr "Mostrar / ocultar FPS"
+
+msgid "Show / hide GamePad screen"
+msgstr "Mostrar / ocultar tela do GamePad"
+
+msgid "Show / hide on-screen controls"
+msgstr "Mostrar / ocultar controles na tela"
+
+msgid "Show FPS"
+msgstr "Mostrar FPS"
+
+msgid "Show GamePad screen"
+msgstr "Mostrar tela do GamePad"
+
+msgid "Show on-screen controls"
+msgstr "Mostrar controles na tela"
+
+msgid "Shows the GamePad image on the main screen"
+msgstr "Mostra a imagem do GamePad na tela principal"
+
+msgid "Shows the GamePad screen next to the TV"
+msgstr "Mostra a tela do GamePad ao lado da TV"
+
+msgid "Size"
+msgstr "Tamanho"
+
+msgid "Square"
+msgstr "Quadrado"
+
+msgid "Style"
+msgstr "Estilo"
+
+msgid "Style, colors, opacity and size"
+msgstr "Estilo, cores, opacidade e tamanho"
+
+msgid "Swap TV and GamePad"
+msgstr "Trocar TV e GamePad"
+
+msgid "TV/Pad"
+msgstr "TV/Pad"
+
+msgid "Take screenshot"
+msgstr "Capturar a tela"
+
+msgid "Tap an action and hold the controller buttons of its combo together. Long press an action to clear it. To get the same actions as buttons on the touch screen, add a shortcut while editing the on-screen controls."
+msgstr "Toque numa ação e segure juntos os botões do controle da combinação. Toque e segure uma ação para limpá-la. Para ter as mesmas ações como botões na tela de toque, adicione um atalho ao editar os controles na tela."
+
+msgid "Triple buffering"
+msgstr "Buffer triplo"
+
+msgid "USB"
+msgstr "USB"
+
+msgid "Unpause"
+msgstr "Despausar"
+
+msgid "Upscale filter: {0}"
+msgstr "Filtro de upscale: {0}"
+
+msgid "Uses the device's motion sensors for the GamePad gyro"
+msgstr "Usa os sensores de movimento do aparelho para o giroscópio do GamePad"
