@@ -1,6 +1,5 @@
 package dev.dfd.fractal
 
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
@@ -18,6 +17,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import dev.dfd.fractal.common.ui.intro.IntroAnimation
+import dev.dfd.fractal.common.ui.components.FractalAlertDialog
+import dev.dfd.fractal.common.ui.fractal.ButtonLegendHost
+import dev.dfd.fractal.common.ui.fractal.GamepadUi
 import dev.dfd.fractal.common.ui.intro.introAnimationsDisabled
 import dev.dfd.fractal.common.ui.intro.introKeyFilter
 import androidx.compose.runtime.remember
@@ -66,6 +68,7 @@ import dev.dfd.fractal.titlemanager.titleManagerNavigation
 
 class MainActivity : AppCompatActivity() {
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        GamepadUi.onMotion(event)
         GamepadInputSource.emitMotion(event)
 
         if (GamepadInputSource.hasMotionSubscribers) {
@@ -75,7 +78,13 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchGenericMotionEvent(event)
     }
 
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) GamepadUi.onTouch()
+        return super.dispatchTouchEvent(event)
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        GamepadUi.onKey(event)
         GamepadInputSource.emitKey(event)
 
         if (GamepadInputSource.hasKeySubscribers) {
@@ -107,6 +116,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        GamepadUi.start(this)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        GamepadUi.stop()
     }
 
     override fun onDestroy() {
@@ -143,6 +162,7 @@ private fun MainNav() {
     }
 
     Box(Modifier.fillMaxSize().onPreviewKeyEvent(introKeyFilter({ introPlaying }, endIntro))) {
+    ButtonLegendHost {
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -170,10 +190,11 @@ private fun MainNav() {
         graphicPacksNavigation(navController)
         aboutCemuNavigation(navController)
     }
+    }
     if (introPlaying) IntroAnimation(long = introLong, onFinished = endIntro)
     }
     driverWarning?.takeIf { !introPlaying }?.let { text ->
-        AlertDialog(
+        FractalAlertDialog(
             onDismissRequest = { driverWarning = null },
             title = { Text(tr("Custom driver failed")) },
             text = { Text(text) },
