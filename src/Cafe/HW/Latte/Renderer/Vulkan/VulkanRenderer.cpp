@@ -2566,7 +2566,13 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 	submitInfo.pWaitDstStageMask = semWaitStageMask;
 	submitInfo.pWaitSemaphores = waitSemArray;
 
+	const auto submitStart = std::chrono::steady_clock::now();
 	const VkResult result = vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, m_cmdBufferFences[m_commandBufferIndex]);
+	{
+		// some drivers block inside vkQueueSubmit (diagnostics: shows up as gw_other_ms)
+		PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::Other);
+		PerfLog::GpuWait(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - submitStart).count());
+	}
 	if (result != VK_SUCCESS)
 		UnrecoverableError(fmt::format("failed to submit command buffer. Error {}", result).c_str());
 	m_numSubmittedCmdBuffers++;
@@ -3421,7 +3427,12 @@ bool VulkanRenderer::AcquireNextSwapchainImage(bool mainWindow)
 	if (!UpdateSwapchainProperties(mainWindow))
 		return false;
 
+	const auto acquireStart = std::chrono::steady_clock::now();
 	bool result = chainInfo.AcquireImage();
+	{
+		PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::Present);
+		PerfLog::GpuWait(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - acquireStart).count());
+	}
 	if (!result)
 		return false;
 
@@ -3527,6 +3538,7 @@ void VulkanRenderer::SwapBuffer(bool mainWindow)
 	}
 	m_commandBufferIDOfPrevFrame = currentFrameCmdBufferID;
 
+	auto presentStart = std::chrono::steady_clock::now();
 	chainInfo.WaitAvailableFence();
 
 	VkPresentIdKHR presentId = {};
@@ -3559,6 +3571,11 @@ void VulkanRenderer::SwapBuffer(bool mainWindow)
 	}
 
 	VkResult result = vkQueuePresentKHR(m_presentQueue, &presentInfo);
+	{
+		// the acquire fence wait and vkQueuePresentKHR (Mesa's Android WSI can wait for rendering here): gw_present_ms
+		PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::Present);
+		PerfLog::GpuWait(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - presentStart).count());
+	}
 	if (result < 0 && result != VK_ERROR_OUT_OF_DATE_KHR
 #if BOOST_PLAT_ANDROID
 		&& result != VK_ERROR_SURFACE_LOST_KHR

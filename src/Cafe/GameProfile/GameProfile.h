@@ -34,7 +34,7 @@ public:
 	// GX2DrawDone waits for texture readbacks and occlusion queries to finish (unset: renderer and global setting decide)
 	[[nodiscard]] const std::optional<bool>& GetFullSyncAtGX2DrawDone() const { return m_fullSyncAtGX2DrawDone; }
 	void SetFullSyncAtGX2DrawDone(std::optional<bool> fullSync) { m_fullSyncAtGX2DrawDone = fullSync; }
-	// Mesa Turnip only: render passes in system memory (TU_DEBUG=sysmem). BotW hangs the GPU at boot with tiled (GMEM) rendering on Adreno 650
+	// Mesa Turnip only: render passes in system memory (TU_DEBUG=sysmem); unset means on. BotW hangs the GPU at boot with tiled (GMEM) rendering on Adreno 650
 	[[nodiscard]] const std::optional<bool>& GetTurnipSysmem() const { return m_turnipSysmem; }
 	void SetTurnipSysmem(std::optional<bool> v) { m_turnipSysmem = v; }
 #ifdef ENABLE_METAL

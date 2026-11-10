@@ -274,8 +274,10 @@ void* load_custom_driver()
 			cemuLog_log(LogType::Force, "Custom driver env: {}", line);
 		}
 	}
-	// per game: Turnip renders in system memory instead of tiles (TU_DEBUG only affects Mesa Turnip; Mesa reads it at instance creation)
-	if (g_current_game_profile->GetTurnipSysmem().value_or(false))
+	// Turnip renders in system memory instead of tiles unless the game profile says otherwise (TU_DEBUG only affects Mesa
+	// Turnip, read at instance creation). Adreno 650, Turnip 26.0 R8: MK8 +6 %, SM3DW +8 %, Bayonetta 2 tie, and BotW
+	// stops hanging the GPU at boot
+	if (g_current_game_profile->GetTurnipSysmem().value_or(true))
 	{
 		const char* prev = getenv("TU_DEBUG");
 		std::string flags = (prev && *prev) ? std::string(prev) + ",sysmem" : std::string("sysmem");
