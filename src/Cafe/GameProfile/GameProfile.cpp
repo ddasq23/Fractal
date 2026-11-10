@@ -228,6 +228,7 @@ bool GameProfile::Load(uint64_t title_id)
 
 			gameProfile_loadEnumOption(iniParser, "accurateShaderMul", m_accurateShaderMul);
 			gameProfile_loadBooleanOption2(iniParser, "fullSyncAtGX2DrawDone", m_fullSyncAtGX2DrawDone);
+			gameProfile_loadBooleanOption2(iniParser, "turnipSysmem", m_turnipSysmem);
 #ifdef ENABLE_METAL
 			gameProfile_loadBooleanOption2(iniParser, "shaderFastMath", m_shaderFastMath);
 			gameProfile_loadEnumOption(iniParser, "metalBufferCacheMode2", m_metalBufferCacheMode);
@@ -325,6 +326,7 @@ void GameProfile::Save(uint64_t title_id)
 	fs->writeLine("[Graphics]");
 	WRITE_ENTRY(accurateShaderMul);
 	WRITE_OPTIONAL_ENTRY(fullSyncAtGX2DrawDone);
+	WRITE_OPTIONAL_ENTRY(turnipSysmem);
 #ifdef ENABLE_METAL
 	WRITE_ENTRY(shaderFastMath);
 	WRITE_ENTRY_NUMBERED(metalBufferCacheMode, 2);
@@ -369,6 +371,7 @@ void GameProfile::ResetOptional()
 	// graphic settings
 	m_accurateShaderMul = AccurateShaderMulOption::True;
 	m_fullSyncAtGX2DrawDone.reset();
+	m_turnipSysmem.reset();
 #ifdef ENABLE_METAL
 	m_shaderFastMath = true;
 	m_metalBufferCacheMode = MetalBufferCacheMode::Auto;
@@ -395,6 +398,7 @@ void GameProfile::Reset()
 	// graphic settings
 	m_accurateShaderMul = AccurateShaderMulOption::True;
 	m_fullSyncAtGX2DrawDone.reset();
+	m_turnipSysmem.reset();
 #ifdef ENABLE_METAL
 	m_shaderFastMath = true;
 	m_metalBufferCacheMode = MetalBufferCacheMode::Auto;

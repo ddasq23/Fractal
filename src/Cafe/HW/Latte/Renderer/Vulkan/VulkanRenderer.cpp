@@ -2486,6 +2486,27 @@ void VulkanRenderer::WaitForNextFinishedCommandBuffer()
 	ProcessFinishedCommandBuffers();
 }
 
+// sem_chain=1 (default): each submit waits on a semaphore the previous submit signals.
+// sem_chain=0: no semaphore chain; every command buffer instead starts with a full memory barrier, which also orders it
+// after all earlier submits on the queue (barrier scopes cover everything earlier in submission order). Turnip on KGSL can
+// resolve binary semaphore waits on the CPU, which delays each submit until the previous one finished on the GPU.
+static bool UseSubmitSemaphoreChain()
+{
+	static const bool s_chain = PerfLog::Tunable("sem_chain", 1) != 0;
+	return s_chain;
+}
+
+static void CmdQueueOrderBarrier(VkCommandBuffer cmd)
+{
+	if (UseSubmitSemaphoreChain())
+		return;
+	VkMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+}
+
 void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphore waitSemaphore)
 {
 	draw_endRenderPass(PerfLog::RenderPassEnd::Submit);
@@ -2514,7 +2535,13 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 
 	// signal current command buffer semaphore
 	VkSemaphore signalSemArray[2];
-	if (signalSemaphore != VK_NULL_HANDLE)
+	const bool semChain = UseSubmitSemaphoreChain();
+	if (!semChain)
+	{
+		submitInfo.signalSemaphoreCount = signalSemaphore != VK_NULL_HANDLE ? 1 : 0;
+		submitInfo.pSignalSemaphores = &signalSemaphore;
+	}
+	else if (signalSemaphore != VK_NULL_HANDLE)
 	{
 		submitInfo.signalSemaphoreCount = 2;
 		signalSemArray[0] = m_commandBufferSemaphores[m_commandBufferIndex]; // signal current
@@ -2534,7 +2561,7 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 	submitInfo.waitSemaphoreCount = 0;
 	if (waitSemaphore != VK_NULL_HANDLE)
 		waitSemArray[submitInfo.waitSemaphoreCount++] = waitSemaphore;
-	if (m_numSubmittedCmdBuffers > 0)
+	if (semChain && m_numSubmittedCmdBuffers > 0)
 		waitSemArray[submitInfo.waitSemaphoreCount++] = prevSem; // wait on semaphore from previous submit
 	submitInfo.pWaitDstStageMask = semWaitStageMask;
 	submitInfo.pWaitSemaphores = waitSemArray;
@@ -2570,6 +2597,7 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	vkBeginCommandBuffer(m_state.currentCommandBuffer, &beginInfo);
+	CmdQueueOrderBarrier(m_state.currentCommandBuffer);
 	PerfTimestampBegin();
 
 	// make sure some states are set for this command buffer
@@ -4272,6 +4300,7 @@ void VulkanRenderer::texture_loadSlice(LatteTexture* hostTexture, sint32 width, 
 			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 			vkBeginCommandBuffer(prologue, &beginInfo);
+			CmdQueueOrderBarrier(prologue);
 			m_prologueBegun = true;
 		}
 		m_state.currentCommandBuffer = prologue;

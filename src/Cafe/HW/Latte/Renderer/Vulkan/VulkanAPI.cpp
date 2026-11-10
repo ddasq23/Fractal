@@ -259,6 +259,30 @@ void* load_custom_driver()
 	std::error_code ec;
 	fs::copy(fs::path(driver_path.value()) / driver_name, ActiveSettings::GetInternalPath(CUSTOM_DRIVER_LIB_NAME), fs::copy_options::overwrite_existing, ec);
 
+	// test hook: perf/driver_env.txt holds KEY=VALUE lines (e.g. TU_DEBUG=sysmem) exported before the driver reads its environment
+	if (std::ifstream envFile(ActiveSettings::GetUserDataPath("perf/driver_env.txt")); envFile)
+	{
+		std::string line;
+		while (std::getline(envFile, line))
+		{
+			while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
+				line.pop_back();
+			const size_t eq = line.find('=');
+			if (line.empty() || line[0] == '#' || eq == std::string::npos || eq == 0)
+				continue;
+			setenv(line.substr(0, eq).c_str(), line.substr(eq + 1).c_str(), 1);
+			cemuLog_log(LogType::Force, "Custom driver env: {}", line);
+		}
+	}
+	// per game: Turnip renders in system memory instead of tiles (TU_DEBUG only affects Mesa Turnip; Mesa reads it at instance creation)
+	if (g_current_game_profile->GetTurnipSysmem().value_or(false))
+	{
+		const char* prev = getenv("TU_DEBUG");
+		std::string flags = (prev && *prev) ? std::string(prev) + ",sysmem" : std::string("sysmem");
+		setenv("TU_DEBUG", flags.c_str(), 1);
+		cemuLog_log(LogType::Force, "Custom driver env: TU_DEBUG={} (game profile turnipSysmem)", flags);
+	}
+
 	void* vulkan_so = adrenotools_open_libvulkan(
 		RTLD_NOW | RTLD_LOCAL,
 		ADRENOTOOLS_DRIVER_CUSTOM,
