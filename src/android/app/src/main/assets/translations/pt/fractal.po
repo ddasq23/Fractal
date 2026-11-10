@@ -2468,3 +2468,27 @@ msgstr "Filtro de upscale: {0}"
 
 msgid "Uses the device's motion sensors for the GamePad gyro"
 msgstr "Usa os sensores de movimento do aparelho para o giroscópio do GamePad"
+
+msgid "Change view"
+msgstr "Mudar visualização"
+
+msgid "Close search"
+msgstr "Fechar busca"
+
+msgid "Confirm"
+msgstr "Confirmar"
+
+msgid "Download"
+msgstr "Baixar"
+
+msgid "Install title"
+msgstr "Instalar título"
+
+msgid "Section"
+msgstr "Seção"
+
+msgid "Show all"
+msgstr "Mostrar tudo"
+
+msgid "Step"
+msgstr "Etapa"
