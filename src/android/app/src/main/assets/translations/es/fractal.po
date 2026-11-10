@@ -769,9 +769,6 @@ msgstr "Francés"
 msgid "Friend list"
 msgstr "Lista de amigos"
 
-msgid "From the Graphics pack. Lower resolutions are faster"
-msgstr "Del paquete Graphics. Las resoluciones más bajas son más rápidas"
-
 msgid "FSR/GSR sharpness"
 msgstr "Nitidez de FSR/GSR"
 
@@ -2231,3 +2228,27 @@ msgstr "{0} jugados"
 
 msgid "{0}. The previous one was backed up to {1} in the Fractal folder"
 msgstr "{0}. El anterior se guardó en {1} en la carpeta de Fractal"
+
+msgid "Automatic controller mapping"
+msgstr "Asignación automática de controles"
+
+msgid "Controller mapped automatically: {0}"
+msgstr "Control asignado automáticamente: {0}"
+
+msgid "From the {0} pack, which changes the timing of the game itself so it keeps its normal speed. Pick a rate the device can hold: with some packs the game slows down below it."
+msgstr "Del paquete {0}, que cambia el tiempo del propio juego para que mantenga su velocidad normal. Elige una tasa que el dispositivo pueda mantener: con algunos paquetes el juego se vuelve lento por debajo de ella."
+
+msgid "From the {0} pack. Lower resolutions are faster"
+msgstr "Del paquete {0}. Las resoluciones más bajas son más rápidas"
+
+msgid "Map a connected gamepad to the first controller that has none, without changing your own mappings"
+msgstr "Asigna un control conectado al primer control que no tenga ninguno, sin cambiar tus propias asignaciones"
+
+msgid "Reset to automatic mapping"
+msgstr "Restablecer la asignación automática"
+
+msgid "Resolution & FPS"
+msgstr "Resolución y FPS"
+
+msgid "The community graphic packs add resolution and FPS options for most games"
+msgstr "Los paquetes gráficos de la comunidad añaden opciones de resolución y FPS para la mayoría de los juegos"

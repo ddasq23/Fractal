@@ -82,7 +82,7 @@ private fun ResolutionRow(setting: PackSetting, actions: PackActions) = PackSett
 @Composable
 private fun FpsLimitRow(setting: PackSetting, actions: PackActions) {
     val description = tr(
-        "From the {0} pack, which changes the game's own timing so it keeps its normal speed. Pick a rate the device can hold: with some packs the game slows down below it.",
+        "From the {0} pack, which changes the timing of the game itself so it keeps its normal speed. Pick a rate the device can hold: with some packs the game slows down below it.",
         setting.mainPack.name,
     )
     if (setting.options.size > 2) {
