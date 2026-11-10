@@ -673,6 +673,55 @@ O driver de fábrica continua o recomendado no RP5. No Cube, nenhum driver alter
 no segundo 250, uma rodada está no combate e outra numa parte mais leve da fase (11,6 contra 16,9 e
 27,7 fps). Comparar só rodadas com a mesma captura.
 
+### Manhã de 10/11: JIT AArch64 por dentro
+
+**Ferramenta nova.** `jit_code=1` em `perf/tuning.txt` grava `jitcode.bin` (o código host de cada
+função recompilada), e `tools/perf/jit_annotate.py` cruza com um `perf.data` do simpleperf para dar
+o perfil por instrução do JIT, agrupado por tipo (memória guest, estado do PPC, contagem de ciclos,
+saltos, FPU...) e com as funções mais quentes desmontadas.
+
+**Achado: a contagem de ciclos era ~31 % do tempo no JIT do MK8.** Cada segmento fazia
+`ldr/sub/str` do `remainingCycles` na estrutura do PPC, e o teste de cada salto para trás recarregava
+o valor: uma cadeia de dependência por memória. Uma única função do MK8 (`0274032c`, um laço de 3
+iterações) levava 32 % do JIT.
+
+O que entrou, todos com chave em `perf/tuning.txt` para A/B (padrão ligado):
+
+| mudança | chave | A/B alternado |
+|---|---|---|
+| `remainingCycles` fixo em `w24` (salvo/recarregado só ao entrar/sair do JIT e em volta de HLE) | `jit_cycles_reg` | BotW Cube 6,1/6,1 → 6,5/6,4 (+5 %); MK8 RP5 49,2/49,6 → 50,0/50,4 |
+| código numa arena única (funções a cada 64 B, não uma página de 4 KB cada) | `jit_arena` | MK8 RP5 47,8/47,7 → 48,7/49,1 |
+| saltos com 1 instrução (sem `nop` reservado; refaz com 2 se algum não alcança) | `jit_short_jumps` | ver linha abaixo |
+| imediatos negativos e `<<12` numa instrução (`sub`/`cmn` em vez de `mov`+`add`) | `jit_short_imm` | ver linha abaixo |
+| desvio direto pelas flags (`b.cond` em vez de `cset`+`tbnz`) quando nada mexeu no NZCV | `jit_flag_branch` | os três juntos: BotW Cube 6,36/6,23 → 6,42/6,36; BotW RP5 11,7 → 11,8 |
+
+Sem chave: acesso à memória guest sem `add` quando o deslocamento é zero (inteiros e FPR) e
+remoção do `cmp` repetido (um `cmpw` do PPC vira três comparações IML dos mesmos operandos).
+
+**Relógio por draw** (`LatteGPU_GetTick`). `GetTickCount()` com `CLOCK_MONOTONIC_RAW` rodava em todo
+draw e era ~3 % da LatteThread no MK8 do RP5. Ele só serve para envelhecer texturas (limiar de
+100 ms), então agora usa `CLOCK_MONOTONIC_COARSE`, como o `GetTickCount` do Windows, que tem
+resolução de ~15 ms.
+
+**Testado e descartado:**
+
+- **spirv-opt nos shaders** (glslang com `ENABLE_OPT`, nunca tinha rodado no Android). Nenhum
+  ganho no Cube (MK8 30,1 contra 30,4/31,5) e +30 % no tempo de compilação por shader. Um "+32 %"
+  inicial era uma rodada parada no menu de karts: 6 mil draws/s contra 36 mil. Agora a regra é
+  conferir draws/s antes de aceitar um ganho.
+- **Readback do Adreno via imagem linear** (o contorno do Dolphin PR 11084): todas as 52
+  readbacks/s passaram pelo caminho novo e o BotW ficou em 11,72 contra 11,72.
+- **TLS `initial-exec`** para as variáveis `thread_local` quentes (~2 % no `tlsdesc_resolver`): o
+  bionic recusa o `dlopen` ("using IE access model") e o app não abre.
+
+**Onde está o limite agora:**
+
+- MK8 no RP5: GPU 89–91 % ocupada a 400 MHz (no carregador). Ganho de CPU não aparece mais.
+- MK8 e BotW no Cube: GPU (Mali) 99–100 %.
+- BotW no RP5: o pingue-pongue CPU ↔ LatteThread ↔ GPU da noite de 09/11. Na LatteThread, 19 %
+  é a espera ativa na fence e 30 % é o driver Adreno, mas o unwinding por frame pointer não entra
+  no driver. O próximo passo é um perfil DWARF só da LatteThread.
+
 ## Pendências e limitações
 
 - O RG Cube foi perfilado sem root (só espaço de usuário): o tempo de kernel e o custo das
