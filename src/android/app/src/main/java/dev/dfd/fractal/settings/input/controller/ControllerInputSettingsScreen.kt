@@ -32,6 +32,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -65,6 +66,7 @@ import dev.dfd.fractal.common.ui.components.Toggle
 import dev.dfd.fractal.common.ui.extensions.showMessage
 import dev.dfd.fractal.common.ui.localization.controllerTypeToString
 import dev.dfd.fractal.common.ui.localization.tr
+import dev.dfd.fractal.common.ui.theme.LocalBackdrop
 import dev.dfd.fractal.nativeinterface.NativeInput
 import dev.dfd.fractal.nativeinterface.NativeInput.EmulatedControllerType
 import dev.dfd.fractal.settings.input.controller.emulatedcontroller.ClassicControllerInputs
@@ -264,76 +266,79 @@ private fun ControllerSettingsDialog(
 
             HorizontalDivider()
 
-            Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 8.dp)
-            ) {
-                SingleSelection(
-                    label = tr("Controller"),
-                    choice = activeController?.controller,
-                    choices = controllers,
-                    choiceToString = { it?.name ?: "" },
-                    onChoiceChanged = { onSetActiveController(it!!) },
-                )
+            // the dialog is its own window: its settings rows must not blur the main window's backdrop
+            CompositionLocalProvider(LocalBackdrop provides null) {
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 8.dp)
+                ) {
+                    SingleSelection(
+                        label = tr("Controller"),
+                        choice = activeController?.controller,
+                        choices = controllers,
+                        choiceToString = { it?.name ?: "" },
+                        onChoiceChanged = { onSetActiveController(it!!) },
+                    )
 
-                val (controller, settings) = activeController ?: return@Column
+                    val (controller, settings) = activeController ?: return@Column
 
-                val canUseMotion =
-                    controllerType == EmulatedControllerType.VPAD && controller.hasMotion
+                    val canUseMotion =
+                        controllerType == EmulatedControllerType.VPAD && controller.hasMotion
 
-                Toggle(
-                    label = tr("Use motion"),
-                    checked = settings.motion && canUseMotion,
-                    onCheckedChanged = { updateSettings(settings.copy(motion = it)) },
-                    enabled = canUseMotion,
-                    description = when {
-                        controllerType != EmulatedControllerType.VPAD -> tr("Requires Wii U GamePad")
-                        !controller.hasMotion -> tr("Controller has no motion sensors")
-                        else -> null
-                    },
-                )
+                    Toggle(
+                        label = tr("Use motion"),
+                        checked = settings.motion && canUseMotion,
+                        onCheckedChanged = { updateSettings(settings.copy(motion = it)) },
+                        enabled = canUseMotion,
+                        description = when {
+                            controllerType != EmulatedControllerType.VPAD -> tr("Requires Wii U GamePad")
+                            !controller.hasMotion -> tr("Controller has no motion sensors")
+                            else -> null
+                        },
+                    )
 
-                Slider(
-                    label = tr("Rumble"),
-                    enabled = controller.hasRumble,
-                    value = (settings.rumble * 100f).fastRoundToInt(),
-                    valueFrom = 0,
-                    steps = 19,
-                    valueTo = 100,
-                    labelFormatter = { "$it%" },
-                    onValueChange = {
-                        val rumble = it / 100f
+                    Slider(
+                        label = tr("Rumble"),
+                        enabled = controller.hasRumble,
+                        value = (settings.rumble * 100f).fastRoundToInt(),
+                        valueFrom = 0,
+                        steps = 19,
+                        valueTo = 100,
+                        labelFormatter = { "$it%" },
+                        onValueChange = {
+                            val rumble = it / 100f
 
-                        updateSettings(settings.copy(rumble = rumble))
+                            updateSettings(settings.copy(rumble = rumble))
 
-                        val amplitude = (255 * rumble).toInt()
-                        InputDevice.getDevice(controller.id)?.tryUseVibrator {
-                            cancel()
-                            if (amplitude in 1..255) {
-                                vibrate(VibrationEffect.createOneShot(500L, amplitude))
+                            val amplitude = (255 * rumble).toInt()
+                            InputDevice.getDevice(controller.id)?.tryUseVibrator {
+                                cancel()
+                                if (amplitude in 1..255) {
+                                    vibrate(VibrationEffect.createOneShot(500L, amplitude))
+                                }
                             }
-                        }
-                    },
-                )
+                        },
+                    )
 
-                AxisGroup(
-                    label = tr("Axis"),
-                    values = settings.axis,
-                    onValuesChanged = { updateSettings(settings.copy(axis = it)) },
-                )
+                    AxisGroup(
+                        label = tr("Axis"),
+                        values = settings.axis,
+                        onValuesChanged = { updateSettings(settings.copy(axis = it)) },
+                    )
 
-                AxisGroup(
-                    label = tr("Rotation"),
-                    values = settings.rotation,
-                    onValuesChanged = { updateSettings(settings.copy(rotation = it)) },
-                )
+                    AxisGroup(
+                        label = tr("Rotation"),
+                        values = settings.rotation,
+                        onValuesChanged = { updateSettings(settings.copy(rotation = it)) },
+                    )
 
-                AxisGroup(
-                    label = tr("Trigger"),
-                    values = settings.trigger,
-                    onValuesChanged = { updateSettings(settings.copy(trigger = it)) },
-                )
+                    AxisGroup(
+                        label = tr("Trigger"),
+                        values = settings.trigger,
+                        onValuesChanged = { updateSettings(settings.copy(trigger = it)) },
+                    )
+                }
             }
         }
     }

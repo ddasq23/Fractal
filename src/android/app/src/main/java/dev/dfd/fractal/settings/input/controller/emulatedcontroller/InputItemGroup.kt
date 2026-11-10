@@ -1,16 +1,14 @@
 package dev.dfd.fractal.settings.input.controller.emulatedcontroller
 
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.Role
 import dev.dfd.fractal.common.ui.components.Header
+import dev.dfd.fractal.common.ui.fractal.SettingsCard
+import dev.dfd.fractal.common.ui.localization.tr
+import dev.dfd.fractal.common.ui.theme.FractalTheme
 
 @Composable
 fun InputItemsGroup(
@@ -33,6 +31,7 @@ fun InputItemsGroup(
     }
 }
 
+/** One mappable input: tap to bind, long press to clear. */
 @Composable
 fun InputItem(
     buttonName: String,
@@ -40,23 +39,17 @@ fun InputItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    SettingsCard(onClick = onClick, onLongClick = onLongClick, role = Role.Button) {
         Text(
             text = buttonName,
-            fontSize = 18.sp,
+            style = MaterialTheme.typography.titleSmall,
+            color = FractalTheme.colors.text,
+            modifier = Modifier.weight(1f),
         )
         Text(
-            text = mapping ?: "",
-            fontSize = 16.sp
+            text = mapping?.takeIf { it.isNotEmpty() } ?: tr("Not mapped"),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (mapping.isNullOrEmpty()) FractalTheme.colors.textSecondary else FractalTheme.colors.accent,
         )
     }
 }

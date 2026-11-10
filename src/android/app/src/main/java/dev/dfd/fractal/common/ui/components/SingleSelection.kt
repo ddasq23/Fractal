@@ -1,36 +1,52 @@
 package dev.dfd.fractal.common.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import dev.dfd.fractal.common.ui.fractal.DISABLED_ROW_ALPHA
+import dev.dfd.fractal.common.ui.fractal.FractalButton
+import dev.dfd.fractal.common.ui.fractal.SettingsCard
+import dev.dfd.fractal.common.ui.fractal.SettingsRowDescription
+import dev.dfd.fractal.common.ui.fractal.SettingsRowTitle
+import dev.dfd.fractal.common.ui.fractal.focusRing
+import dev.dfd.fractal.common.ui.fractal.gamepadConfirm
+import dev.dfd.fractal.common.ui.icons.FractalIcons
 import dev.dfd.fractal.common.ui.localization.tr
+import dev.dfd.fractal.common.ui.theme.FractalTheme
+import dev.dfd.fractal.common.ui.theme.LocalBackdrop
 
 @Composable
 fun SingleSelection(
@@ -40,6 +56,7 @@ fun SingleSelection(
     modifier: Modifier = Modifier,
     isChoiceEnabled: (String) -> Boolean = { true },
     enabled: Boolean = true,
+    description: String? = null,
     onChoiceChanged: (String) -> Unit,
 ) {
     SingleSelection(
@@ -50,6 +67,7 @@ fun SingleSelection(
         choiceToString = { it },
         enabled = enabled,
         isChoiceEnabled = isChoiceEnabled,
+        description = description,
         onChoiceChanged = onChoiceChanged,
     )
 }
@@ -64,6 +82,7 @@ fun <T> SingleSelection(
     choiceToString: (T) -> String,
     isChoiceEnabled: (T) -> Boolean = { true },
     enabled: Boolean = true,
+    description: String? = null,
     onChoiceChanged: (T) -> Unit,
 ) {
     var choice by rememberSaveable { mutableStateOf(initialChoice()) }
@@ -75,6 +94,7 @@ fun <T> SingleSelection(
         isChoiceEnabled = isChoiceEnabled,
         enabled = enabled,
         choiceToString = choiceToString,
+        description = description,
         onChoiceChanged = { newChoice ->
             choice = newChoice
             onChoiceChanged(newChoice)
@@ -82,6 +102,10 @@ fun <T> SingleSelection(
     )
 }
 
+/**
+ * Settings row showing [label] and the current choice; opens a dialog to pick another one.
+ * [description] is shown under the current choice.
+ */
 @Composable
 fun <T> SingleSelection(
     label: String,
@@ -91,39 +115,32 @@ fun <T> SingleSelection(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     isChoiceEnabled: (T) -> Boolean = { true },
+    description: String? = null,
     onChoiceChanged: (T) -> Unit,
 ) {
     var showSelectDialog by rememberSaveable { mutableStateOf(false) }
 
-    val clickableModifier = if (enabled) {
-        Modifier.clickable { showSelectDialog = true }
-    } else {
-        Modifier
-    }
-    CompositionLocalProvider(
-        LocalContentColor provides
-                MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f)
-    )
-    {
-        Column(
-            modifier = modifier
-                .fillMaxWidth()
-                .then(clickableModifier)
-                .padding(8.dp),
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = label,
-                modifier = Modifier.padding(vertical = 8.dp),
-                fontWeight = FontWeight.Medium,
-                fontSize = 20.sp,
-            )
+    SettingsCard(
+        modifier = modifier,
+        onClick = { showSelectDialog = true },
+        enabled = enabled,
+        role = Role.DropdownList,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            SettingsRowTitle(label)
             Text(
                 text = choiceToString(choice),
-                modifier = Modifier.padding(vertical = 8.dp),
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.bodyMedium,
+                color = FractalTheme.colors.accent,
             )
+            if (!description.isNullOrEmpty()) SettingsRowDescription(description)
         }
+        Icon(
+            FractalIcons.Next,
+            contentDescription = null,
+            tint = FractalTheme.colors.textSecondary,
+            modifier = Modifier.size(18.dp),
+        )
     }
 
     if (showSelectDialog) {
@@ -149,55 +166,53 @@ private fun <T> SelectDialog(
     onDismissRequest: () -> Unit,
     onChoiceChanged: (T) -> Unit,
 ) {
+    val colors = FractalTheme.colors
+    val shape = FractalTheme.shapes.panel
+    // dialogs are separate windows: no backdrop to blur, so an opaque panel and opaque buttons
     Dialog(onDismissRequest = onDismissRequest) {
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            ),
-            modifier = Modifier
-                .sizeIn(maxWidth = 560.dp, maxHeight = 560.dp)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-        ) {
-            Text(
-                modifier = Modifier.padding(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 16.dp,
-                    bottom = 8.dp
-                ),
-                text = label,
-                fontSize = 24.sp,
-            )
+        CompositionLocalProvider(LocalBackdrop provides null) {
             Column(
                 modifier = Modifier
+                    .sizeIn(maxWidth = 560.dp, maxHeight = 560.dp)
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp, horizontal = 16.dp)
-                    .weight(weight = 1.0f, fill = false)
-                    .verticalScroll(rememberScrollState()),
+                    .clip(shape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .border(1.dp, colors.border, shape)
+                    .padding(vertical = 8.dp),
             ) {
-                choices.forEach { choice ->
-                    Choice(
-                        label = choiceToString(choice),
-                        selected = currentChoice == choice,
-                        isEnabled = isChoiceEnabled(choice),
-                        onClick = {
-                            onChoiceChanged(choice)
-                            onDismissRequest()
-                        },
-                    )
+                Text(
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 8.dp),
+                    text = label,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = colors.text,
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                        .weight(weight = 1.0f, fill = false)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    choices.forEach { choice ->
+                        Choice(
+                            label = choiceToString(choice),
+                            selected = currentChoice == choice,
+                            isEnabled = isChoiceEnabled(choice),
+                            onClick = {
+                                onChoiceChanged(choice)
+                                onDismissRequest()
+                            },
+                        )
+                    }
                 }
-            }
-
-            HorizontalDivider()
-
-            TextButton(
-                onClick = onDismissRequest,
-                modifier = Modifier
-                    .padding(8.dp)
-                    .align(Alignment.End),
-            ) {
-                Text(tr("Cancel"))
+                FractalButton(
+                    text = tr("Cancel"),
+                    onClick = onDismissRequest,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .align(Alignment.End),
+                )
             }
         }
     }
@@ -205,23 +220,44 @@ private fun <T> SelectDialog(
 
 @Composable
 private fun Choice(label: String, selected: Boolean, isEnabled: Boolean, onClick: () -> Unit) {
+    val colors = FractalTheme.colors
+    val shape = FractalTheme.shapes.card
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
     Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
-            .clickable(isEnabled, onClick = onClick)
-            .padding(vertical = 16.dp, horizontal = 8.dp)
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .focusRing(focused, shape, gap = 2.dp)
+            .clip(shape)
+            .background(if (selected) colors.selected else if (focused) colors.surfaceHigh else Color.Transparent)
+            .gamepadConfirm { if (isEnabled) onClick() }
+            .clickable(
+                interactionSource = interaction,
+                indication = ripple(),
+                enabled = isEnabled,
+                role = Role.RadioButton,
+                onClick = onClick,
+            )
+            .heightIn(min = 52.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .alpha(if (isEnabled) 1f else DISABLED_ROW_ALPHA),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(
             enabled = isEnabled,
             selected = selected,
             onClick = null,
+            colors = RadioButtonDefaults.colors(
+                selectedColor = colors.accent,
+                unselectedColor = colors.textSecondary,
+            ),
         )
         Text(
             text = label,
-            color = if (isEnabled) LocalContentColor.current
-            else LocalContentColor.current.copy(alpha = 0.6f)
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.text,
+            modifier = Modifier.weight(1f),
         )
     }
 }
