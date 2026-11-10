@@ -221,6 +221,7 @@ void VulkanRenderer::DetermineVendor()
 
 	if(driverId == VK_DRIVER_ID_MESA_RADV || driverId == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
 		m_vendor = GfxVendor::Mesa;
+	m_isTurnip = driverId == VK_DRIVER_ID_MESA_TURNIP;
 
 	cemuLog_log(LogType::Force, "Using GPU: {}", properties.properties.deviceName);
 
@@ -856,19 +857,21 @@ VulkanRenderer::VulkanRenderer() : Renderer(RendererAPI::Vulkan)
 	// cemuLog_log(LogType::Force, "VK_KHR_dynamic_rendering: {}", m_featureControl.deviceExtensions.dynamic_rendering?"supported":"not supported");
 
 	void* bufferPtr;
-	// init ringbuffer for uniform vars
+	// init ringbuffer for uniform vars. When it is full the GPU thread waits for the oldest command buffer to finish
+	// (gw_uniform_ms in the perf log)
+	m_uniformVarBufferSize = (uint32)std::clamp<sint64>(PerfLog::Tunable("uniform_ring_mb", UNIFORMVAR_RINGBUFFER_SIZE / (1024 * 1024)), 4, 128) * 1024 * 1024;
 	m_uniformVarBufferMemoryIsCoherent = false;
-	if (memoryManager->CreateBuffer(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
+	if (memoryManager->CreateBuffer(m_uniformVarBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
 		m_uniformVarBufferMemoryIsCoherent = true;
-	else if (memoryManager->CreateBuffer(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
+	else if (memoryManager->CreateBuffer(m_uniformVarBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
 		m_uniformVarBufferMemoryIsCoherent = true; // unified memory
-	else if (memoryManager->CreateBuffer(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
+	else if (memoryManager->CreateBuffer(m_uniformVarBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
 		m_uniformVarBufferMemoryIsCoherent = true;
-	else if (memoryManager->CreateBuffer(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
+	else if (memoryManager->CreateBuffer(m_uniformVarBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
 		m_uniformVarBufferMemoryIsCoherent = true;
 	else
 	{
-		memoryManager->CreateBuffer(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory);
+		memoryManager->CreateBuffer(m_uniformVarBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory);
 	}
 
 	if (!m_uniformVarBufferMemoryIsCoherent)
@@ -876,6 +879,27 @@ VulkanRenderer::VulkanRenderer() : Renderer(RendererAPI::Vulkan)
 	bufferPtr = nullptr;
 	vkMapMemory(m_logicalDevice, m_uniformVarBufferMemory, 0, VK_WHOLE_SIZE, 0, &bufferPtr);
 	m_uniformVarBufferPtr = (uint8*)bufferPtr;
+
+	// completion marker (tunable fence_marker: -1 auto = Turnip only, 0 off, 1 on)
+	{
+		const sint64 markerMode = PerfLog::Tunable("fence_marker", -1);
+		m_useCompletionMarker = markerMode > 0 || (markerMode < 0 && m_isTurnip);
+		if (m_useCompletionMarker)
+		{
+			if (!memoryManager->CreateBuffer(64, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, m_completionMarkerBuffer, m_completionMarkerMemory))
+				m_useCompletionMarker = false;
+		}
+		if (m_useCompletionMarker)
+		{
+			void* markerPtr = nullptr;
+			vkMapMemory(m_logicalDevice, m_completionMarkerMemory, 0, VK_WHOLE_SIZE, 0, &markerPtr);
+			m_completionMarker = (volatile uint32*)markerPtr;
+			*m_completionMarker = 0;
+			if (!m_completionMarker)
+				m_useCompletionMarker = false;
+		}
+		cemuLog_log(LogType::Force, "Vulkan: command buffer completion marker {}", m_useCompletionMarker ? "on" : "off");
+	}
 
 	// texture readback buffer
 	if (!memoryManager->CreateBuffer(TEXTURE_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_textureReadbackBuffer, m_textureReadbackBufferMemory))
@@ -967,6 +991,8 @@ VulkanRenderer::~VulkanRenderer()
 
 	// delete buffers
 	memoryManager->DeleteBuffer(m_uniformVarBuffer, m_uniformVarBufferMemory);
+	if (m_completionMarkerBuffer != VK_NULL_HANDLE)
+		memoryManager->DeleteBuffer(m_completionMarkerBuffer, m_completionMarkerMemory);
 	memoryManager->DeleteBuffer(m_textureReadbackBuffer, m_textureReadbackBufferMemory);
 	memoryManager->DeleteBuffer(m_xfbRingBuffer, m_xfbRingBufferMemory);
 	memoryManager->DeleteBuffer(m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults);
@@ -2284,11 +2310,32 @@ void VulkanRenderer::InitFirstCommandBuffer()
 	m_state.resetCommandBufferState();
 }
 
+bool VulkanRenderer::CommandBufferMarkerReached(uint32 slot) const
+{
+	const uint32 marker = __atomic_load_n(m_completionMarker, __ATOMIC_ACQUIRE);
+	return (sint32)(marker - (uint32)(m_cmdBufferSubmitIds[slot] + 1)) >= 0;
+}
+
+// at the end of the current command buffer: once all earlier work is done, write its id + 1 into the marker
+void VulkanRenderer::WriteCompletionMarker()
+{
+	VkCommandBuffer cmd = m_state.currentCommandBuffer;
+	VkMemoryBarrier barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
+	vkCmdFillBuffer(cmd, m_completionMarkerBuffer, 0, 4, (uint32)(m_numSubmittedCmdBuffers + 1));
+	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+}
+
 void VulkanRenderer::ProcessFinishedCommandBuffers()
 {
 	bool finishedCmdBuffers = false;
 	while (m_commandBufferSyncIndex != m_commandBufferIndex)
 	{
+		// the marker says the GPU has not reached the end of this command buffer yet: don't ask the fence
+		if (m_useCompletionMarker && !CommandBufferMarkerReached(m_commandBufferSyncIndex))
+			break;
 		VkResult fenceStatus = vkGetFenceStatus(m_logicalDevice, m_cmdBufferFences[m_commandBufferSyncIndex]);
 		if (fenceStatus == VK_SUCCESS)
 		{
@@ -2516,6 +2563,9 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 	occlusionQuery_notifyEndCommandBuffer();
 
 	PerfTimestampEnd();
+	if (m_useCompletionMarker)
+		WriteCompletionMarker();
+	m_cmdBufferSubmitIds[m_commandBufferIndex] = m_numSubmittedCmdBuffers;
 	vkEndCommandBuffer(m_state.currentCommandBuffer);
 
 	VkSubmitInfo submitInfo = {};

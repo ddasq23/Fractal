@@ -185,6 +185,7 @@ VKFUNC_DEVICE(vkCmdBindDescriptorSets);
 VKFUNC_DEVICE(vkCmdPipelineBarrier);
 VKFUNC_DEVICE(vkCmdClearDepthStencilImage);
 VKFUNC_DEVICE(vkCmdCopyBuffer);
+VKFUNC_DEVICE(vkCmdFillBuffer);
 VKFUNC_DEVICE(vkCmdCopyImage);
 VKFUNC_DEVICE(vkCmdBlitImage);
 VKFUNC_DEVICE(vkCmdPushConstants);

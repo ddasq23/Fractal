@@ -3,6 +3,12 @@
 #include "util/helpers/fspinlock.h"
 #include "util/highresolutiontimer/HighResolutionTimer.h"
 #include "Common/cpu_features.h"
+#include "Cafe/HW/Espresso/PPCState.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
+#include <unordered_map>
+#if !BOOST_OS_WINDOWS
+#include <dlfcn.h>
+#endif
 
 #if defined(ARCH_X86_64)
 #include <immintrin.h>
@@ -123,12 +129,56 @@ void PPCTimer_waitForInit()
 
 FSpinlock sTimerSpinlock;
 
+// diagnostics (perf/tuning.txt timer_stats=1): how often the guest clock is read and from where. Each read of the host
+// counter costs ~205 ns on the Retroid Pocket 5 (its kernel traps EL0 cntvct_el0 reads), ~17 ns elsewhere
+struct TimerReadStats
+{
+	uint64 calls = 0;
+	uint64 lastDump = 0;
+	std::unordered_map<uint64, uint32> sites; // (host return address offset << 32) | guest LR
+};
+static TimerReadStats* s_timerStats = nullptr;
+
+static void TimerStats_Record(void* hostRet, uint64 now)
+{
+	TimerReadStats& st = *s_timerStats;
+	st.calls++;
+	if ((st.calls & 31) == 0)
+	{
+		Dl_info info{};
+		uint64 hostOff = (uint64)hostRet;
+		if (dladdr(hostRet, &info) && info.dli_fbase)
+			hostOff -= (uint64)info.dli_fbase;
+		auto* cpu = PPCInterpreter_getCurrentInstance();
+		uint32 guestLR = cpu ? cpu->spr.LR : 0;
+		st.sites[(hostOff << 32) | guestLR]++;
+	}
+	if (st.lastDump == 0)
+		st.lastDump = now;
+	const uint64 elapsed = now - st.lastDump;
+	if (_rdtscFrequency && elapsed >= _rdtscFrequency * 10)
+	{
+		const double secs = (double)elapsed / (double)_rdtscFrequency;
+		std::vector<std::pair<uint64, uint32>> v(st.sites.begin(), st.sites.end());
+		std::sort(v.begin(), v.end(), [](auto& a, auto& b) { return a.second > b.second; });
+		cemuLog_log(LogType::Force, "TimerStats: {:.0f} guest clock reads/s", st.calls / secs);
+		for (size_t i = 0; i < std::min<size_t>(v.size(), 16); i++)
+			cemuLog_log(LogType::Force, "TimerStats: {:8.0f}/s host +{:x} guest LR {:08x}", v[i].second * 32 / secs, v[i].first >> 32, (uint32)v[i].first);
+		st.sites.clear();
+		st.calls = 0;
+		st.lastDump = now;
+	}
+}
+
 // thread safe
 uint64 PPCTimer_getFromRDTSC()
 {
+	static const bool s_statsEnabled = [] { if (PerfLog::Tunable("timer_stats", 0) == 0) return false; s_timerStats = new TimerReadStats(); return true; }();
 	sTimerSpinlock.lock();
 	_mm_mfence();
 	uint64 rdtscCurrentMeasure = __rdtsc();
+	if (s_statsEnabled) [[unlikely]]
+		TimerStats_Record(__builtin_return_address(0), rdtscCurrentMeasure);
 	uint64 rdtscDif = rdtscCurrentMeasure - _rdtscLastMeasure;
 	// optimized max(rdtscDif, 0) without conditionals
 	rdtscDif = rdtscDif & ~(uint64)((sint64)rdtscDif >> 63);

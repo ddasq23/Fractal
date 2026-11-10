@@ -342,12 +342,15 @@ uint32 VulkanRenderer::uniformData_uploadUniformDataBufferGetOffset(std::span<ui
 				cemu_assert_suspicious();
 				break;
 			}
+			const auto waitStart = std::chrono::steady_clock::now();
 			WaitForNextFinishedCommandBuffer();
+			PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::UniformRing);
+			PerfLog::GpuWait(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - waitStart).count());
 		}
 	};
 
 	// wrap around if it doesnt fit consecutively
-	if (m_uniformVarBufferWriteIndex + uniformSize > UNIFORMVAR_RINGBUFFER_SIZE)
+	if (m_uniformVarBufferWriteIndex + uniformSize > m_uniformVarBufferSize)
 	{
 		waitWhileCondition([&]() {
 			return m_uniformVarBufferReadIndex > m_uniformVarBufferWriteIndex || m_uniformVarBufferReadIndex == 0;
@@ -358,8 +361,8 @@ uint32 VulkanRenderer::uniformData_uploadUniformDataBufferGetOffset(std::span<ui
 	auto ringBufRemaining = [&]() {
 		ssize_t ringBufferUsedBytes = (ssize_t)m_uniformVarBufferWriteIndex - m_uniformVarBufferReadIndex;
 		if (ringBufferUsedBytes < 0)
-			ringBufferUsedBytes += UNIFORMVAR_RINGBUFFER_SIZE;
-		return UNIFORMVAR_RINGBUFFER_SIZE - 1 - ringBufferUsedBytes;
+			ringBufferUsedBytes += m_uniformVarBufferSize;
+		return m_uniformVarBufferSize - 1 - ringBufferUsedBytes;
 	};
 	waitWhileCondition([&]() {
 		return ringBufRemaining() < uniformSize;

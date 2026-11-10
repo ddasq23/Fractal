@@ -161,7 +161,7 @@ class VulkanRenderer : public Renderer
 
 	using VSync = SwapchainInfoVk::VSync;
 
-	static const inline int UNIFORMVAR_RINGBUFFER_SIZE = 1024 * 1024 * 16; // 16MB
+	static const inline int UNIFORMVAR_RINGBUFFER_SIZE = 1024 * 1024 * 16; // 16MB, default of m_uniformVarBufferSize
 
 	static const inline int TEXTURE_READBACK_SIZE = 32 * 1024 * 1024; // 32 MB
 
@@ -680,8 +680,18 @@ private:
 	VkBuffer m_uniformVarBuffer = VK_NULL_HANDLE;
 	VkDeviceMemory m_uniformVarBufferMemory = VK_NULL_HANDLE;
 	bool m_uniformVarBufferMemoryIsCoherent{false};
+	// completion marker: the end of every command buffer writes its id + 1 into host visible memory, so finished command
+	// buffers can be found without vkGetFenceStatus (which blocks until the GPU is done on Turnip/KGSL)
+	bool m_isTurnip{false};
+	bool m_useCompletionMarker{false};
+	VkBuffer m_completionMarkerBuffer{VK_NULL_HANDLE};
+	VkDeviceMemory m_completionMarkerMemory{VK_NULL_HANDLE};
+	volatile uint32* m_completionMarker{nullptr};
+	bool CommandBufferMarkerReached(uint32 slot) const;
+	void WriteCompletionMarker();
 	uint8* m_uniformVarBufferPtr = nullptr;
 	uint32 m_uniformVarBufferWriteIndex = 0;
+	uint32 m_uniformVarBufferSize = UNIFORMVAR_RINGBUFFER_SIZE;
 	uint32 m_uniformVarBufferReadIndex = 0;
 
 	// transform feedback ringbuffer
@@ -798,6 +808,7 @@ private:
 	}
 
 	uint64 m_numSubmittedCmdBuffers{};
+	std::array<uint64, kCommandBufferPoolSize> m_cmdBufferSubmitIds{}; // m_numSubmittedCmdBuffers when the slot was submitted
 	uint64 m_countCommandBufferFinished{};
 
 	uint32 m_recordedDrawcalls{}; // number of drawcalls recorded into current command buffer
