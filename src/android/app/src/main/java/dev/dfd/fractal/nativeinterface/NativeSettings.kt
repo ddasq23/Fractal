@@ -26,6 +26,13 @@ object NativeSettings {
     @JvmStatic
     external fun setPerformanceLog(value: Boolean)
 
+    /** Plays the game's boot sound while the shader cache loads. */
+    @JvmStatic
+    external fun getPlayBootSound(): Boolean
+
+    @JvmStatic
+    external fun setPlayBootSound(value: Boolean)
+
     object VSyncMode {
         const val OFF: Int = 0
         const val DOUBLE_BUFFERING: Int = 1
@@ -82,6 +89,30 @@ object NativeSettings {
 
     @JvmStatic
     external fun setAccurateBarriers(value: Boolean)
+
+    /** Ignores the gamma the game asks for and uses [getTargetGamma] alone. */
+    @JvmStatic
+    external fun getOverrideGameGamma(): Boolean
+
+    @JvmStatic
+    external fun setOverrideGameGamma(value: Boolean)
+
+    /** Gamma of the TV being reproduced. */
+    @JvmStatic
+    external fun getTargetGamma(): Float
+
+    @JvmStatic
+    external fun setTargetGamma(value: Float)
+
+    /** Gamma of the device's screen; [DISPLAY_GAMMA_SRGB] means a piecewise sRGB curve. */
+    @JvmStatic
+    external fun getDisplayGamma(): Float
+
+    @JvmStatic
+    external fun setDisplayGamma(value: Float)
+
+    const val DISPLAY_GAMMA_SRGB: Float = 0f
+    const val DEFAULT_GAMMA: Float = 2.2f
 
     @JvmStatic
     external fun getAudioDeviceEnabled(tv: Boolean): Boolean
@@ -161,11 +192,25 @@ object NativeSettings {
     @JvmStatic
     external fun setOverlayCPUUsageEnabled(value: Boolean)
 
+    /** Not in the settings UI: per core times come from /proc/stat, which Android does not let apps read. */
+    @JvmStatic
+    external fun isOverlayCPUPerCoreUsageEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayCPUPerCoreUsageEnabled(value: Boolean)
+
     @JvmStatic
     external fun isOverlayRAMUsageEnabled(): Boolean
 
     @JvmStatic
     external fun setOverlayRAMUsageEnabled(value: Boolean)
+
+    /** Not in the settings UI: the renderer only reports VRAM on Windows (DXGI), so nothing shows on Android. */
+    @JvmStatic
+    external fun isOverlayVRAMUsageEnabled(): Boolean
+
+    @JvmStatic
+    external fun setOverlayVRAMUsageEnabled(value: Boolean)
 
     @JvmStatic
     external fun isOverlayDebugEnabled(): Boolean
