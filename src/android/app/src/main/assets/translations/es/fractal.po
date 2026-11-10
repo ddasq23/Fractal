@@ -1,0 +1,2233 @@
+# Fractal app strings, Spanish.
+# The msgid is the English text passed to tr()/trNoop() in the Kotlin sources.
+# Cemu core strings live in cemu.po (generated from upstream Cemu); entries here win over it.
+msgid ""
+msgstr ""
+"Project-Id-Version: Fractal\n"
+"PO-Revision-Date: 2026-11-10 00:00+0000\n"
+"Last-Translator: Fractal\n"
+"Language-Team: Fractal\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "30 FPS"
+msgstr "30 FPS"
+
+msgid "30 FPS gives steadier frame pacing when the device can't hold 60. Picking a limit enables FPS++."
+msgstr "30 FPS da un ritmo de fotogramas más estable cuando el dispositivo no aguanta 60. Elegir un límite activa FPS++."
+
+msgid "60 FPS"
+msgstr "60 FPS"
+
+msgid "About Fractal"
+msgstr "Acerca de Fractal"
+
+msgid "About title"
+msgstr "Acerca del juego"
+
+msgid "Above"
+msgstr "Arriba"
+
+msgid "Account information"
+msgstr "Información de la cuenta"
+
+msgid "Account name may not be empty!"
+msgstr "¡El nombre de la cuenta no puede estar vacío!"
+
+msgid "Account settings"
+msgstr "Configuración de la cuenta"
+
+msgid "AccountId missing (The account is not connected to a NNID/PNID)"
+msgstr "Falta AccountId (la cuenta no está vinculada a un NNID/PNID)"
+
+msgid "AccountPasswordCache is empty (The remember password option on your Wii U must be enabled for this account before dumping it)"
+msgstr "AccountPasswordCache está vacío (la opción de recordar contraseña de tu Wii U debe estar activada para esta cuenta antes de extraerla)"
+
+msgid "Accurate barriers"
+msgstr "Barreras precisas"
+
+msgid "Active account"
+msgstr "Cuenta activa"
+
+msgid "Active preset"
+msgstr "Preajuste activo"
+
+msgid "Activity"
+msgstr "Actividad"
+
+msgid "Add folder"
+msgstr "Agregar carpeta"
+
+msgid "Add game folder"
+msgstr "Agregar carpeta de juegos"
+
+msgid "Add macro"
+msgstr "Agregar macro"
+
+msgid "Add step"
+msgstr "Agregar paso"
+
+msgid "Add the folder where your Wii U games are. Fractal looks for games in every folder inside it."
+msgstr "Agrega la carpeta donde están tus juegos de Wii U. Fractal busca juegos en todas las carpetas dentro de ella."
+
+msgid "Add to favorites"
+msgstr "Agregar a favoritos"
+
+msgid "Advanced"
+msgstr "Avanzado"
+
+msgid "All graphic packs"
+msgstr "Todos los paquetes gráficos"
+
+msgid "All set. You can reopen this setup any time from the library options or the settings."
+msgstr "Todo listo. Puedes volver a abrir esta configuración cuando quieras desde las opciones de la biblioteca o la configuración."
+
+msgid "AMD FSR 1"
+msgstr "AMD FSR 1"
+
+msgid "Android always syncs to the display. Triple buffering (mailbox) lets the game run without waiting for the screen; if the driver does not offer it, double buffering is used"
+msgstr "Android siempre se sincroniza con la pantalla. El búfer triple (mailbox) deja que el juego corra sin esperar a la pantalla; si el driver no lo ofrece, se usa el búfer doble"
+
+msgid "Animated"
+msgstr "Animado"
+
+msgid "App and console language, GamePad screen position"
+msgstr "Idioma de la app y de la consola, posición de la pantalla del GamePad"
+
+msgid "App language"
+msgstr "Idioma de la app"
+
+msgid "Appearance"
+msgstr "Apariencia"
+
+msgid "Are you really sure you want to delete the following entry?"
+msgstr "¿Seguro que quieres eliminar el siguiente elemento?"
+
+msgid "Are you sure you want to delete the account {0} with id {1}?"
+msgstr "¿Seguro que quieres eliminar la cuenta {0} con ID {1}?"
+
+msgid "Are you sure you want to exit?"
+msgstr "¿Seguro que quieres salir?"
+
+msgid "Async shader compile"
+msgstr "Compilación asíncrona de shaders"
+
+msgid "Audio"
+msgstr "Audio"
+
+msgid "Audio output"
+msgstr "Salida de audio"
+
+msgid "Audio settings"
+msgstr "Configuración de audio"
+
+msgid "Australia"
+msgstr "Australia"
+
+msgid "Auto"
+msgstr "Automático"
+
+msgid "Auto (recommended)"
+msgstr "Automático (recomendado)"
+
+msgid "Available"
+msgstr "Disponibles"
+
+msgid "Axis"
+msgstr "Eje"
+
+msgid "Back"
+msgstr "Atrás"
+
+msgid "Base"
+msgstr "Base"
+
+msgid "Base game"
+msgstr "Juego base"
+
+msgid "Below"
+msgstr "Abajo"
+
+msgid "Bicubic"
+msgstr "Bicúbico"
+
+msgid "Bilinear"
+msgstr "Bilineal"
+
+msgid "Birthday"
+msgstr "Cumpleaños"
+
+msgid "Blow mic"
+msgstr "Soplar al micrófono"
+
+msgid "blow mic"
+msgstr "soplar al micrófono"
+
+msgid "Blur"
+msgstr "Desenfoque"
+
+msgid "Boot sound"
+msgstr "Sonido de inicio"
+
+msgid "Bottom center"
+msgstr "Abajo al centro"
+
+msgid "Bottom left"
+msgstr "Abajo a la izquierda"
+
+msgid "Bottom right"
+msgstr "Abajo a la derecha"
+
+msgid "Breathing facets"
+msgstr "Facetas que respiran"
+
+msgid "Button combinations for emulator actions"
+msgstr "Combinaciones de botones para acciones del emulador"
+
+msgid "Buttons"
+msgstr "Botones"
+
+msgid "Buttons pressed together while the macro is held"
+msgstr "Botones que se presionan juntos mientras se mantiene la macro"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Cancel compressing title"
+msgstr "Cancelar compresión del título"
+
+msgid "Cancel installing title"
+msgstr "Cancelar instalación del título"
+
+msgid "Carousel"
+msgstr "Carrusel"
+
+msgid "Cemu original authors: {0}"
+msgstr "Autores originales de Cemu: {0}"
+
+msgid "Changes apply right away, so this screen is the preview."
+msgstr "Los cambios se aplican al instante, así que esta pantalla es la vista previa."
+
+msgid "Changes discarded"
+msgstr "Cambios descartados"
+
+msgid "Checking the zip…"
+msgstr "Verificando el zip…"
+
+msgid "Checking version..."
+msgstr "Verificando versión..."
+
+msgid "China"
+msgstr "China"
+
+msgid "Chinese"
+msgstr "Chino"
+
+msgid "Choose the language of the app. You can change it later in the settings."
+msgstr "Elige el idioma de la app. Puedes cambiarlo después en la configuración."
+
+msgid "Clear"
+msgstr "Quitar"
+
+msgid "click"
+msgstr "clic"
+
+msgid "Close"
+msgstr "Cerrar"
+
+msgid "Collecting list of files..."
+msgstr "Recopilando la lista de archivos..."
+
+msgid "Combo"
+msgstr "Combinación"
+
+msgid "coming after device tests"
+msgstr "llegará después de las pruebas en dispositivos"
+
+msgid "Compensates for a screen that uses the piecewise sRGB curve instead of a pure gamma curve. More accurate dark scenes, but may cause banding"
+msgstr "Compensa las pantallas que usan la curva sRGB por tramos en lugar de una curva gamma pura. Escenas oscuras más fieles, pero puede causar bandas de color"
+
+msgid "Compressing title"
+msgstr "Comprimiendo título"
+
+msgid "Configuration"
+msgstr "Configuración"
+
+msgid "Configure game"
+msgstr "Configurar juego"
+
+msgid "Confirmation"
+msgstr "Confirmación"
+
+msgid "Console language"
+msgstr "Idioma de la consola"
+
+msgid "Controller"
+msgstr "Control"
+
+msgid "Controller has no motion sensors"
+msgstr "El control no tiene sensores de movimiento"
+
+msgid "Controller profiles"
+msgstr "Perfiles de control"
+
+msgid "Controller settings"
+msgstr "Configuración de controles"
+
+msgid "Controller {0}"
+msgstr "Control {0}"
+
+msgid "Controllers"
+msgstr "Controles"
+
+msgid "Controls"
+msgstr "Controles"
+
+msgid "Controls the accuracy of floating point multiplication in shaders"
+msgstr "Controla la precisión de la multiplicación de punto flotante en los shaders"
+
+msgid "Convert to WUA"
+msgstr "Convertir a WUA"
+
+msgid "Converting files..."
+msgstr "Convirtiendo archivos..."
+
+msgid "Copied to clipboard"
+msgstr "Copiado al portapapeles"
+
+msgid "Could not decrypt title because title.tik is missing."
+msgstr "No se pudo descifrar el título porque falta title.tik."
+
+msgid "Could not decrypt title. Make sure that keys.txt contains the correct disc key for this title."
+msgstr "No se pudo descifrar el título. Asegúrate de que keys.txt tenga la clave de disco correcta para este título."
+
+msgid "Could not load releases: {0}"
+msgstr "No se pudieron cargar las versiones: {0}"
+
+msgid "Could not open the chosen file"
+msgstr "No se pudo abrir el archivo elegido"
+
+msgid "Couldn't create shortcut for game"
+msgstr "No se pudo crear el acceso directo del juego"
+
+msgid "Country"
+msgstr "País"
+
+msgid "CPU"
+msgstr "CPU"
+
+msgid "CPU mode"
+msgstr "Modo de CPU"
+
+msgid "CPU usage"
+msgstr "Uso de CPU"
+
+msgid "CPU usage of Fractal in percent"
+msgstr "Uso de CPU de Fractal en porcentaje"
+
+msgid "Create"
+msgstr "Crear"
+
+msgid "Create new account"
+msgstr "Crear cuenta nueva"
+
+msgid "Create shortcut"
+msgstr "Crear acceso directo"
+
+msgid "Current"
+msgstr "Actual"
+
+msgid "Current choice"
+msgstr "Opción actual"
+
+msgid "Custom"
+msgstr "Personalizado"
+
+msgid "Custom driver"
+msgstr "Driver personalizado"
+
+msgid "Custom driver failed"
+msgstr "Falló el driver personalizado"
+
+msgid "Custom drivers"
+msgstr "Drivers personalizados"
+
+msgid "Custom drivers are not supported on this GPU; the system driver is used"
+msgstr "Esta GPU no admite drivers personalizados; se usa el driver del sistema"
+
+msgid "D-pad"
+msgstr "Cruceta"
+
+msgid "Deadzone"
+msgstr "Zona muerta"
+
+msgid "Debug"
+msgstr "Depuración"
+
+msgid "Default"
+msgstr "Predeterminado"
+
+msgid "Delete"
+msgstr "Eliminar"
+
+msgid "Delete macro"
+msgstr "Eliminar macro"
+
+msgid "Delete profile"
+msgstr "Eliminar perfil"
+
+msgid "Delete step"
+msgstr "Eliminar paso"
+
+msgid "Delete the macro \"{0}\"?"
+msgstr "¿Eliminar la macro \"{0}\"?"
+
+msgid "Delete the profile \"{0}\" with its layout and macros?"
+msgstr "¿Eliminar el perfil \"{0}\" con su diseño y sus macros?"
+
+msgid "Deleted title entry"
+msgstr "Elemento del título eliminado"
+
+msgid "Deletes the shader and pipeline caches of this game; they are rebuilt while playing"
+msgstr "Borra las cachés de shaders y pipelines de este juego; se vuelven a crear mientras juegas"
+
+msgid "Deleting"
+msgstr "Eliminando"
+
+msgid "Deleting: {0}"
+msgstr "Eliminando: {0}"
+
+msgid "Detecting GPU…"
+msgstr "Detectando GPU…"
+
+msgid "Device controller"
+msgstr "Control del dispositivo"
+
+msgid "Device settings"
+msgstr "Configuración del dispositivo"
+
+msgid "Dimensions figure"
+msgstr "Figura de Dimensions"
+
+msgid "Dimensions figure creator"
+msgstr "Creador de figuras de Dimensions"
+
+msgid "Dimensions Figure Mover"
+msgstr "Mover figura de Dimensions"
+
+msgid "Dimensions figures"
+msgstr "Figuras de Dimensions"
+
+msgid "Dimensions Toypad"
+msgstr "Toypad de Dimensions"
+
+msgid "Disabled"
+msgstr "Desactivado"
+
+msgid "Disabling the accurate barriers option will lead to flickering graphics but may improve performance. It is highly recommended to leave it turned on"
+msgstr "Desactivar las barreras precisas hace que los gráficos parpadeen, pero puede mejorar el rendimiento. Se recomienda mucho dejarlas activadas"
+
+msgid "Display gamma"
+msgstr "Gamma de la pantalla"
+
+msgid "Displays internal debug information (Vulkan only)"
+msgstr "Muestra información interna de depuración (solo Vulkan)"
+
+msgid "Displays the active controller profile when starting a game"
+msgstr "Muestra el perfil de control activo al iniciar un juego"
+
+msgid "DLC"
+msgstr "DLC"
+
+msgid "Do you really want to cancel compressing the title?"
+msgstr "¿Seguro que quieres cancelar la compresión del título?"
+
+msgid ""
+"Do you really want to cancel the installation process?\n"
+"\n"
+"Canceling the process will delete the applied files."
+msgstr ""
+"¿Seguro que quieres cancelar la instalación?\n"
+"\n"
+"Si la cancelas, se borrarán los archivos ya instalados."
+
+msgid "Done"
+msgstr "Listo"
+
+msgid "down"
+msgstr "abajo"
+
+msgid "Download failed: {0}"
+msgstr "Falló la descarga: {0}"
+
+msgid "Download graphic packs"
+msgstr "Descargar paquetes gráficos"
+
+msgid "Downloaded latest graphic packs"
+msgstr "Se descargaron los paquetes gráficos más recientes"
+
+msgid "Downloading graphic packs..."
+msgstr "Descargando paquetes gráficos..."
+
+msgid "Downloading…"
+msgstr "Descargando…"
+
+msgid "Downscale filter"
+msgstr "Filtro de reducción"
+
+msgid "Drag an input to move it, pinch to resize it. Long press it for its options."
+msgstr "Arrastra un control para moverlo y pellizca para cambiar su tamaño. Mantenlo presionado para ver sus opciones."
+
+msgid "Drag an input to resize it. Long press it for its options."
+msgstr "Arrastra un control para cambiar su tamaño. Mantenlo presionado para ver sus opciones."
+
+msgid "Draw calls per frame"
+msgstr "Draw calls por fotograma"
+
+msgid "Drifting triangles"
+msgstr "Triángulos a la deriva"
+
+msgid "Driver"
+msgstr "Driver"
+
+msgid "Drivers"
+msgstr "Drivers"
+
+msgid "Duplicate"
+msgstr "Duplicar"
+
+msgid "Duplicate profile"
+msgstr "Duplicar perfil"
+
+msgid "Dutch"
+msgstr "Neerlandés"
+
+msgid "Each controller type has its own profiles. Positions, sizes and button options (toggle, turbo) are edited on the overlay: open the menu while playing and choose Edit inputs, then long press an input."
+msgstr "Cada tipo de control tiene sus propios perfiles. Las posiciones, tamaños y opciones de botones (fijar, turbo) se editan en la pantalla: abre el menú mientras juegas, elige Editar controles y mantén presionado un control."
+
+msgid "Each profile has its own positions, sizes, button options and macros."
+msgstr "Cada perfil tiene sus propias posiciones, tamaños, opciones de botones y macros."
+
+msgid "Economy mode"
+msgstr "Modo ahorro"
+
+msgid "Edit"
+msgstr "Editar"
+
+msgid "Edit game profile"
+msgstr "Editar perfil del juego"
+
+msgid "Edit input positions"
+msgstr "Editar posición de los controles"
+
+msgid "Edit inputs"
+msgstr "Editar controles"
+
+msgid "Edit macro"
+msgstr "Editar macro"
+
+msgid "Email"
+msgstr "Correo electrónico"
+
+msgid "Emulate Dimensions Toypad"
+msgstr "Emular Toypad de Dimensions"
+
+msgid "Emulate Infinity Base"
+msgstr "Emular base de Infinity"
+
+msgid "Emulate Skylander Portal"
+msgstr "Emular portal de Skylanders"
+
+msgid "Emulated controller"
+msgstr "Control emulado"
+
+msgid "Emulated controller: {0}"
+msgstr "Control emulado: {0}"
+
+msgid "Emulated controllers"
+msgstr "Controles emulados"
+
+msgid "Emulated controllers, mappings and device motion"
+msgstr "Controles emulados, asignaciones y movimiento del dispositivo"
+
+msgid "Emulated CPU cycles a thread runs before the next one gets a turn"
+msgstr "Ciclos de CPU emulada que ejecuta un hilo antes de que le toque al siguiente"
+
+msgid "Emulated USB Devices"
+msgstr "Dispositivos USB emulados"
+
+msgid "Emulated USB devices"
+msgstr "Dispositivos USB emulados"
+
+msgid "Emulated USB Devices settings"
+msgstr "Configuración de dispositivos USB emulados"
+
+msgid "Enable audio output for the Wii U Gamepad"
+msgstr "Activa la salida de audio del GamePad de Wii U"
+
+msgid "Enable audio output for the Wii U TV"
+msgstr "Activa la salida de audio de la TV de Wii U"
+
+msgid "Enable input overlay"
+msgstr "Activar controles en pantalla"
+
+msgid "Enable motion"
+msgstr "Activar movimiento"
+
+msgid "Enable vibrate on touch"
+msgstr "Vibrar al tocar"
+
+msgid "Enabled"
+msgstr "Activado"
+
+msgid ""
+"Enables async shader and pipeline compilation. Reduces stutter at the cost of objects not rendering for a short time.\n"
+"Vulkan only"
+msgstr ""
+"Activa la compilación asíncrona de shaders y pipelines. Reduce los tirones, pero algunos objetos pueden tardar un instante en aparecer.\n"
+"Solo Vulkan"
+
+msgid "Encrypted games (.wud, .wux)"
+msgstr "Juegos cifrados (.wud, .wux)"
+
+msgid "English"
+msgstr "Inglés"
+
+msgid "Error"
+msgstr "Error"
+
+msgid "Error installing"
+msgstr "Error al instalar"
+
+msgid "Error while converting"
+msgstr "Error al convertir"
+
+msgid "Europe"
+msgstr "Europa"
+
+msgid "Exit"
+msgstr "Salir"
+
+msgid "Exit confirmation"
+msgstr "Confirmar salida"
+
+msgid "Experimental"
+msgstr "Experimental"
+
+msgid "Experimental: automatic builds, not tested before release"
+msgstr "Experimental: compilaciones automáticas, sin probar antes de publicarse"
+
+msgid "Experimental: PanVK and malisx2 drivers for this GPU are listed below. If a driver fails, Fractal goes back to the system driver."
+msgstr "Experimental: abajo aparecen los drivers PanVK y malisx2 para esta GPU. Si un driver falla, Fractal vuelve al driver del sistema."
+
+msgid "Export save"
+msgstr "Exportar guardado"
+
+msgid "Export shader cache"
+msgstr "Exportar caché de shaders"
+
+msgid "Exporting save…"
+msgstr "Exportando guardado…"
+
+msgid "Exporting shader cache…"
+msgstr "Exportando caché de shaders…"
+
+msgid "Extra"
+msgstr "Extra"
+
+msgid "Extracting..."
+msgstr "Extrayendo..."
+
+msgid "Facets: cyan"
+msgstr "Facetas: cian"
+
+msgid "Facets: ink"
+msgstr "Facetas: tinta"
+
+msgid "Facets: magenta"
+msgstr "Facetas: magenta"
+
+msgid "Facets: purple"
+msgstr "Facetas: morado"
+
+msgid "Facets: synthwave"
+msgstr "Facetas: synthwave"
+
+msgid "Failed creating renderer: {0}"
+msgstr "No se pudo crear el renderizador: {0}"
+
+msgid "Failed creating surface: {0}"
+msgstr "No se pudo crear la superficie: {0}"
+
+msgid "Failed to create figure"
+msgstr "No se pudo crear la figura"
+
+msgid "Failed to delete title entry"
+msgstr "No se pudo eliminar el elemento del título"
+
+msgid "Failed to download graphic packs"
+msgstr "No se pudieron descargar los paquetes gráficos"
+
+msgid "Failed to initialize"
+msgstr "No se pudo inicializar"
+
+msgid "Failed to launch title"
+msgstr "No se pudo iniciar el título"
+
+msgid "Failed to load figure"
+msgstr "No se pudo cargar la figura"
+
+msgid "Failed to open Fractal folder"
+msgstr "No se pudo abrir la carpeta de Fractal"
+
+msgid "Failed to open log file"
+msgstr "No se pudo abrir el archivo de registro"
+
+msgid "Failed: {0}"
+msgstr "Falló: {0}"
+
+msgid "Favorite"
+msgstr "Favorito"
+
+msgid "Favorites always stay at the top."
+msgstr "Los favoritos siempre quedan arriba."
+
+msgid "Female"
+msgstr "Femenino"
+
+msgid "Figure number"
+msgstr "Número de figura"
+
+msgid "Finalizing..."
+msgstr "Finalizando..."
+
+msgid "Finished converting"
+msgstr "Conversión terminada"
+
+msgid "Finished installing"
+msgstr "Instalación terminada"
+
+msgid "Folder"
+msgstr "Carpeta"
+
+msgid "Folders scanned for games"
+msgstr "Carpetas donde se buscan juegos"
+
+msgid "Format"
+msgstr "Formato"
+
+msgid "Formats"
+msgstr "Formatos"
+
+msgid "FPS"
+msgstr "FPS"
+
+msgid "FPS limit"
+msgstr "Límite de FPS"
+
+msgid "FPS++ (recommended)"
+msgstr "FPS++ (recomendado)"
+
+msgid "Fractal does not download keys, firmware or games. Decrypted games (.wua, or folders with code/content/meta) work without keys."
+msgstr "Fractal no descarga claves, firmware ni juegos. Los juegos descifrados (.wua, o carpetas con code/content/meta) funcionan sin claves."
+
+msgid "Fractal folder"
+msgstr "Carpeta de Fractal"
+
+msgid ""
+"Fractal is a Wii U emulator.\n"
+"\n"
+"Wii and Wii U are trademarks of Nintendo.\n"
+"Fractal is not affiliated with Nintendo."
+msgstr ""
+"Fractal es un emulador de Wii U.\n"
+"\n"
+"Wii y Wii U son marcas registradas de Nintendo.\n"
+"Fractal no está afiliado a Nintendo."
+
+msgid "Fractal is back on the system driver."
+msgstr "Fractal volvió al driver del sistema."
+
+msgid "Fractal is based on Cemu and on the Cemu Android port by SSimco."
+msgstr "Fractal se basa en Cemu y en la versión de Cemu para Android de SSimco."
+
+msgid "Fractal looks for games (.wua, .wux, .wud, .iso, .rpx) in these folders and in every folder inside them."
+msgstr "Fractal busca juegos (.wua, .wux, .wud, .iso, .rpx) en estas carpetas y en todas las carpetas dentro de ellas."
+
+msgid "Fractal RAM usage in MB"
+msgstr "Uso de RAM de Fractal en MB"
+
+msgid "Freezes animated wallpapers to save battery"
+msgstr "Congela los fondos animados para ahorrar batería"
+
+msgid "French"
+msgstr "Francés"
+
+msgid "Friend list"
+msgstr "Lista de amigos"
+
+msgid "From the Graphics pack. Lower resolutions are faster"
+msgstr "Del paquete Graphics. Las resoluciones más bajas son más rápidas"
+
+msgid "FSR/GSR sharpness"
+msgstr "Nitidez de FSR/GSR"
+
+msgid "Full sync at GX2DrawDone()"
+msgstr "Sincronización completa en GX2DrawDone()"
+
+msgid "Fullscreen scaling"
+msgstr "Escalado en pantalla completa"
+
+msgid "Game folder"
+msgstr "Carpeta de juegos"
+
+msgid "Game folders"
+msgstr "Carpetas de juegos"
+
+msgid "Game paths"
+msgstr "Carpetas de juegos"
+
+msgid "Game settings"
+msgstr "Configuración del juego"
+
+msgid "Gamepad"
+msgstr "GamePad"
+
+msgid "Gamepad channels"
+msgstr "Canales del GamePad"
+
+msgid "GamePad position"
+msgstr "Posición del GamePad"
+
+msgid "Gamepad volume"
+msgstr "Volumen del GamePad"
+
+msgid "Gamepad: A plays, Y opens the game's settings, X opens the settings, Start opens the options, L1/R1 change the library view."
+msgstr "Control: A juega, Y abre la configuración del juego, X abre la configuración, Start abre las opciones, L1/R1 cambian la vista de la biblioteca."
+
+msgid "Games path already added"
+msgstr "La carpeta de juegos ya está agregada"
+
+msgid "Gamma"
+msgstr "Gamma"
+
+msgid "Gender"
+msgstr "Género"
+
+msgid "General settings"
+msgstr "Configuración general"
+
+msgid "German"
+msgstr "Alemán"
+
+msgid "Global"
+msgstr "Global"
+
+msgid "Global driver"
+msgstr "Driver global"
+
+msgid "Go to library"
+msgstr "Ir a la biblioteca"
+
+msgid "GPU driver"
+msgstr "Driver de GPU"
+
+msgid "Graphic packs"
+msgstr "Paquetes gráficos"
+
+msgid "Graphic packs are not downloaded yet. The community packs add resolution, frame rate and other options for most games."
+msgstr "Los paquetes gráficos aún no se descargaron. Los paquetes de la comunidad agregan opciones de resolución, tasa de fotogramas y más para la mayoría de los juegos."
+
+msgid "Graphic packs change resolution, fix issues and add enhancements per game. They are optional; you can download the community collection from the graphic packs screen."
+msgstr "Los paquetes gráficos cambian la resolución, corrigen problemas y agregan mejoras en cada juego. Son opcionales; puedes descargar la colección de la comunidad desde la pantalla de paquetes gráficos."
+
+msgid "Graphic packs download"
+msgstr "Descarga de paquetes gráficos"
+
+msgid "Graphics"
+msgstr "Gráficos"
+
+msgid "Graphics settings"
+msgstr "Configuración de gráficos"
+
+msgid "Grid"
+msgstr "Cuadrícula"
+
+msgid "Hermite"
+msgstr "Hermite"
+
+msgid "Hidden inputs can be shown again in the input overlay settings."
+msgstr "Los controles ocultos se pueden volver a mostrar en la configuración de los controles en pantalla."
+
+msgid "Hide"
+msgstr "Ocultar"
+
+msgid "Hold to confirm"
+msgstr "Mantén para confirmar"
+
+msgid "Home"
+msgstr "Home"
+
+msgid "home"
+msgstr "home"
+
+msgid "Hotkey settings"
+msgstr "Configuración de atajos"
+
+msgid "Hotkeys"
+msgstr "Atajos"
+
+msgid "ID"
+msgstr "ID"
+
+msgid ""
+"If synchronization is requested by the game, the emulated CPU will wait for the GPU to finish all operations.\n"
+"This is more accurate behavior, but may cause lower performance"
+msgstr ""
+"Si el juego pide sincronización, la CPU emulada espera a que la GPU termine todas las operaciones.\n"
+"Es más preciso, pero puede reducir el rendimiento"
+
+msgid "Ignores the gamma the game asks for and uses the target gamma alone"
+msgstr "Ignora la gamma que pide el juego y usa solo la gamma objetivo"
+
+msgid "Import"
+msgstr "Importar"
+
+msgid "Import anyway"
+msgstr "Importar de todos modos"
+
+msgid "Import from file"
+msgstr "Importar desde archivo"
+
+msgid "Import save"
+msgstr "Importar guardado"
+
+msgid "Import shader cache"
+msgstr "Importar caché de shaders"
+
+msgid "Imported from file"
+msgstr "Importado desde archivo"
+
+msgid "Importing save…"
+msgstr "Importando guardado…"
+
+msgid "Importing shader cache…"
+msgstr "Importando caché de shaders…"
+
+msgid "In use"
+msgstr "En uso"
+
+msgid "Infinity Base"
+msgstr "Base de Infinity"
+
+msgid "Infinity figure"
+msgstr "Figura de Infinity"
+
+msgid "Infinity figure creator"
+msgstr "Creador de figuras de Infinity"
+
+msgid "Infinity figures"
+msgstr "Figuras de Infinity"
+
+msgid "Initializing emulation"
+msgstr "Iniciando la emulación"
+
+msgid "Input binding"
+msgstr "Asignación de entrada"
+
+msgid "Input overlay"
+msgstr "Controles en pantalla"
+
+msgid "Input overlay profiles"
+msgstr "Perfiles de controles en pantalla"
+
+msgid "Input overlay settings"
+msgstr "Configuración de controles en pantalla"
+
+msgid "Input settings"
+msgstr "Configuración de entrada"
+
+msgid "Input text"
+msgstr "Escribe el texto"
+
+msgid "Inputs moved or resized in edit mode line up on a grid"
+msgstr "Los controles que se mueven o redimensionan en el modo de edición se alinean a una cuadrícula"
+
+msgid "Inputs opacity"
+msgstr "Opacidad de los controles"
+
+msgid "Inputs size"
+msgstr "Tamaño de los controles"
+
+msgid "Install"
+msgstr "Instalar"
+
+msgid "Install GPU drivers and switch between them"
+msgstr "Instala drivers de GPU y cambia entre ellos"
+
+msgid "Installed"
+msgstr "Instalados"
+
+msgid "Installed only"
+msgstr "Solo instalados"
+
+msgid "Installed {0}"
+msgstr "{0} instalado"
+
+msgid "Installing title"
+msgstr "Instalando título"
+
+msgid "Interface"
+msgstr "Interfaz"
+
+msgid "Internal storage"
+msgstr "Almacenamiento interno"
+
+msgid "Intro"
+msgstr "Intro"
+
+msgid "Invalid title"
+msgstr "Título no válido"
+
+msgid "IsPasswordCacheEnabled is set to false (The remember password option on your Wii U must be enabled for this account before dumping it)"
+msgstr "IsPasswordCacheEnabled está en false (la opción de recordar contraseña de tu Wii U debe estar activada para esta cuenta antes de extraerla)"
+
+msgid "It seems that a newer version is already installed, do you still want to install the older version?"
+msgstr "Parece que ya hay una versión más reciente instalada. ¿Quieres instalar la versión anterior de todos modos?"
+
+msgid "It seems that the selected title is already installed, do you want to reinstall it?"
+msgstr "Parece que el título seleccionado ya está instalado. ¿Quieres reinstalarlo?"
+
+msgid ""
+"It seems that there is already a title installed at the target location but it has a different type.\n"
+"Currently installed: \"{0}\" Installing: \"{1}\"\n"
+"Do you still want to continue with the installation? It will replace the currently installed title."
+msgstr ""
+"Parece que ya hay un título instalado en la ubicación de destino, pero de otro tipo.\n"
+"Instalado: \"{0}\" Por instalar: \"{1}\"\n"
+"¿Quieres continuar con la instalación de todos modos? Reemplazará el título instalado."
+
+msgid "Italian"
+msgstr "Italiano"
+
+msgid "Japan"
+msgstr "Japón"
+
+msgid "Japanese"
+msgstr "Japonés"
+
+msgid "Keep aspect ratio"
+msgstr "Mantener relación de aspecto"
+
+msgid "Keys and files"
+msgstr "Claves y archivos"
+
+msgid "Korea"
+msgstr "Corea"
+
+msgid "Korean"
+msgstr "Coreano"
+
+msgid "Kotlin libraries:"
+msgstr "Bibliotecas de Kotlin:"
+
+msgid "Label on the button"
+msgstr "Texto del botón"
+
+msgid "Language"
+msgstr "Idioma"
+
+msgid "Language the games use, if they support it"
+msgstr "Idioma que usan los juegos, si lo admiten"
+
+msgid "Last played"
+msgstr "Jugado por última vez"
+
+msgid "Last played: {0}"
+msgstr "Última partida: {0}"
+
+msgid "Latency"
+msgstr "Latencia"
+
+msgid "Latency, volume and channels of the TV and GamePad"
+msgstr "Latencia, volumen y canales de la TV y del GamePad"
+
+msgid "Layout profiles"
+msgstr "Perfiles de diseño"
+
+msgid "Layout profiles: {0}"
+msgstr "Perfiles de diseño: {0}"
+
+msgid "Layout saved"
+msgstr "Diseño guardado"
+
+msgid "Left"
+msgstr "Izquierda"
+
+msgid "left"
+msgstr "izquierda"
+
+msgid "Left Axis"
+msgstr "Eje izquierdo"
+
+msgid "Left joystick"
+msgstr "Stick izquierdo"
+
+msgid "Left stick click"
+msgstr "Clic del stick izquierdo"
+
+msgid "Library view"
+msgstr "Vista de la biblioteca"
+
+msgid "Liquid Glass"
+msgstr "Liquid Glass"
+
+msgid "List"
+msgstr "Lista"
+
+msgid "Load libraries from the cafeLibs directory"
+msgstr "Carga bibliotecas de la carpeta cafeLibs"
+
+msgid "Load shared libraries"
+msgstr "Cargar bibliotecas compartidas"
+
+msgid "Loading graphic packs…"
+msgstr "Cargando paquetes gráficos…"
+
+msgid "Loading releases…"
+msgstr "Cargando versiones…"
+
+msgid "Loading…"
+msgstr "Cargando…"
+
+msgid "Location"
+msgstr "Ubicación"
+
+msgid "Locations"
+msgstr "Ubicaciones"
+
+msgid "Log file doesn't exist"
+msgstr "El archivo de registro no existe"
+
+msgid "Low-poly wave"
+msgstr "Onda low-poly"
+
+msgid "Macro {0}"
+msgstr "Macro {0}"
+
+msgid "Macros"
+msgstr "Macros"
+
+msgid "Macros of the profile \"{0}\". A macro is an extra overlay button that presses several buttons together or plays a timed sequence."
+msgstr "Macros del perfil \"{0}\". Una macro es un botón extra en pantalla que presiona varios botones juntos o reproduce una secuencia temporizada."
+
+msgid "Magenta, purple and cyan gradients"
+msgstr "Degradados de magenta, morado y cian"
+
+msgid "Mainline Turnip for Adreno 8xx"
+msgstr "Turnip mainline para Adreno 8xx"
+
+msgid "Makes the \"show screen\" button toggle between the TV and gamepad screens"
+msgstr "Hace que el botón \"mostrar pantalla\" alterne entre las pantallas de la TV y del GamePad"
+
+msgid "Male"
+msgstr "Masculino"
+
+msgid "malisx2: Vulkan driver for Mali-G52/G76, G57/G68/G77/G78 and G615/G715"
+msgstr "malisx2: driver Vulkan para Mali-G52/G76, G57/G68/G77/G78 y G615/G715"
+
+msgid "Manage list"
+msgstr "Administrar lista"
+
+msgid "Many"
+msgstr "Varias"
+
+msgid "Material You"
+msgstr "Material You"
+
+msgid "Mii name"
+msgstr "Nombre del Mii"
+
+msgid "Minus"
+msgstr "Menos"
+
+msgid "Missing certificate and key files:"
+msgstr "Faltan archivos de certificados y claves:"
+
+msgid "MLC"
+msgstr "MLC"
+
+msgid "Mono"
+msgstr "Mono"
+
+msgid "More"
+msgstr "Más"
+
+msgid "Motion sensors and rumble of this device"
+msgstr "Sensores de movimiento y vibración de este dispositivo"
+
+msgid "Move"
+msgstr "Mover"
+
+msgid "Move bar"
+msgstr "Mover barra"
+
+msgid "Move down"
+msgstr "Bajar"
+
+msgid "Move here"
+msgstr "Mover aquí"
+
+msgid "Move up"
+msgstr "Subir"
+
+msgid "Moving a finger from one button onto another releases the first and presses the second"
+msgstr "Deslizar el dedo de un botón a otro suelta el primero y presiona el segundo"
+
+msgid "Multi-core recompiler"
+msgstr "Recompilador multinúcleo"
+
+msgid "Multi-core recompiler is the fastest for most games"
+msgstr "El recompilador multinúcleo es el más rápido en la mayoría de los juegos"
+
+msgid "Multi-region"
+msgstr "Multirregión"
+
+msgid "Name"
+msgstr "Nombre"
+
+msgid "Nearest neighbor"
+msgstr "Vecino más cercano"
+
+msgid "Network service"
+msgstr "Servicio de red"
+
+msgid "Never played"
+msgstr "Nunca jugado"
+
+msgid "New macro"
+msgstr "Nueva macro"
+
+msgid "New macros appear in the middle of the screen; move them in edit mode."
+msgstr "Las macros nuevas aparecen en el centro de la pantalla; muévelas en el modo de edición."
+
+msgid "New profile"
+msgstr "Nuevo perfil"
+
+msgid "Next"
+msgstr "Siguiente"
+
+msgid "Nintendo"
+msgstr "Nintendo"
+
+msgid "No"
+msgstr "No"
+
+msgid "No available figures"
+msgstr "No hay figuras disponibles"
+
+msgid "No compatible releases"
+msgstr "No hay versiones compatibles"
+
+msgid "No controllers available"
+msgstr "No hay controles disponibles"
+
+msgid "No emulated USB device is enabled"
+msgstr "No hay ningún dispositivo USB emulado activado"
+
+msgid "No folders yet."
+msgstr "Todavía no hay carpetas."
+
+msgid "No games match \"{0}\""
+msgstr "Ningún juego coincide con \"{0}\""
+
+msgid "No graphic pack is enabled for this game."
+msgstr "No hay ningún paquete gráfico activado para este juego."
+
+msgid "No MSAA support: some games may not start"
+msgstr "Sin soporte para MSAA: algunos juegos podrían no iniciar"
+
+msgid "No persistent id entered!"
+msgstr "¡No se ingresó ningún ID persistente!"
+
+msgid "No save found in the zip: it needs a user folder"
+msgstr "No se encontró ningún guardado en el zip: falta la carpeta user"
+
+msgid "No shader cache files in the zip"
+msgstr "No hay archivos de caché de shaders en el zip"
+
+msgid "No updates available."
+msgstr "No hay actualizaciones disponibles."
+
+msgid "None"
+msgstr "Ninguno"
+
+msgid "Not enough space"
+msgstr "No hay suficiente espacio"
+
+msgid "Not installed"
+msgstr "No instalado"
+
+msgid "Not mapped"
+msgstr "Sin asignar"
+
+msgid "Not set"
+msgstr "Sin definir"
+
+msgid "Notifications"
+msgstr "Notificaciones"
+
+msgid "Now using {0}"
+msgstr "Ahora se usa {0}"
+
+msgid "Nunchuck"
+msgstr "Nunchuk"
+
+msgid "NUS"
+msgstr "NUS"
+
+msgid "Off (game default)"
+msgstr "Desactivado (predeterminado del juego)"
+
+msgid "Off (same as double buffering on Android)"
+msgstr "Desactivado (igual al búfer doble en Android)"
+
+msgid "Offline"
+msgstr "Sin conexión"
+
+msgid "Offline, showing the saved list ({0})"
+msgstr "Sin conexión, mostrando la lista guardada ({0})"
+
+msgid "OK"
+msgstr "Aceptar"
+
+msgid "Older versions ({0})"
+msgstr "Versiones anteriores ({0})"
+
+msgid "On, double buffering"
+msgstr "Activado, búfer doble"
+
+msgid "On, triple buffering (mailbox)"
+msgstr "Activado, búfer triple (mailbox)"
+
+msgid "On-screen controls"
+msgstr "Controles en pantalla"
+
+msgid "One tap keeps it pressed, the next tap releases it"
+msgstr "Un toque lo deja presionado y el siguiente lo suelta"
+
+msgid "Online features"
+msgstr "Funciones en línea"
+
+msgid "Online play is not set up. Follow the guide below to get started"
+msgstr "El juego en línea no está configurado. Sigue la guía de abajo para empezar"
+
+msgid "Online play requirements"
+msgstr "Requisitos para jugar en línea"
+
+msgid "Online play tutorial"
+msgstr "Cómo jugar en línea"
+
+msgid "Online status"
+msgstr "Estado en línea"
+
+msgid "Open Fractal folder"
+msgstr "Abrir carpeta de Fractal"
+
+msgid "Open graphic packs"
+msgstr "Abrir paquetes gráficos"
+
+msgid "Open repository"
+msgstr "Abrir repositorio"
+
+msgid "Operation failed"
+msgstr "La operación falló"
+
+msgid "Options"
+msgstr "Opciones"
+
+msgid "OTP and SEEPROM present but no certificate files were found"
+msgstr "OTP y SEEPROM están presentes, pero no se encontraron archivos de certificados"
+
+msgid "otp.bin is invalid"
+msgstr "otp.bin no es válido"
+
+msgid "otp.bin missing in the Fractal folder"
+msgstr "Falta otp.bin en la carpeta de Fractal"
+
+msgid "OTP.bin or SEEPROM.bin is missing"
+msgstr "Falta OTP.bin o SEEPROM.bin"
+
+msgid "Output"
+msgstr "Salida"
+
+msgid "Overlay controller"
+msgstr "Control en pantalla"
+
+msgid "Overlay options"
+msgstr "Opciones de los controles en pantalla"
+
+msgid "Overlay settings"
+msgstr "Configuración de superposición"
+
+msgid "Override game gamma"
+msgstr "Ignorar la gamma del juego"
+
+msgid "Own configuration"
+msgstr "Configuración propia"
+
+msgid "PanVK (Mesa) for Bifrost, Valhall and 5th gen Mali"
+msgstr "PanVK (Mesa) para Mali Bifrost, Valhall y de 5.ª generación"
+
+msgid "PanVK (Mesa) for Mali with the command stream frontend (G610 and newer)"
+msgstr "PanVK (Mesa) para Mali con command stream frontend (G610 y posteriores)"
+
+msgid "PanVK (Mesa) tuned for Bifrost and Valhall (G57, G68, G77, G78)"
+msgstr "PanVK (Mesa) optimizado para Bifrost y Valhall (G57, G68, G77, G78)"
+
+msgid "Parsing title content..."
+msgstr "Analizando el contenido del título..."
+
+msgid "Path"
+msgstr "Ruta"
+
+msgid "Performance log"
+msgstr "Registro de rendimiento"
+
+msgid "Performance overlay"
+msgstr "Superposición de rendimiento"
+
+msgid "Performance statistics, notifications and log"
+msgstr "Estadísticas de rendimiento, notificaciones y registro"
+
+msgid "PersistentId"
+msgstr "PersistentId"
+
+msgid "Pick a date"
+msgstr "Elige una fecha"
+
+msgid "Pick the folder where your Wii U games are (.wua, .wux, .wud, .iso, .rpx). Fractal also looks in the folders inside it."
+msgstr "Elige la carpeta donde están tus juegos de Wii U (.wua, .wux, .wud, .iso, .rpx). Fractal también busca en las carpetas dentro de ella."
+
+msgid "Pick up and place"
+msgstr "Tomar y colocar"
+
+msgid "Play"
+msgstr "Jugar"
+
+msgid "Play intro on launch"
+msgstr "Mostrar la intro al abrir"
+
+msgid "Play Set/Power Disc"
+msgstr "Play Set/Power Disc"
+
+msgid "Play time"
+msgstr "Tiempo de juego"
+
+msgid "Player One"
+msgstr "Jugador 1"
+
+msgid "Player One Ability One"
+msgstr "Jugador 1, habilidad 1"
+
+msgid "Player One Ability Two"
+msgstr "Jugador 1, habilidad 2"
+
+msgid "Player Two"
+msgstr "Jugador 2"
+
+msgid "Player Two Ability One"
+msgstr "Jugador 2, habilidad 1"
+
+msgid "Player Two Ability Two"
+msgstr "Jugador 2, habilidad 2"
+
+msgid "Plays the game's boot sound while shaders and pipelines are being loaded"
+msgstr "Reproduce el sonido de inicio del juego mientras se cargan los shaders y pipelines"
+
+msgid "Plays the sequence again and again while held or toggled on"
+msgstr "Repite la secuencia mientras se mantiene presionado o está fijado"
+
+msgid "Plus"
+msgstr "Más"
+
+msgid "Portuguese"
+msgstr "Portugués"
+
+msgid "Position"
+msgstr "Posición"
+
+msgid "Power Disc Three"
+msgstr "Power Disc 3"
+
+msgid "Power Disc Two"
+msgstr "Power Disc 2"
+
+msgid "pre-release"
+msgstr "prelanzamiento"
+
+msgid "Presentation"
+msgstr "Presentación"
+
+msgid "Preset"
+msgstr "Preajuste"
+
+msgid "Press a button"
+msgstr "Presiona un botón"
+
+msgid "Press a key combination"
+msgstr "Presiona una combinación de botones"
+
+msgid "Presses together: {0}"
+msgstr "Presiona juntos: {0}"
+
+msgid "Pretendo"
+msgstr "Pretendo"
+
+msgid "PrincipalId missing"
+msgstr "Falta PrincipalId"
+
+msgid "Processing..."
+msgstr "Procesando..."
+
+msgid "Profile options"
+msgstr "Opciones del perfil"
+
+msgid "Profile {0}"
+msgstr "Perfil {0}"
+
+msgid "Put every input of the profile \"{0}\" back in its default position and size?"
+msgstr "¿Devolver todos los controles del perfil \"{0}\" a su posición y tamaño predeterminados?"
+
+msgid "put keys.txt in the Fractal folder"
+msgstr "pon keys.txt en la carpeta de Fractal"
+
+msgid "put otp.bin and seeprom.bin from your console in the Fractal folder"
+msgstr "pon otp.bin y seeprom.bin de tu consola en la carpeta de Fractal"
+
+msgid "Quit"
+msgstr "Salir"
+
+msgid "RAM usage"
+msgstr "Uso de RAM"
+
+msgid "Range"
+msgstr "Rango"
+
+msgid "Ready"
+msgstr "Listo"
+
+msgid "Recommendation"
+msgstr "Recomendación"
+
+msgid "Recommended"
+msgstr "Recomendado"
+
+msgid "Recommended for this game"
+msgstr "Recomendado para este juego"
+
+msgid "Record performance log"
+msgstr "Grabar registro de rendimiento"
+
+msgid "Refresh"
+msgstr "Actualizar"
+
+msgid "Refresh library"
+msgstr "Actualizar biblioteca"
+
+msgid "Refreshing titles"
+msgstr "Actualizando títulos"
+
+msgid "Region"
+msgstr "Región"
+
+msgid "Remove"
+msgstr "Quitar"
+
+msgid "Remove from favorites"
+msgstr "Quitar de favoritos"
+
+msgid "Remove shader caches"
+msgstr "Borrar cachés de shaders"
+
+msgid "Remove the shader caches for {0}?"
+msgstr "¿Borrar las cachés de shaders de {0}?"
+
+msgid "Rename"
+msgstr "Renombrar"
+
+msgid "Rename profile"
+msgstr "Renombrar perfil"
+
+msgid "Rendering"
+msgstr "Renderizado"
+
+msgid "Repeat"
+msgstr "Repetir"
+
+msgid "Replace TV with PAD"
+msgstr "Cambiar TV por GamePad"
+
+msgid "Replaces the save with one from a zip; the current save is backed up first"
+msgstr "Reemplaza el guardado por uno de un zip; antes se hace una copia de seguridad del actual"
+
+msgid "Requires Wii U GamePad"
+msgstr "Requiere el GamePad de Wii U"
+
+msgid "Reset"
+msgstr "Restablecer"
+
+msgid "Reset input overlay"
+msgstr "Restablecer controles en pantalla"
+
+msgid "Resize"
+msgstr "Redimensionar"
+
+msgid "Resolution"
+msgstr "Resolución"
+
+msgid "Right"
+msgstr "Derecha"
+
+msgid "right"
+msgstr "derecha"
+
+msgid "Right Axis"
+msgstr "Eje derecho"
+
+msgid "Right joystick"
+msgstr "Stick derecho"
+
+msgid "Right stick click"
+msgstr "Clic del stick derecho"
+
+msgid "Rotation"
+msgstr "Rotación"
+
+msgid "Rumble"
+msgstr "Vibración"
+
+msgid "Run the first-use setup again"
+msgstr "Volver a hacer la configuración inicial"
+
+msgid "Russian"
+msgstr "Ruso"
+
+msgid "Save"
+msgstr "Guardar"
+
+msgid "Save exported ({0} files)"
+msgstr "Guardado exportado ({0} archivos)"
+
+msgid "Save folder"
+msgstr "Carpeta de guardado"
+
+msgid "Save imported"
+msgstr "Guardado importado"
+
+msgid "Saves & cache"
+msgstr "Guardados y caché"
+
+msgid "Saves FPS, frametimes, shader and pipeline compilation and CPU use per thread to CSV files, one folder per game session, in Android/data/{0}/files/perf"
+msgstr "Guarda FPS, tiempos de fotograma, compilación de shaders y pipelines y uso de CPU por hilo en archivos CSV, una carpeta por sesión de juego, en Android/data/{0}/files/perf"
+
+msgid "Scale"
+msgstr "Tamaño"
+
+msgid "Scaling filters"
+msgstr "Filtros de escalado"
+
+msgid "Screens"
+msgstr "Pantallas"
+
+msgid "Search"
+msgstr "Buscar"
+
+msgid "Search games"
+msgstr "Buscar juegos"
+
+msgid "Search graphic packs"
+msgstr "Buscar paquetes gráficos"
+
+msgid "Search titles"
+msgstr "Buscar títulos"
+
+msgid "seeprom.bin is invalid"
+msgstr "seeprom.bin no es válido"
+
+msgid "seeprom.bin missing in the Fractal folder"
+msgstr "Falta seeprom.bin en la carpeta de Fractal"
+
+msgid "Select"
+msgstr "Elegir"
+
+msgid "Select a controller"
+msgstr "Elige un control"
+
+msgid "Select a figure"
+msgstr "Elige una figura"
+
+msgid "Selected account is a valid online account"
+msgstr "La cuenta elegida es una cuenta en línea válida"
+
+msgid "Selected account is not linked to a NNID or PNID"
+msgstr "La cuenta elegida no está vinculada a un NNID o PNID"
+
+msgid "Sequence"
+msgstr "Secuencia"
+
+msgid "Sequence of {0} steps"
+msgstr "Secuencia de {0} pasos"
+
+msgid "Settings"
+msgstr "Configuración"
+
+msgid "Setup all inputs"
+msgstr "Configurar todas las entradas"
+
+msgid "Shader cache exported ({0} files)"
+msgstr "Caché de shaders exportada ({0} archivos)"
+
+msgid "Shader cache imported"
+msgstr "Caché de shaders importada"
+
+msgid "Shader caches removed"
+msgstr "Cachés de shaders borradas"
+
+msgid "Shader compiler"
+msgstr "Compilación de shaders"
+
+msgid "Shader multiplication accuracy"
+msgstr "Precisión de multiplicación en shaders"
+
+msgid "Shaders, VSync, scaling filters and gamma"
+msgstr "Shaders, VSync, filtros de escalado y gamma"
+
+msgid "Share log file"
+msgstr "Compartir archivo de registro"
+
+msgid "Short logo animation in the current theme; any button or touch skips it"
+msgstr "Animación corta del logo en el tema actual; cualquier botón o toque la salta"
+
+msgid "Short messages shown while playing"
+msgstr "Mensajes cortos que aparecen mientras juegas"
+
+msgid "Show all {0} packs"
+msgstr "Mostrar los {0} paquetes"
+
+msgid "Show Emulated USB Devices dialog"
+msgstr "Mostrar ventana de dispositivos USB emulados"
+
+msgid "Show fewer versions"
+msgstr "Mostrar menos versiones"
+
+msgid "Show input overlay"
+msgstr "Mostrar controles en pantalla"
+
+msgid "Show online status"
+msgstr "Mostrar estado en línea"
+
+msgid "Show only enabled packs"
+msgstr "Mostrar solo los paquetes activados"
+
+msgid "Show PAD"
+msgstr "Mostrar GamePad"
+
+msgid "show screen"
+msgstr "mostrar pantalla"
+
+msgid "Shown notifications"
+msgstr "Notificaciones mostradas"
+
+msgid "Shown statistics"
+msgstr "Estadísticas mostradas"
+
+msgid "Shows a notification after shaders have been compiled"
+msgstr "Muestra una notificación cuando se terminan de compilar los shaders"
+
+msgid "Shows friend list related data if online"
+msgstr "Muestra datos de la lista de amigos cuando hay conexión"
+
+msgid "Sierpinski zoom"
+msgstr "Zoom de Sierpinski"
+
+msgid "Single-core interpreter"
+msgstr "Intérprete de un núcleo"
+
+msgid "Single-core recompiler"
+msgstr "Recompilador de un núcleo"
+
+msgid "Skip"
+msgstr "Omitir"
+
+msgid "Skip setup"
+msgstr "Omitir configuración"
+
+msgid "Skylander figure"
+msgstr "Figura de Skylander"
+
+msgid "Skylander figure creator"
+msgstr "Creador de figuras de Skylander"
+
+msgid "Skylander {0}"
+msgstr "Skylander {0}"
+
+msgid "Skylanders figures"
+msgstr "Figuras de Skylanders"
+
+msgid "Skylanders Portal"
+msgstr "Portal de Skylanders"
+
+msgid "Skylanders portal, Infinity base and Dimensions toypad"
+msgstr "Portal de Skylanders, base de Infinity y Toypad de Dimensions"
+
+msgid "Slide between buttons"
+msgstr "Deslizar entre botones"
+
+msgid "Snap to grid"
+msgstr "Ajustar a la cuadrícula"
+
+msgid "Snapdragon GSR"
+msgstr "Snapdragon GSR"
+
+msgid "Snapdragon GSR EdgeDir"
+msgstr "Snapdragon GSR EdgeDir"
+
+msgid "Solid"
+msgstr "Sólido"
+
+msgid "Solid colors, chamfered corners"
+msgstr "Colores sólidos, esquinas biseladas"
+
+msgid "Sort by"
+msgstr "Ordenar por"
+
+msgid "Sort by: {0}"
+msgstr "Ordenar por: {0}"
+
+msgid "Source"
+msgstr "Código fuente"
+
+msgid "Spanish"
+msgstr "Español"
+
+msgid "sRGB display"
+msgstr "Pantalla sRGB"
+
+msgid "Starting..."
+msgstr "Iniciando..."
+
+msgid "Static"
+msgstr "Estático"
+
+msgid "Statistics drawn over the game"
+msgstr "Estadísticas dibujadas sobre el juego"
+
+msgid "Step {0}"
+msgstr "Paso {0}"
+
+msgid "Steps play one after the other on each press. A step without buttons is a pause."
+msgstr "Los pasos se ejecutan uno tras otro con cada pulsación. Un paso sin botones es una pausa."
+
+msgid "Stereo"
+msgstr "Estéreo"
+
+msgid "Sticks and the D-pad have no button options. Drag to move, pinch or use Resize to change the size."
+msgstr "Los sticks y la cruceta no tienen opciones de botón. Arrastra para mover; pellizca o usa Redimensionar para cambiar el tamaño."
+
+msgid "Storage"
+msgstr "Almacenamiento"
+
+msgid "Stretch"
+msgstr "Estirar"
+
+msgid "Surround"
+msgstr "Envolvente"
+
+msgid "Synthwave"
+msgstr "Synthwave"
+
+msgid "System"
+msgstr "Sistema"
+
+msgid "System driver"
+msgstr "Driver del sistema"
+
+msgid "Taiwan"
+msgstr "Taiwán"
+
+msgid "Taiwanese"
+msgstr "Taiwanés"
+
+msgid "Target gamma"
+msgstr "Gamma objetivo"
+
+msgid "That game's profile is back on the system driver."
+msgstr "El perfil de ese juego volvió al driver del sistema."
+
+msgid "The current save is replaced. A backup of it is kept in the Fractal folder (saveBackups)."
+msgstr "Se reemplazará el guardado actual. Se guarda una copia de seguridad en la carpeta de Fractal (saveBackups)."
+
+msgid "The current shader cache is replaced. A backup of it is kept in the Fractal folder (shaderCacheBackups)."
+msgstr "Se reemplazará la caché de shaders actual. Se guarda una copia de seguridad en la carpeta de Fractal (shaderCacheBackups)."
+
+msgid "The custom driver could not be loaded. Using the system driver."
+msgstr "No se pudo cargar el driver personalizado. Se usa el driver del sistema."
+
+msgid "The driver that came with the device"
+msgstr "El driver que trae el dispositivo"
+
+msgid "The driver {0} could not be loaded, so the game used the system driver."
+msgstr "No se pudo cargar el driver {0}, así que el juego usó el driver del sistema."
+
+msgid "The file is not a valid zip"
+msgstr "El archivo no es un zip válido"
+
+msgid "The focused game's art as the background"
+msgstr "El arte del juego seleccionado como fondo"
+
+msgid "The following content will be converted to a compressed Wii U archive file (.wua)"
+msgstr "El siguiente contenido se convertirá en un archivo comprimido de Wii U (.wua)"
+
+msgid "The game closed or showed no image while starting with the driver {0}."
+msgstr "El juego se cerró o no mostró imagen al iniciar con el driver {0}."
+
+msgid "The number of draw calls per frame. Average over last 5 seconds"
+msgstr "Número de draw calls por fotograma. Promedio de los últimos 5 segundos"
+
+msgid "The number of frames per second. Average over last 5 seconds"
+msgstr "Número de fotogramas por segundo. Promedio de los últimos 5 segundos"
+
+msgid "The persistent id must be greater than {0}!"
+msgstr "¡El ID persistente debe ser mayor que {0}!"
+
+msgid "The persistent id {0} is already in use by account {1}!"
+msgstr "¡El ID persistente {0} ya lo usa la cuenta {1}!"
+
+msgid "The recommended packs (FPS++ and Graphics) are not in your graphic packs yet. Download the community graphic packs to get them."
+msgstr "Los paquetes recomendados (FPS++ y Graphics) todavía no están en tus paquetes gráficos. Descarga los paquetes gráficos de la comunidad para tenerlos."
+
+msgid "The system driver works on every device. A recommended driver per GPU will be suggested here once testing is done."
+msgstr "El driver del sistema funciona en todos los dispositivos. Cuando terminen las pruebas, aquí se sugerirá un driver recomendado para cada GPU."
+
+msgid "The zip holds more than one save"
+msgstr "El zip contiene más de un guardado"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Theme and wallpaper"
+msgstr "Tema y fondo de pantalla"
+
+msgid "Theme, wallpaper and library view"
+msgstr "Tema, fondo de pantalla y vista de la biblioteca"
+
+msgid "There are no graphic packs for this game."
+msgstr "No hay paquetes gráficos para este juego."
+
+msgid "This device"
+msgstr "Este dispositivo"
+
+msgid "This file is not a valid driver package"
+msgstr "Este archivo no es un paquete de driver válido"
+
+msgid "This game has no save data yet"
+msgstr "Este juego todavía no tiene datos guardados"
+
+msgid "This game has no shader cache yet"
+msgstr "Este juego todavía no tiene caché de shaders"
+
+msgid "This save was exported from another title ({0}). Saves usually only work in the same game and region."
+msgstr "Este guardado se exportó de otro título ({0}). Los guardados normalmente solo funcionan en el mismo juego y región."
+
+msgid "This shader cache is for another game ({0})"
+msgstr "Esta caché de shaders es de otro juego ({0})"
+
+msgid "Thread quantum"
+msgstr "Quantum de hilo"
+
+msgid "Title"
+msgstr "Título"
+
+msgid "Title ID"
+msgstr "ID del título"
+
+msgid "Title manager"
+msgstr "Administrador de títulos"
+
+msgid "Title name"
+msgstr "Nombre del título"
+
+msgid "To use motion input, the controller type must be set to Wii U GamePad"
+msgstr "Para usar movimiento, el tipo de control debe ser GamePad de Wii U"
+
+msgid "Today"
+msgstr "Hoy"
+
+msgid "Toggle"
+msgstr "Fijar"
+
+msgid "Toggle menu"
+msgstr "Abrir/cerrar menú"
+
+msgid "Toggle screen"
+msgstr "Alternar pantalla"
+
+msgid "Top center"
+msgstr "Arriba al centro"
+
+msgid "Top left"
+msgstr "Arriba a la izquierda"
+
+msgid "Top right"
+msgstr "Arriba a la derecha"
+
+msgid "Touch buttons shown over the game"
+msgstr "Botones táctiles que se muestran sobre el juego"
+
+msgid "Transferable cache ({0}): shaders compiled while playing"
+msgstr "Caché transferible ({0}): shaders compilados mientras juegas"
+
+msgid "Translucent glass over the wallpaper"
+msgstr "Vidrio translúcido sobre el fondo de pantalla"
+
+msgid "Triangle particles"
+msgstr "Partículas triangulares"
+
+msgid "Trigger"
+msgstr "Gatillo"
+
+msgid "Trigger an input to bind it to {0}"
+msgstr "Activa una entrada para asignarla a {0}"
+
+msgid "Turbo"
+msgstr "Turbo"
+
+msgid "Turbo rate"
+msgstr "Velocidad del turbo"
+
+msgid "Turnip (Mesa) builds for adrenotools apps"
+msgstr "Compilaciones de Turnip (Mesa) para apps con adrenotools"
+
+msgid "Turnip (Mesa) drivers for this GPU are listed below"
+msgstr "Abajo aparecen los drivers Turnip (Mesa) para esta GPU"
+
+msgid "Turnip built from Mesa main"
+msgstr "Turnip compilado desde Mesa main"
+
+msgid "Turnip from Mesa main, built every day"
+msgstr "Turnip de Mesa main, compilado todos los días"
+
+msgid "Turnip only: render in system memory instead of tiles. Faster on Adreno 6xx and avoids GPU hangs in some games. Other drivers ignore it."
+msgstr "Solo Turnip: renderiza en la memoria del sistema en lugar de en tiles. Más rápido en Adreno 6xx y evita cuelgues de la GPU en algunos juegos. Los demás drivers lo ignoran."
+
+msgid "Turnip with speed and stability fixes for Adreno 6xx, 7xx and 8xx"
+msgstr "Turnip con mejoras de velocidad y estabilidad para Adreno 6xx, 7xx y 8xx"
+
+msgid "Turnip: render in system memory"
+msgstr "Turnip: renderizar en la memoria del sistema"
+
+msgid "TV"
+msgstr "TV"
+
+msgid "TV channels"
+msgstr "Canales de la TV"
+
+msgid "TV volume"
+msgstr "Volumen de la TV"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Types"
+msgstr "Tipos"
+
+msgid ""
+"Unable to launch game\n"
+"Path: {0}"
+msgstr ""
+"No se pudo iniciar el juego\n"
+"Ruta: {0}"
+
+msgid "Unable to launch game because the base files were not found."
+msgstr "No se pudo iniciar el juego porque no se encontraron los archivos base."
+
+msgid "Unexpected file in the zip: {0}. A save zip holds the user and meta folders of one game."
+msgstr "Archivo inesperado en el zip: {0}. Un zip de guardado contiene las carpetas user y meta de un juego."
+
+msgid "Unknown GPU"
+msgstr "GPU desconocida"
+
+msgid "Unlocks the game's vsync lock. Without it the game waits for a full extra frame whenever a frame takes too long and gets stuck at 20 fps."
+msgstr "Quita el bloqueo de vsync del juego. Sin esto, el juego espera un fotograma completo extra cada vez que un fotograma tarda demasiado y se queda en 20 fps."
+
+msgid "up"
+msgstr "arriba"
+
+msgid "Update"
+msgstr "Actualizar"
+
+msgid "Update graphic packs"
+msgstr "Actualizar paquetes gráficos"
+
+msgid "Updated just now"
+msgstr "Actualizado hace un momento"
+
+msgid "Updated {0}"
+msgstr "Actualizado {0}"
+
+msgid "Upscale filter"
+msgstr "Filtro de ampliación"
+
+msgid "USA"
+msgstr "EE. UU."
+
+msgid "Use"
+msgstr "Usar"
+
+msgid "Use a cache made for this same game to skip shader compile stutters"
+msgstr "Usa una caché hecha para este mismo juego y evita los tirones al compilar shaders"
+
+msgid "Use motion"
+msgstr "Usar movimiento"
+
+msgid "Used libraries:"
+msgstr "Bibliotecas usadas:"
+
+msgid "Used when the game image is bigger than the screen"
+msgstr "Se usa cuando la imagen del juego es más grande que la pantalla"
+
+msgid "Used when the game image is smaller than the screen"
+msgstr "Se usa cuando la imagen del juego es más pequeña que la pantalla"
+
+msgid "Variant"
+msgstr "Variante"
+
+msgid "Version"
+msgstr "Versión"
+
+msgid "Version: {0}"
+msgstr "Versión: {0}"
+
+msgid "Vibrate"
+msgstr "Vibrar"
+
+msgid "Visible Inputs"
+msgstr "Controles visibles"
+
+msgid "VSync"
+msgstr "VSync"
+
+msgid "Vulkan driver used for this game"
+msgstr "Driver Vulkan usado en este juego"
+
+msgid "Wallpaper"
+msgstr "Fondo de pantalla"
+
+msgid "Warning"
+msgstr "Advertencia"
+
+msgid "Welcome setup"
+msgstr "Configuración inicial"
+
+msgid "Where the GamePad screen goes when both screens are shown"
+msgstr "Dónde va la pantalla del GamePad cuando se muestran ambas pantallas"
+
+msgid "While held or toggled on, presses and releases repeatedly"
+msgstr "Mientras se mantiene presionado o está fijado, presiona y suelta una y otra vez"
+
+msgid "Wii U accounts and online service"
+msgstr "Cuentas de Wii U y servicio en línea"
+
+msgid "Wii U Classic Controller"
+msgstr "Classic Controller de Wii U"
+
+msgid "Wii U GamePad"
+msgstr "GamePad de Wii U"
+
+msgid "Wii U Pro Controller"
+msgstr "Pro Controller de Wii U"
+
+msgid "Wiimote"
+msgstr "Wiimote"
+
+msgid "WUA"
+msgstr "WUA"
+
+msgid "WUD"
+msgstr "WUD"
+
+msgid "WUHB"
+msgstr "WUHB"
+
+msgid "Yes"
+msgstr "Sí"
+
+msgid "Yesterday"
+msgstr "Ayer"
+
+msgid "You can open the Fractal folder from the library options (Start)."
+msgstr "Puedes abrir la carpeta de Fractal desde las opciones de la biblioteca (Start)."
+
+msgid "You've played"
+msgstr "Tiempo de juego"
+
+msgid "Your image"
+msgstr "Tu imagen"
+
+msgid "Your library is empty"
+msgstr "Tu biblioteca está vacía"
+
+msgid "Your system colors"
+msgstr "Los colores de tu sistema"
+
+msgid "Zip of this game's save, to keep or move to another device"
+msgstr "Zip del guardado de este juego, para conservarlo o pasarlo a otro dispositivo"
+
+msgid "{0} (copy)"
+msgstr "{0} (copia)"
+
+msgid "{0} active"
+msgstr "{0} activos"
+
+msgid "{0} days ago"
+msgstr "Hace {0} días"
+
+msgid "{0} files, {1}, for {2}."
+msgstr "{0} archivos, {1}, para {2}."
+
+msgid "{0} graphic packs"
+msgstr "{0} paquetes gráficos"
+
+msgid "{0} h"
+msgstr "{0} h"
+
+msgid "{0} h {1} min"
+msgstr "{0} h {1} min"
+
+msgid "{0} is already installed"
+msgstr "{0} ya está instalado"
+
+msgid "{0} is not a valid driver package for this device"
+msgstr "{0} no es un paquete de driver válido para este dispositivo"
+
+msgid "{0} macros"
+msgstr "{0} macros"
+
+msgid "{0} min"
+msgstr "{0} min"
+
+msgid "{0} of {1} files"
+msgstr "{0} de {1} archivos"
+
+msgid "{0} per second"
+msgstr "{0} por segundo"
+
+msgid "{0} played"
+msgstr "{0} jugados"
+
+msgid "{0}. The previous one was backed up to {1} in the Fractal folder"
+msgstr "{0}. El anterior se guardó en {1} en la carpeta de Fractal"

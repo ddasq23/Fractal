@@ -9,6 +9,7 @@ package dev.dfd.fractal.drivers
 import android.os.Build
 import dev.dfd.fractal.common.gpu.Gpu
 import dev.dfd.fractal.common.gpu.GpuVendor
+import dev.dfd.fractal.common.ui.localization.trNoop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -84,46 +85,52 @@ private fun zipAsset(name: String, gpu: Gpu) = isZip(name)
 
 val DriverSources = listOf(
     // Adreno: Turnip (Mesa)
-    DriverSource("StevenMXZ", "Adreno-Tools-Drivers", GpuVendor.ADRENO, "Turnip built from Mesa main", ::turnipFor),
+    DriverSource(
+        "StevenMXZ", "Adreno-Tools-Drivers", GpuVendor.ADRENO,
+        trNoop("Turnip built from Mesa main"), ::turnipFor,
+    ),
     DriverSource(
         "faux123", "turnip-faux123-driver", GpuVendor.ADRENO,
-        "Turnip with speed and stability fixes for Adreno 6xx, 7xx and 8xx", ::faux123For,
+        trNoop("Turnip with speed and stability fixes for Adreno 6xx, 7xx and 8xx"), ::faux123For,
     ),
-    DriverSource("K11MCH1", "AdrenoToolsDrivers", GpuVendor.ADRENO, "Turnip (Mesa) builds for adrenotools apps", ::turnipFor),
+    DriverSource(
+        "K11MCH1", "AdrenoToolsDrivers", GpuVendor.ADRENO,
+        trNoop("Turnip (Mesa) builds for adrenotools apps"), ::turnipFor,
+    ),
     DriverSource(
         "whitebelyash", "AdrenoToolsDrivers", GpuVendor.ADRENO,
-        "Mainline Turnip for Adreno 8xx", ::whitebelyashFor, supports = ::isGen8,
+        trNoop("Mainline Turnip for Adreno 8xx"), ::whitebelyashFor, supports = ::isGen8,
     ),
     DriverSource(
         "The412Banner", "Banners-Turnip", GpuVendor.ADRENO,
-        "Turnip from Mesa main, built every day", ::bannersFor,
-        experimental = true, note = "Experimental: automatic builds, not tested before release",
+        trNoop("Turnip from Mesa main, built every day"), ::bannersFor,
+        experimental = true, note = trNoop("Experimental: automatic builds, not tested before release"),
     ),
     // Mali: PanVK (Mesa) and malisx2, loaded through the same adrenotools path
     DriverSource(
         "zenithblue-oss", "panvk-kbase-android", GpuVendor.MALI,
-        "PanVK (Mesa) for Bifrost, Valhall and 5th gen Mali",
+        trNoop("PanVK (Mesa) for Bifrost, Valhall and 5th gen Mali"),
         { name, _ -> name.lowercase().endsWith("-adrenotools.zip") },
     ),
     DriverSource(
         "JimVulkan", "mali-panvk", GpuVendor.MALI,
-        "PanVK (Mesa) for Bifrost, Valhall and 5th gen Mali", ::zipAsset,
+        trNoop("PanVK (Mesa) for Bifrost, Valhall and 5th gen Mali"), ::zipAsset,
     ),
     DriverSource(
         "FristOneRR", "FristOneRR-Panvk-Driver", GpuVendor.MALI,
-        "PanVK (Mesa) tuned for Bifrost and Valhall (G57, G68, G77, G78)", ::zipAsset,
+        trNoop("PanVK (Mesa) tuned for Bifrost and Valhall (G57, G68, G77, G78)"), ::zipAsset,
         supports = { maliBifrost(it) || maliValhallJm(it) || maliUnknown(it) },
     ),
     DriverSource(
         "MineGraph-bilibili", "panvk-Android", GpuVendor.MALI,
-        "PanVK (Mesa) for Mali with the command stream frontend (G610 and newer)", ::zipAsset,
+        trNoop("PanVK (Mesa) for Mali with the command stream frontend (G610 and newer)"), ::zipAsset,
         supports = { maliCsf(it) || maliUnknown(it) },
     ),
     DriverSource(
         "bmdhacks", "malisx2", GpuVendor.MALI,
-        "malisx2: Vulkan driver for Mali-G52/G76, G57/G68/G77/G78 and G615/G715", ::zipAsset,
+        trNoop("malisx2: Vulkan driver for Mali-G52/G76, G57/G68/G77/G78 and G615/G715"), ::zipAsset,
         supports = { it.model in setOf(52, 76, 57, 68, 77, 78, 615, 715) || maliUnknown(it) },
-        note = "No MSAA support: some games may not start",
+        note = trNoop("No MSAA support: some games may not start"),
     ),
 )
 

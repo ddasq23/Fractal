@@ -443,7 +443,7 @@ private fun TitleInstallConfirmDialog(
     val errorMessage = when (error) {
         is NativeGameTitles.TitleExistsError.DifferentType -> tr(
             """It seems that there is already a title installed at the target location but it has a different type.
-Currently installed: '{0}' Installing: '{1}'
+Currently installed: "{0}" Installing: "{1}"
 Do you still want to continue with the installation? It will replace the currently installed title.""",
             error.oldType,
             error.toInstallType

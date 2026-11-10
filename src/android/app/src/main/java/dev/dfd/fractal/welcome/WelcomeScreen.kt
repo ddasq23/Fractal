@@ -57,6 +57,7 @@ import dev.dfd.fractal.common.ui.fractal.FractalIconButton
 import dev.dfd.fractal.common.ui.fractal.FractalWordmark
 import dev.dfd.fractal.common.ui.fractal.SectionTitle
 import dev.dfd.fractal.common.ui.icons.FractalIcons
+import dev.dfd.fractal.common.ui.localization.currentLanguageCode
 import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.common.ui.theme.FractalTheme
 import dev.dfd.fractal.common.ui.theme.WallpaperId
@@ -195,11 +196,10 @@ private fun Body(text: String) {
 @Composable
 private fun LanguageStep(viewModel: GeneralSettingsViewModel = viewModel()) {
     val context = LocalContext.current
-    val gui by viewModel.guiSettings.collectAsState()
     Body(tr("Choose the language of the app. You can change it later in the settings."))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         viewModel.languages.forEach { language ->
-            val selected = language == gui.language
+            val selected = language == currentLanguageCode
             FractalButton(
                 text = viewModel.languageToDisplayNameMap[language] ?: language,
                 onClick = { viewModel.setLanguage(language = language, context) },

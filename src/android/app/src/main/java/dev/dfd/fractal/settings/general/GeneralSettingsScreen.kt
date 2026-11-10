@@ -9,6 +9,7 @@ import dev.dfd.fractal.common.settings.GamePadPosition
 import dev.dfd.fractal.common.ui.components.Header
 import dev.dfd.fractal.common.ui.components.ScreenContent
 import dev.dfd.fractal.common.ui.components.SingleSelection
+import dev.dfd.fractal.common.ui.localization.currentLanguageCode
 import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.nativeinterface.NativeSettings
 
@@ -20,7 +21,6 @@ fun GeneralSettingsScreen(
     val context = LocalContext.current
 
     val emulationSettings by viewModel.emulationSettings.collectAsState()
-    val guiSettings by viewModel.guiSettings.collectAsState()
 
     ScreenContent(
         appBarText = tr("General settings"),
@@ -29,7 +29,7 @@ fun GeneralSettingsScreen(
         Header(tr("Language"))
         SingleSelection(
             label = tr("App language"),
-            choice = guiSettings.language,
+            choice = currentLanguageCode,
             onChoiceChanged = { viewModel.setLanguage(language = it, context) },
             choiceToString = { viewModel.languageToDisplayNameMap[it] ?: it },
             choices = viewModel.languages,

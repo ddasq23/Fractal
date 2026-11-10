@@ -5,7 +5,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.MultiProcessDataStoreFactory
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStoreFile
-import dev.dfd.fractal.common.ui.localization.DEFAULT_LANGUAGE
 import dev.dfd.fractal.common.ui.theme.FractalThemeId
 import dev.dfd.fractal.common.ui.theme.WallpaperId
 import kotlinx.serialization.Serializable
@@ -35,7 +34,8 @@ enum class LibrarySort {
 
 @Serializable
 data class GuiSettings(
-    val language: String = DEFAULT_LANGUAGE,
+    /** App language code; null until the first run picks one from the device language. */
+    val language: String? = null,
     val theme: FractalThemeId = FractalThemeId.SOLID,
     /** Null means the theme's default wallpaper. */
     val wallpaper: WallpaperId? = null,

@@ -51,7 +51,7 @@ fun SkylandersPortalTab(
             ) {
                 Column {
                     Text(
-                        text = "Skylander ${i + 1}",
+                        text = tr("Skylander {0}", i + 1),
                         fontWeight = FontWeight.Medium,
                         fontSize = 18.sp
                     )
