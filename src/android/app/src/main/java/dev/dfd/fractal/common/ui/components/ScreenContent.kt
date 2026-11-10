@@ -6,28 +6,37 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.dropUnlessResumed
-import dev.dfd.fractal.R
+import dev.dfd.fractal.common.ui.fractal.FractalIconButton
+import dev.dfd.fractal.common.ui.icons.FractalIcons
+import dev.dfd.fractal.common.ui.localization.tr
+import dev.dfd.fractal.common.ui.theme.FractalTheme
 
 @Composable
 fun ScreenContent(
@@ -35,7 +44,7 @@ fun ScreenContent(
     snackbarHost: @Composable () -> Unit = {},
     navigateBack: () -> Unit,
     actions: @Composable RowScope.() -> Unit = {},
-    contentModifier: Modifier = Modifier.padding(8.dp),
+    contentModifier: Modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     contentVerticalArrangement: Arrangement.Vertical = Arrangement.Top,
     contentHorizontalAlignment: Alignment.Horizontal = Alignment.Start,
     content: @Composable ColumnScope.() -> Unit,
@@ -62,7 +71,8 @@ fun DefaultAppBarTitle(appBarText: String) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         text = appBarText,
-        fontSize = 18.sp,
+        style = MaterialTheme.typography.titleLarge,
+        color = FractalTheme.colors.text,
     )
 }
 
@@ -72,7 +82,7 @@ fun ScreenContentLazy(
     navigateBack: () -> Unit,
     snackbarHost: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
-    contentModifier: Modifier = Modifier.padding(8.dp),
+    contentModifier: Modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     contentVerticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: LazyListScope.() -> Unit,
 ) {
@@ -97,7 +107,7 @@ fun ScreenContentLazy(
     navigateBack: () -> Unit,
     snackbarHost: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
-    contentModifier: Modifier = Modifier.padding(8.dp),
+    contentModifier: Modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     contentVerticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: LazyListScope.() -> Unit,
 ) {
@@ -116,6 +126,10 @@ fun ScreenContentLazy(
     }
 }
 
+/**
+ * Screen with the Fractal header (back button, title, actions) over the theme background, so the
+ * wallpaper or backdrop shows through like on the newer screens.
+ */
 @Composable
 private fun ScreenContentGeneric(
     navigateBack: () -> Unit,
@@ -124,22 +138,32 @@ private fun ScreenContentGeneric(
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable () -> Unit,
 ) {
+    val colors = FractalTheme.colors
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
+        contentColor = colors.text,
         snackbarHost = snackbarHost,
         topBar = {
-            TopAppBar(
-                actions = actions,
-                title = appBarTitle,
-                navigationIcon = {
-                    IconButton(onClick = dropUnlessResumed { navigateBack() }) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_arrow_back),
-                            contentDescription = null,
-                        )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(TopAppBarDefaults.windowInsets)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FractalIconButton(FractalIcons.Back, tr("Back"), dropUnlessResumed { navigateBack() })
+                Spacer(Modifier.width(12.dp))
+                Box(Modifier.weight(1f)) {
+                    // custom titles (search fields) get what the Material app bar used to provide
+                    CompositionLocalProvider(LocalContentColor provides colors.text) {
+                        ProvideTextStyle(MaterialTheme.typography.titleLarge) { appBarTitle() }
                     }
-                },
-            )
+                }
+                CompositionLocalProvider(LocalContentColor provides colors.text) {
+                    Row(verticalAlignment = Alignment.CenterVertically, content = actions)
+                }
+            }
         },
     ) { scaffoldPadding ->
         Box(

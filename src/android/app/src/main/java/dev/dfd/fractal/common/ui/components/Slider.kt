@@ -1,12 +1,13 @@
 package dev.dfd.fractal.common.ui.components
 
 import androidx.annotation.IntRange
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -15,14 +16,15 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import dev.dfd.fractal.common.ui.fractal.SettingsCard
+import dev.dfd.fractal.common.ui.fractal.SettingsRowTitle
+import dev.dfd.fractal.common.ui.theme.FractalTheme
 import kotlin.math.roundToInt
 import androidx.compose.material3.Slider as MaterialSlider
 
+/** Settings row with a title, the current value and a slider; D-pad left/right moves it when focused. */
 @Composable
 fun Slider(
     label: String,
@@ -37,42 +39,36 @@ fun Slider(
 ) {
     var sliderValue by rememberSaveable(value) { mutableFloatStateOf(value.toFloat()) }
     val interactionSource = remember { MutableInteractionSource() }
-    val indication = LocalIndication.current
+    val focused by interactionSource.collectIsFocusedAsState()
+    val colors = FractalTheme.colors
 
-    Column(
-        modifier = modifier
-            .focusable(
+    SettingsCard(modifier = modifier, enabled = enabled, focused = focused) {
+        Column(Modifier.weight(1f)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { SettingsRowTitle(label) }
+                Text(
+                    text = labelFormatter(sliderValue.roundToInt()),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.accent,
+                )
+            }
+            MaterialSlider(
+                valueRange = valueFrom.toFloat()..valueTo.toFloat(),
+                steps = steps,
+                value = sliderValue,
                 enabled = enabled,
-                interactionSource = interactionSource
-            )
-            .indication(
+                onValueChangeFinished = { onValueChange(sliderValue.roundToInt()) },
+                onValueChange = { sliderValue = it },
                 interactionSource = interactionSource,
-                indication = if (enabled) indication else null
+                colors = SliderDefaults.colors(
+                    thumbColor = colors.accent,
+                    activeTrackColor = colors.accent,
+                    activeTickColor = colors.onAccent.copy(alpha = 0.6f),
+                    inactiveTrackColor = colors.border,
+                    inactiveTickColor = colors.textSecondary.copy(alpha = 0.6f),
+                ),
             )
-            .padding(8.dp)
-            .alpha(if (enabled) 1f else 0.6f)
-    ) {
-        Text(
-            modifier = Modifier.padding(bottom = 8.dp),
-            text = label,
-            fontWeight = FontWeight.Medium,
-            fontSize = 16.sp,
-        )
-        Text(
-            modifier = Modifier.padding(top = 8.dp),
-            text = labelFormatter(sliderValue.roundToInt()),
-            fontWeight = FontWeight.Light,
-            fontSize = 14.sp,
-        )
-        MaterialSlider(
-            valueRange = valueFrom.toFloat()..valueTo.toFloat(),
-            steps = steps,
-            value = sliderValue,
-            enabled = enabled,
-            onValueChangeFinished = { onValueChange(sliderValue.roundToInt()) },
-            onValueChange = { sliderValue = it },
-            interactionSource = interactionSource,
-        )
+        }
     }
 }
 
@@ -100,6 +96,9 @@ fun Slider(
         enabled = enabled,
         steps = steps,
         labelFormatter = labelFormatter,
-        onValueChange = onValueChange,
+        onValueChange = {
+            value = it
+            onValueChange(it)
+        },
     )
 }

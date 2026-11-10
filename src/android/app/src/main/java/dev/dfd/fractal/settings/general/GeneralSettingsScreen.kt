@@ -4,10 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.dfd.fractal.common.settings.GamePadPosition
-import dev.dfd.fractal.common.ui.components.Button
+import dev.dfd.fractal.common.ui.components.Header
 import dev.dfd.fractal.common.ui.components.ScreenContent
 import dev.dfd.fractal.common.ui.components.SingleSelection
 import dev.dfd.fractal.common.ui.localization.tr
@@ -16,7 +15,6 @@ import dev.dfd.fractal.nativeinterface.NativeSettings
 @Composable
 fun GeneralSettingsScreen(
     navigateBack: () -> Unit,
-    goToGamePathsSettings: () -> Unit,
     viewModel: GeneralSettingsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -28,13 +26,9 @@ fun GeneralSettingsScreen(
         appBarText = tr("General settings"),
         navigateBack = navigateBack,
     ) {
-        Button(
-            label = tr("Add game path"),
-            description = tr("Add the root directory of your game(s). It will scan all directories in it for games"),
-            onClick = dropUnlessResumed { goToGamePathsSettings() },
-        )
+        Header(tr("Language"))
         SingleSelection(
-            label = tr("Language"),
+            label = tr("App language"),
             choice = guiSettings.language,
             onChoiceChanged = { viewModel.setLanguage(language = it, context) },
             choiceToString = { viewModel.languageToDisplayNameMap[it] ?: it },
@@ -42,6 +36,7 @@ fun GeneralSettingsScreen(
         )
         SingleSelection(
             label = tr("Console language"),
+            description = tr("Language the games use, if they support it"),
             initialChoice = NativeSettings::getConsoleLanguage,
             onChoiceChanged = NativeSettings::setConsoleLanguage,
             choiceToString = { consoleLanguageToString(it) },
@@ -61,8 +56,10 @@ fun GeneralSettingsScreen(
             ),
         )
 
+        Header(tr("Screens"))
         SingleSelection(
             label = tr("GamePad position"),
+            description = tr("Where the GamePad screen goes when both screens are shown"),
             choice = emulationSettings.gamePadPosition,
             onChoiceChanged = { viewModel.setGamePadPosition(it) },
             choiceToString = { gamePadPositionToString(it) },

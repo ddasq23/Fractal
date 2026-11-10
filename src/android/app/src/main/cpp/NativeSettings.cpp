@@ -219,6 +219,18 @@ Java_dev_dfd_fractal_nativeinterface_NativeSettings_setPerformanceLog([[maybe_un
 	GetConfig().perf_log = enabled;
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeSettings_getPlayBootSound([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return GetConfig().play_boot_sound;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeSettings_setPlayBootSound([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean enabled)
+{
+	GetConfig().play_boot_sound = enabled;
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeSettings_getVsyncMode([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
@@ -289,6 +301,42 @@ extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeSettings_setAccurateBarriers([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean enabled)
 {
 	GetConfig().vk_accurate_barriers = enabled;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeSettings_getOverrideGameGamma([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return GetConfig().overrideAppGammaPreference;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeSettings_setOverrideGameGamma([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean enabled)
+{
+	GetConfig().overrideAppGammaPreference = enabled;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jfloat JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeSettings_getTargetGamma([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return GetConfig().overrideGammaValue;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeSettings_setTargetGamma([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jfloat gamma)
+{
+	GetConfig().overrideGammaValue = gamma;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jfloat JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeSettings_getDisplayGamma([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return GetConfig().userDisplayGamma;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeSettings_setDisplayGamma([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jfloat gamma)
+{
+	GetConfig().userDisplayGamma = gamma;
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL

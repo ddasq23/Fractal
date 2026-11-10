@@ -1,6 +1,7 @@
 package dev.dfd.fractal.settings.audio
 
 import androidx.compose.runtime.Composable
+import dev.dfd.fractal.common.ui.components.Header
 import dev.dfd.fractal.common.ui.components.ScreenContent
 import dev.dfd.fractal.common.ui.components.SingleSelection
 import dev.dfd.fractal.common.ui.components.Slider
@@ -17,6 +18,7 @@ fun AudioSettingsScreen(navigateBack: () -> Unit) {
         appBarText = tr("Audio settings"),
         navigateBack = navigateBack,
     ) {
+        Header(tr("Output"))
         Slider(
             label = tr("Latency"),
             initialValue = NativeSettings::getAudioLatency,
@@ -27,7 +29,14 @@ fun AudioSettingsScreen(navigateBack: () -> Unit) {
             labelFormatter = { "${it}ms" }
         )
         Toggle(
-            label = tr("TV"),
+            label = tr("Boot sound"),
+            description = tr("Plays the game's boot sound while shaders and pipelines are being loaded"),
+            initialCheckedState = NativeSettings::getPlayBootSound,
+            onCheckedChanged = NativeSettings::setPlayBootSound,
+        )
+        Header(tr("TV"))
+        Toggle(
+            label = tr("Audio output"),
             description = tr("Enable audio output for the Wii U TV"),
             initialCheckedState = { NativeSettings.getAudioDeviceEnabled(true) },
             onCheckedChanged = { NativeSettings.setAudioDeviceEnabled(it, true) }
@@ -52,8 +61,9 @@ fun AudioSettingsScreen(navigateBack: () -> Unit) {
             onValueChange = { NativeSettings.setAudioDeviceVolume(it, true) },
             labelFormatter = { "$it%" }
         )
+        Header(tr("Gamepad"))
         Toggle(
-            label = tr("Gamepad"),
+            label = tr("Audio output"),
             description = tr("Enable audio output for the Wii U Gamepad"),
             initialCheckedState = { NativeSettings.getAudioDeviceEnabled(false) },
             onCheckedChanged = { NativeSettings.setAudioDeviceEnabled(it, false) }
