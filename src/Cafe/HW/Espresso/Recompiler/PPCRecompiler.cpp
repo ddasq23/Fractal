@@ -357,6 +357,8 @@ void PPCRecompiler_NativeRegisterAllocatorPass(ppcImlGenContext_t& ppcImlGenCont
 	{
 		if (i == IMLArchAArch64::PHYSREG_GPR_BASE + 18)
 			continue; // Skip reserved platform register
+		if (i == IMLArchAArch64::PHYSREG_GPR_CYCLES && PPCRecompilerAArch64_cyclesInRegister())
+			continue; // holds remainingCycles
 		gprPhysPool.SetAvailable(i);
 	}
 

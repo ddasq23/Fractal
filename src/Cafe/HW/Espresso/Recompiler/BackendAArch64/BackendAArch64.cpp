@@ -8,6 +8,7 @@
 #include <xbyak_aarch64_util.h>
 
 #include <cstddef>
+#include <sys/mman.h>
 
 #include "../PPCRecompiler.h"
 #include "Common/precompiled.h"
@@ -59,6 +60,18 @@ static const GPReg LR{TEMP_GPR_2_ID};
 
 static const FPReg TEMP_FPR{TEMP_FPR_ID};
 
+// remainingCycles is decremented at the start of every segment and tested on every backward jump.
+// Kept in memory, each segment pays a load, a subtract and a store, and the next test reloads it:
+// one long dependency chain through store-to-load forwarding. With the register it is one sub.
+// Synchronised with PPCInterpreter_t::remainingCycles when entering and leaving recompiled code and
+// around HLE calls (the only C++ code that runs in between and reads or changes it).
+static const GPReg CYCLES_REG{IMLArchAArch64::PHYSREG_GPR_CYCLES};
+bool PPCRecompilerAArch64_cyclesInRegister()
+{
+	static const bool s_enabled = PerfLog::Tunable("jit_cycles_reg", 1) != 0;
+	return s_enabled;
+}
+
 static const util::Cpu s_cpu;
 
 class AArch64Allocator : public Allocator
@@ -103,6 +116,59 @@ class AArch64Allocator : public Allocator
 	}
 };
 
+
+// Recompiled functions are packed into one large executable mapping. xbyak's allocator gives every
+// function its own page-aligned buffer: all function entries then share the same few L1 instruction
+// cache sets and every call lands on another page (iTLB), and each function wastes at least 4 KB.
+// Code is generated into a temporary buffer as before and copied here; it only uses PC-relative
+// references inside the function and absolute addresses for everything else, so it can move.
+// Functions are never freed (the old buffers weren't either). perf/tuning.txt jit_arena=0 disables it.
+class JitCodeArena
+{
+  public:
+	static void* Put(const void* code, size_t size)
+	{
+		static JitCodeArena s_arena;
+		return s_arena.put(code, size);
+	}
+
+  private:
+	static constexpr size_t RESERVE = 512 * 1024 * 1024;
+	static constexpr size_t ALIGN = 64;
+
+	JitCodeArena()
+	{
+		if (PerfLog::Tunable("jit_arena", 1) == 0)
+			return;
+		void* p = mmap(nullptr, RESERVE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+		if (p == MAP_FAILED)
+		{
+			cemuLog_log(LogType::Force, "Recompiler: could not map the code arena, using one buffer per function");
+			return;
+		}
+		m_base = (uint8*)p;
+	}
+
+	void* put(const void* code, size_t size)
+	{
+		if (!m_base)
+			return nullptr;
+		std::lock_guard lock(m_mutex);
+		size_t offset = (m_used + ALIGN - 1) & ~(ALIGN - 1);
+		if (offset + size > RESERVE)
+			return nullptr;
+		uint8* dst = m_base + offset;
+		memcpy(dst, code, size);
+		__builtin___clear_cache((char*)dst, (char*)dst + size);
+		m_used = offset + size;
+		return dst;
+	}
+
+	uint8* m_base = nullptr;
+	size_t m_used = 0;
+	std::mutex m_mutex;
+};
+
 struct UnconditionalJumpInfo
 {
 	IMLSegment* target;
@@ -113,6 +179,9 @@ struct ConditionalRegJumpInfo
 	IMLSegment* target;
 	WReg regBool;
 	bool mustBeTrue;
+	// regBool is cset(cond) and the flags still hold that compare: branch on the flags (b.cond)
+	bool useFlags = false;
+	Cond cond = Cond::EQ;
 };
 
 struct NegativeRegValueJumpInfo
@@ -158,12 +227,164 @@ struct AArch64GenContext_t : CodeGenerator
 	void jump(IMLSegment* imlSegment);
 	void conditionalJumpCycleCheck(IMLSegment* imlSegment);
 
+	// operands of the last cmp and the code size right after its cset (see compare())
+	struct
+	{
+		size_t end = SIZE_MAX;
+		uint32 a, b;
+		sint32 imm;
+		bool isImm;
+	} m_lastCmp;
+
+	// bool registers produced by cset from the current NZCV (one PPC compare sets up to 3 of them
+	// from the same cmp). Cleared when an instruction that may change the flags is emitted
+	struct FlagsBool
+	{
+		uint32 reg;
+		Cond cond;
+	};
+	std::array<FlagsBool, 4> m_flagsBools;
+	size_t m_flagsBoolCount = 0;
+	void flagsBoolSet(uint32 reg, Cond cond, bool flagsReused)
+	{
+		if (!flagsReused)
+			m_flagsBoolCount = 0;
+		flagsBoolForget(reg);
+		if (m_flagsBoolCount < m_flagsBools.size())
+			m_flagsBools[m_flagsBoolCount++] = {reg, cond};
+	}
+	void flagsBoolForget(uint32 reg)
+	{
+		for (size_t i = 0; i < m_flagsBoolCount;)
+		{
+			if (m_flagsBools[i].reg == reg)
+				m_flagsBools[i] = m_flagsBools[--m_flagsBoolCount];
+			else
+				i++;
+		}
+	}
+	const FlagsBool* flagsBoolFind(uint32 reg) const
+	{
+		for (size_t i = 0; i < m_flagsBoolCount; i++)
+			if (m_flagsBools[i].reg == reg)
+				return &m_flagsBools[i];
+		return nullptr;
+	}
+	// after emitting an instruction other than compare/cjump
+	void flagsBoolTrackBefore(const IMLInstruction* imlInstruction)
+	{
+		if (m_flagsBoolCount == 0)
+			return;
+		switch (imlInstruction->type)
+		{
+		// emitters that never write NZCV nor call out
+		case IMLType::R_NAME:
+		case IMLType::NAME_R:
+		case IMLType::R_R:
+		case IMLType::R_S32:
+		case IMLType::R_R_S32:
+		case IMLType::LOAD:
+		case IMLType::LOAD_INDEXED:
+		case IMLType::STORE:
+		case IMLType::STORE_INDEXED:
+		case IMLType::NO_OP:
+		case IMLType::FPR_LOAD:
+		case IMLType::FPR_LOAD_INDEXED:
+		case IMLType::FPR_R_R:
+		case IMLType::FPR_R_R_R:
+		case IMLType::FPR_R:
+		{
+			IMLUsedRegisters used;
+			imlInstruction->CheckRegisterUsage(&used);
+			used.ForEachWrittenGPR([&](IMLReg r) { flagsBoolForget(r.GetRegID()); });
+			return;
+		}
+		default:
+			m_flagsBoolCount = 0;
+			return;
+		}
+	}
+	static bool flagBranchEnabled()
+	{
+		static const bool s_enabled = PerfLog::Tunable("jit_flag_branch", 1) != 0;
+		return s_enabled;
+	}
 	static constexpr size_t MAX_JUMP_INSTR_COUNT = 2;
+	// instructions reserved per jump. Functions are first generated with 1 (every conditional jump
+	// within reach of a single tbz/cbz, no nop left behind) and regenerated with 2 if one doesn't fit
+	size_t m_jumpSlots = MAX_JUMP_INSTR_COUNT;
 	std::list<std::pair<size_t, JumpInfo>> jumps;
+
+	// immediate add/sub/cmp in one instruction where an imm12 (optionally << 12) fits, also for
+	// negative values (sub/add/cmn of the magnitude). xbyak's *_imm helpers only do positive imm12
+	static bool shortImmEnabled()
+	{
+		static const bool s_enabled = PerfLog::Tunable("jit_short_imm", 1) != 0;
+		return s_enabled;
+	}
+	static bool fitsAddSubImm(uint32 v) { return v < 0x1000 || ((v & 0xfff) == 0 && v < 0x1000000); }
+	void emitAddSubImm(const WReg& dst, const WReg& src, uint32 v, bool isSub)
+	{
+		uint32 sh = v < 0x1000 ? 0 : 12;
+		uint32 imm = sh ? (v >> 12) : v;
+		if (isSub)
+			sub(dst, src, imm, sh);
+		else
+			add(dst, src, imm, sh);
+	}
+	void addImm32(const WReg& dst, const WReg& src, sint32 imm, const WReg& tmp)
+	{
+		uint32 v = (uint32)imm;
+		if (shortImmEnabled() && fitsAddSubImm(v))
+			emitAddSubImm(dst, src, v, false);
+		else if (shortImmEnabled() && imm < 0 && fitsAddSubImm(0u - v))
+			emitAddSubImm(dst, src, 0u - v, true);
+		else
+			add_imm(dst, src, imm, tmp);
+	}
+	void subImm32(const WReg& dst, const WReg& src, sint32 imm, const WReg& tmp)
+	{
+		if (imm == std::numeric_limits<sint32>::min())
+		{
+			sub_imm(dst, src, imm, tmp);
+			return;
+		}
+		addImm32(dst, src, -imm, tmp);
+	}
+	void cmpImm32(const WReg& a, sint32 imm, const WReg& tmp)
+	{
+		uint32 v = (uint32)imm;
+		if (shortImmEnabled() && fitsAddSubImm(v))
+			cmp(a, v < 0x1000 ? v : (v >> 12), v < 0x1000 ? 0 : 12);
+		else if (shortImmEnabled() && imm < 0 && fitsAddSubImm(0u - v))
+		{
+			// cmn a, #k sets the same NZCV as cmp a, #-k for k != 0
+			uint32 k = 0u - v;
+			cmn(a, k < 0x1000 ? k : (k >> 12), k < 0x1000 ? 0 : 12);
+		}
+		else
+			cmp_imm(a, imm, tmp);
+	}
+	// 32-bit guest address memReg + offset (+ indexReg) for an access through MEM_BASE_REG
+	WReg guestAddress(WReg memReg, sint32 offset, WReg indexReg, bool indexed)
+	{
+		if (offset == 0 && !indexed)
+			return memReg; // no add needed
+		if (offset == 0)
+		{
+			add(TEMP_GPR1.WReg, memReg, indexReg);
+			return TEMP_GPR1.WReg;
+		}
+		addImm32(TEMP_GPR1.WReg, memReg, offset, TEMP_GPR1.WReg);
+		if (indexed)
+			add(TEMP_GPR1.WReg, TEMP_GPR1.WReg, indexReg);
+		return TEMP_GPR1.WReg;
+	}
+
 	void prepareJump(JumpInfo&& jumpInfo)
 	{
 		jumps.emplace_back(getSize(), jumpInfo);
-		for (int i = 0; i < MAX_JUMP_INSTR_COUNT; ++i)
+		for (size_t i = 0; i < m_jumpSlots; ++i)
 			nop();
 	}
 
@@ -174,6 +395,8 @@ struct AArch64GenContext_t : CodeGenerator
 	void storeSegmentStart(IMLSegment* imlSegment)
 	{
 		segmentStarts[imlSegment] = getSize();
+		m_lastCmp.end = SIZE_MAX; // a segment can be entered by a jump: flags are unknown there
+		m_flagsBoolCount = 0;
 	}
 
 	bool processAllJumps()
@@ -215,6 +438,29 @@ struct AArch64GenContext_t : CodeGenerator
 	bool handleJump(sint64 addressOffset, const ConditionalRegJumpInfo& jump)
 	{
 		bool mustBeTrue = jump.mustBeTrue;
+		if (jump.useFlags)
+		{
+			Cond cond = mustBeTrue ? jump.cond : static_cast<Cond>(jump.cond ^ 1);
+			// in +/-1MB
+			if (-0x100000 <= addressOffset && addressOffset <= 0xfffff)
+			{
+				b(cond, addressOffset);
+				return true;
+			}
+			if (m_jumpSlots < 2)
+				return false;
+			Label skipJump;
+			b(static_cast<Cond>(cond ^ 1), skipJump);
+			addressOffset -= 4;
+			if (-0x8000000 <= addressOffset && addressOffset <= 0x7ffffff)
+			{
+				b(addressOffset);
+				L(skipJump);
+				return true;
+			}
+			cemu_assert_suspicious();
+			return false;
+		}
 
 		// in +/-32KB
 		if (-0x8000 <= addressOffset && addressOffset <= 0x7fff)
@@ -236,6 +482,8 @@ struct AArch64GenContext_t : CodeGenerator
 			return true;
 		}
 
+		if (m_jumpSlots < 2)
+			return false;
 		Label skipJump;
 		if (mustBeTrue)
 			tbz(jump.regBool, 0, skipJump);
@@ -264,6 +512,8 @@ struct AArch64GenContext_t : CodeGenerator
 			tbnz(jump.regValue, 31, addressOffset);
 			return true;
 		}
+		if (m_jumpSlots < 2)
+			return false;
 
 		// in +/-1MB
 		if (-0x100000 <= addressOffset && addressOffset <= 0xfffff)
@@ -619,11 +869,11 @@ bool AArch64GenContext_t::r_r_s32(IMLInstruction* imlInstruction)
 
 	if (imlInstruction->operation == IMLOperation::OP_ADD)
 	{
-		add_imm(regR, regA, immS32, TEMP_GPR1.WReg);
+		addImm32(regR, regA, immS32, TEMP_GPR1.WReg);
 	}
 	else if (imlInstruction->operation == IMLOperation::OP_SUB)
 	{
-		sub_imm(regR, regA, immS32, TEMP_GPR1.WReg);
+		subImm32(regR, regA, immS32, TEMP_GPR1.WReg);
 	}
 	else if (imlInstruction->operation == IMLOperation::OP_AND)
 	{
@@ -856,8 +1106,17 @@ void AArch64GenContext_t::compare(IMLInstruction* imlInstruction)
 	WReg regA = gpReg<WReg>(imlInstruction->op_compare.regA);
 	WReg regB = gpReg<WReg>(imlInstruction->op_compare.regB);
 	Cond cond = ImlCondToArm64Cond(imlInstruction->op_compare.cond);
-	cmp(regA, regB);
+	// PPC compares set lt, gt and eq with three IML compares of the same operands: when nothing was
+	// emitted since the previous cmp and its cset did not overwrite an operand, the flags still hold
+	bool flagsReused = m_lastCmp.end == getSize() && !m_lastCmp.isImm && m_lastCmp.a == regA.getIdx() && m_lastCmp.b == regB.getIdx();
+	if (!flagsReused)
+		cmp(regA, regB);
 	cset(regR, cond);
+	flagsBoolSet(regR.getIdx(), cond, flagsReused);
+	if (regR.getIdx() != regA.getIdx() && regR.getIdx() != regB.getIdx())
+		m_lastCmp = {getSize(), regA.getIdx(), regB.getIdx(), 0, false};
+	else
+		m_lastCmp.end = SIZE_MAX;
 }
 
 void AArch64GenContext_t::compare_s32(IMLInstruction* imlInstruction)
@@ -866,18 +1125,29 @@ void AArch64GenContext_t::compare_s32(IMLInstruction* imlInstruction)
 	WReg regA = gpReg<WReg>(imlInstruction->op_compare.regA);
 	sint32 imm = imlInstruction->op_compare_s32.immS32;
 	auto cond = ImlCondToArm64Cond(imlInstruction->op_compare.cond);
-	cmp_imm(regA, imm, TEMP_GPR1.WReg);
+	bool flagsReused = m_lastCmp.end == getSize() && m_lastCmp.isImm && m_lastCmp.a == regA.getIdx() && m_lastCmp.imm == imm;
+	if (!flagsReused)
+		cmpImm32(regA, imm, TEMP_GPR1.WReg);
 	cset(regR, cond);
+	flagsBoolSet(regR.getIdx(), cond, flagsReused);
+	if (regR.getIdx() != regA.getIdx())
+		m_lastCmp = {getSize(), regA.getIdx(), 0, imm, true};
+	else
+		m_lastCmp.end = SIZE_MAX;
 }
 
 void AArch64GenContext_t::cjump(IMLInstruction* imlInstruction, IMLSegment* imlSegment)
 {
 	auto regBool = gpReg<WReg>(imlInstruction->op_conditional_jump.registerBool);
+	const FlagsBool* fb = flagBranchEnabled() ? flagsBoolFind(regBool.getIdx()) : nullptr;
 	prepareJump(ConditionalRegJumpInfo{
 		.target = imlSegment->nextSegmentBranchTaken,
 		.regBool = regBool,
 		.mustBeTrue = imlInstruction->op_conditional_jump.mustBeTrue,
+		.useFlags = fb != nullptr,
+		.cond = fb ? fb->cond : Cond::EQ,
 	});
+	m_flagsBoolCount = 0;
 }
 
 void AArch64GenContext_t::jump(IMLSegment* imlSegment)
@@ -887,6 +1157,14 @@ void AArch64GenContext_t::jump(IMLSegment* imlSegment)
 
 void AArch64GenContext_t::conditionalJumpCycleCheck(IMLSegment* imlSegment)
 {
+	if (PPCRecompilerAArch64_cyclesInRegister())
+	{
+		prepareJump(NegativeRegValueJumpInfo{
+			.target = imlSegment->nextSegmentBranchTaken,
+			.regValue = CYCLES_REG.WReg,
+		});
+		return;
+	}
 	ldr(TEMP_GPR1.WReg, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, remainingCycles)));
 	prepareJump(NegativeRegValueJumpInfo{
 		.target = imlSegment->nextSegmentBranchTaken,
@@ -969,6 +1247,11 @@ bool AArch64GenContext_t::macro(IMLInstruction* imlInstruction)
 	else if (imlInstruction->operation == IMLOperation::MACRO_COUNT_CYCLES)
 	{
 		uint32 cycleCount = imlInstruction->op_macro.param;
+		if (PPCRecompilerAArch64_cyclesInRegister())
+		{
+			sub_imm(CYCLES_REG.WReg, CYCLES_REG.WReg, cycleCount, TEMP_GPR1.WReg);
+			return true;
+		}
 		AdrUimm adrCycles = AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, remainingCycles));
 		ldr(TEMP_GPR1.WReg, adrCycles);
 		sub_imm(TEMP_GPR1.WReg, TEMP_GPR1.WReg, cycleCount, TEMP_GPR2.WReg);
@@ -986,6 +1269,8 @@ bool AArch64GenContext_t::macro(IMLInstruction* imlInstruction)
 		str(TEMP_GPR1.WReg, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, instructionPointer)));
 		// set parameters
 		str(x30, AdrPreImm(sp, -16));
+		if (PPCRecompilerAArch64_cyclesInRegister())
+			str(CYCLES_REG.WReg, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, remainingCycles)));
 
 		mov(x0, HCPU_REG);
 		mov(w1, funcId);
@@ -994,13 +1279,22 @@ bool AArch64GenContext_t::macro(IMLInstruction* imlInstruction)
 		mov(TEMP_GPR1.XReg, (uint64)PPCRecompiler_virtualHLE);
 		blr(TEMP_GPR1.XReg);
 
+		// the HLE call can switch to another thread, whose state is returned in x0
 		mov(HCPU_REG, x0);
 
 		ldr(x30, AdrPostImm(sp, 16));
 
 		// check if cycles where decreased beyond zero, if yes -> leave recompiler
-		ldr(TEMP_GPR1.WReg, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, remainingCycles)));
-		tbz(TEMP_GPR1.WReg, 31, cyclesLeftLabel); // check if negative
+		if (PPCRecompilerAArch64_cyclesInRegister())
+		{
+			ldr(CYCLES_REG.WReg, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, remainingCycles)));
+			tbz(CYCLES_REG.WReg, 31, cyclesLeftLabel); // check if negative
+		}
+		else
+		{
+			ldr(TEMP_GPR1.WReg, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, remainingCycles)));
+			tbz(TEMP_GPR1.WReg, 31, cyclesLeftLabel); // check if negative
+		}
 
 		mov(TEMP_GPR1.XReg, offsetof(PPCRecompilerInstanceData_t, ppcRecompilerDirectJumpTable));
 		ldr(TEMP_GPR1.XReg, AdrReg(PPC_REC_INSTANCE_REG, TEMP_GPR1.XReg));
@@ -1040,11 +1334,7 @@ bool AArch64GenContext_t::load(IMLInstruction* imlInstruction, bool indexed)
 	WReg memReg = gpReg<WReg>(imlInstruction->op_storeLoad.registerMem);
 	WReg dataReg = gpReg<WReg>(imlInstruction->op_storeLoad.registerData);
 
-	add_imm(TEMP_GPR1.WReg, memReg, memOffset, TEMP_GPR1.WReg);
-	if (indexed)
-		add(TEMP_GPR1.WReg, TEMP_GPR1.WReg, gpReg<WReg>(imlInstruction->op_storeLoad.registerMem2));
-
-	auto adr = AdrExt(MEM_BASE_REG, TEMP_GPR1.WReg, ExtMod::UXTW);
+	auto adr = AdrExt(MEM_BASE_REG, guestAddress(memReg, memOffset, indexed ? gpReg<WReg>(imlInstruction->op_storeLoad.registerMem2) : memReg, indexed), ExtMod::UXTW);
 	if (imlInstruction->op_storeLoad.copyWidth == 32)
 	{
 		ldr(dataReg, adr);
@@ -1096,10 +1386,7 @@ bool AArch64GenContext_t::store(IMLInstruction* imlInstruction, bool indexed)
 	sint32 memOffset = imlInstruction->op_storeLoad.immS32;
 	bool swapEndian = imlInstruction->op_storeLoad.flags2.swapEndian;
 
-	add_imm(TEMP_GPR1.WReg, memReg, memOffset, TEMP_GPR1.WReg);
-	if (indexed)
-		add(TEMP_GPR1.WReg, TEMP_GPR1.WReg, gpReg<WReg>(imlInstruction->op_storeLoad.registerMem2));
-	AdrExt adr = AdrExt(MEM_BASE_REG, TEMP_GPR1.WReg, ExtMod::UXTW);
+	AdrExt adr = AdrExt(MEM_BASE_REG, guestAddress(memReg, memOffset, indexed ? gpReg<WReg>(imlInstruction->op_storeLoad.registerMem2) : memReg, indexed), ExtMod::UXTW);
 	if (imlInstruction->op_storeLoad.copyWidth == 32)
 	{
 		if (swapEndian)
@@ -1181,10 +1468,8 @@ bool AArch64GenContext_t::fpr_load(IMLInstruction* imlInstruction, bool indexed)
 
 	if (mode == PPCREC_FPR_LD_MODE_SINGLE)
 	{
-		add_imm(TEMP_GPR1.WReg, realRegisterMem, adrOffset, TEMP_GPR1.WReg);
-		if (indexed)
-			add(TEMP_GPR1.WReg, TEMP_GPR1.WReg, indexReg);
-		ldr(TEMP_GPR2.WReg, AdrExt(MEM_BASE_REG, TEMP_GPR1.WReg, ExtMod::UXTW));
+		WReg guestAdr = guestAddress(realRegisterMem, adrOffset, indexReg, indexed);
+		ldr(TEMP_GPR2.WReg, AdrExt(MEM_BASE_REG, guestAdr, ExtMod::UXTW));
 		rev(TEMP_GPR2.WReg, TEMP_GPR2.WReg);
 		fmov(dataSReg, TEMP_GPR2.WReg);
 
@@ -1199,10 +1484,8 @@ bool AArch64GenContext_t::fpr_load(IMLInstruction* imlInstruction, bool indexed)
 	}
 	else if (mode == PPCREC_FPR_LD_MODE_DOUBLE)
 	{
-		add_imm(TEMP_GPR1.WReg, realRegisterMem, adrOffset, TEMP_GPR1.WReg);
-		if (indexed)
-			add(TEMP_GPR1.WReg, TEMP_GPR1.WReg, indexReg);
-		ldr(TEMP_GPR2.XReg, AdrExt(MEM_BASE_REG, TEMP_GPR1.WReg, ExtMod::UXTW));
+		WReg guestAdr = guestAddress(realRegisterMem, adrOffset, indexReg, indexed);
+		ldr(TEMP_GPR2.XReg, AdrExt(MEM_BASE_REG, guestAdr, ExtMod::UXTW));
 		rev(TEMP_GPR2.XReg, TEMP_GPR2.XReg);
 		fmov(dataDReg, TEMP_GPR2.XReg);
 	}
@@ -1264,29 +1547,23 @@ bool AArch64GenContext_t::fpr_store(IMLInstruction* imlInstruction, bool indexed
 				b(done);
 			});
 		}
-		add_imm(TEMP_GPR1.WReg, memReg, memOffset, TEMP_GPR1.WReg);
-		if (indexed)
-			add(TEMP_GPR1.WReg, TEMP_GPR1.WReg, indexReg);
+		WReg guestAdr = guestAddress(memReg, memOffset, indexReg, indexed);
 		rev(TEMP_GPR2.WReg, TEMP_GPR2.WReg);
-		str(TEMP_GPR2.WReg, AdrExt(MEM_BASE_REG, TEMP_GPR1.WReg, ExtMod::UXTW));
+		str(TEMP_GPR2.WReg, AdrExt(MEM_BASE_REG, guestAdr, ExtMod::UXTW));
 	}
 	else if (mode == PPCREC_FPR_ST_MODE_DOUBLE)
 	{
-		add_imm(TEMP_GPR1.WReg, memReg, memOffset, TEMP_GPR1.WReg);
-		if (indexed)
-			add(TEMP_GPR1.WReg, TEMP_GPR1.WReg, indexReg);
+		WReg guestAdr = guestAddress(memReg, memOffset, indexReg, indexed);
 		fmov(TEMP_GPR2.XReg, dataDReg);
 		rev(TEMP_GPR2.XReg, TEMP_GPR2.XReg);
-		str(TEMP_GPR2.XReg, AdrExt(MEM_BASE_REG, TEMP_GPR1.WReg, ExtMod::UXTW));
+		str(TEMP_GPR2.XReg, AdrExt(MEM_BASE_REG, guestAdr, ExtMod::UXTW));
 	}
 	else if (mode == PPCREC_FPR_ST_MODE_UI32_FROM_PS0)
 	{
-		add_imm(TEMP_GPR1.WReg, memReg, memOffset, TEMP_GPR1.WReg);
-		if (indexed)
-			add(TEMP_GPR1.WReg, TEMP_GPR1.WReg, indexReg);
+		WReg guestAdr = guestAddress(memReg, memOffset, indexReg, indexed);
 		fmov(TEMP_GPR2.WReg, dataSReg);
 		rev(TEMP_GPR2.WReg, TEMP_GPR2.WReg);
-		str(TEMP_GPR2.WReg, AdrExt(MEM_BASE_REG, TEMP_GPR1.WReg, ExtMod::UXTW));
+		str(TEMP_GPR2.WReg, AdrExt(MEM_BASE_REG, guestAdr, ExtMod::UXTW));
 	}
 	else
 	{
@@ -1492,10 +1769,28 @@ void AArch64GenContext_t::call_imm(IMLInstruction* imlInstruction)
 	ldr(x30, AdrPostImm(sp, 16));
 }
 
+static bool PPCRecompiler_generateAArch64CodeWithJumpSlots(struct PPCRecFunction_t* PPCRecFunction, struct ppcImlGenContext_t* ppcImlGenContext, size_t jumpSlots, bool& jumpsOutOfReach);
+
 bool PPCRecompiler_generateAArch64Code(struct PPCRecFunction_t* PPCRecFunction, struct ppcImlGenContext_t* ppcImlGenContext)
+{
+	static const bool s_singleSlotJumps = PerfLog::Tunable("jit_short_jumps", 1) != 0;
+	bool jumpsOutOfReach = false;
+	if (s_singleSlotJumps)
+	{
+		if (PPCRecompiler_generateAArch64CodeWithJumpSlots(PPCRecFunction, ppcImlGenContext, 1, jumpsOutOfReach))
+			return true;
+		if (!jumpsOutOfReach)
+			return false;
+	}
+	return PPCRecompiler_generateAArch64CodeWithJumpSlots(PPCRecFunction, ppcImlGenContext, AArch64GenContext_t::MAX_JUMP_INSTR_COUNT, jumpsOutOfReach);
+}
+
+static bool PPCRecompiler_generateAArch64CodeWithJumpSlots(struct PPCRecFunction_t* PPCRecFunction, struct ppcImlGenContext_t* ppcImlGenContext, size_t jumpSlots, bool& jumpsOutOfReach)
 {
 	AArch64Allocator allocator;
 	AArch64GenContext_t aarch64GenContext{&allocator};
+	aarch64GenContext.m_jumpSlots = jumpSlots;
+	jumpsOutOfReach = false;
 
 	// generate iml instruction code
 	bool codeGenerationFailed = false;
@@ -1510,6 +1805,8 @@ bool PPCRecompiler_generateAArch64Code(struct PPCRecFunction_t* PPCRecFunction, 
 		for (size_t i = 0; i < segIt->imlList.size(); i++)
 		{
 			IMLInstruction* imlInstruction = segIt->imlList.data() + i;
+			if (imlInstruction->type != IMLType::COMPARE && imlInstruction->type != IMLType::COMPARE_S32 && imlInstruction->type != IMLType::CONDITIONAL_JUMP)
+				aarch64GenContext.flagsBoolTrackBefore(imlInstruction);
 			if (imlInstruction->type == IMLType::R_NAME)
 			{
 				aarch64GenContext.r_name(imlInstruction);
@@ -1666,12 +1963,22 @@ bool PPCRecompiler_generateAArch64Code(struct PPCRecFunction_t* PPCRecFunction, 
 	const size_t codeSize = aarch64GenContext.getSize();
 	if (!aarch64GenContext.processAllJumps())
 	{
-		cemuLog_log(LogType::Recompiler, "PPCRecompiler_generateAArch64Code(): some jumps exceeded the +/-128MB offset.");
+		jumpsOutOfReach = true;
+		if (jumpSlots >= AArch64GenContext_t::MAX_JUMP_INSTR_COUNT)
+			cemuLog_log(LogType::Recompiler, "PPCRecompiler_generateAArch64Code(): some jumps exceeded the +/-128MB offset.");
 		return false;
 	}
 	aarch64GenContext.setSize(codeSize);
 
-	aarch64GenContext.readyRE();
+	// resolve the jumps, keep the buffer writable and try to move the code into the arena
+	aarch64GenContext.ready(CodeArray::PROTECT_RW);
+	if (void* packed = JitCodeArena::Put(aarch64GenContext.getCode<const void*>(), codeSize))
+	{
+		PPCRecFunction->x86Code = packed;
+		PPCRecFunction->x86Size = codeSize;
+		return true; // the temporary buffer is freed by the CodeGenerator destructor
+	}
+	aarch64GenContext.setProtectMode(CodeArray::PROTECT_RE);
 
 	// set code
 	PPCRecFunction->x86Code = aarch64GenContext.getCode<void*>();
@@ -1707,6 +2014,8 @@ void AArch64GenContext_t::enterRecompilerCode()
 	mov(HCPU_REG, x1); // call argument 2
 	mov(PPC_REC_INSTANCE_REG, (uint64)ppcRecompilerInstanceData);
 	mov(MEM_BASE_REG, (uint64)memory_base);
+	if (PPCRecompilerAArch64_cyclesInRegister())
+		ldr(CYCLES_REG.WReg, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, remainingCycles)));
 
 	// branch to recFunc
 	blr(x0); // call argument 1
@@ -1729,6 +2038,8 @@ void AArch64GenContext_t::enterRecompilerCode()
 void AArch64GenContext_t::leaveRecompilerCode()
 {
 	str(LR.WReg, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, instructionPointer)));
+	if (PPCRecompilerAArch64_cyclesInRegister())
+		str(CYCLES_REG.WReg, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, remainingCycles)));
 	ret();
 }
 

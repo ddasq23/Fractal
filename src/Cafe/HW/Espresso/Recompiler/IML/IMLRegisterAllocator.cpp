@@ -1,3 +1,4 @@
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "IML.h"
 
 #include "../PPCRecompiler.h"
@@ -1634,7 +1635,10 @@ void PPCRecRA_checkAndTryExtendRange(IMLRegisterAllocatorContext& ctx, IMLSegmen
 	else
 		instructionsUntilEndOfSeg = (sint32)currentSegment->imlList.size() - range->usageEnd;
 	cemu_assert_debug(instructionsUntilEndOfSeg >= 0);
-	sint32 remainingScanDist = 45 - instructionsUntilEndOfSeg;
+	// perf/tuning.txt ra_extend: how far ahead (in IML instructions) a next use may be for the range to
+	// stay in a register across segment boundaries instead of being stored and reloaded
+	static const sint32 s_extendDistance = (sint32)PerfLog::Tunable("ra_extend", 45);
+	sint32 remainingScanDist = s_extendDistance - instructionsUntilEndOfSeg;
 	if (remainingScanDist <= 0)
 		return; // can't reach end
 
