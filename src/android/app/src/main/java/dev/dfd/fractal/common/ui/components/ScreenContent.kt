@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -120,6 +121,8 @@ fun ScreenContentLazy(
     extraHints: List<ButtonHint> = emptyList(),
     contentModifier: Modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     contentVerticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    /** Changes when the screen swaps its list in place: the list starts at the top, focus on its first item. */
+    contentKey: Any? = null,
     content: LazyListScope.() -> Unit,
 ) {
     ScreenContentGeneric(
@@ -128,12 +131,15 @@ fun ScreenContentLazy(
         navigateBack = navigateBack,
         actions = actions,
         extraHints = extraHints,
+        focusKey = contentKey,
     ) {
-        LazyColumn(
-            verticalArrangement = contentVerticalArrangement,
-            modifier = contentModifier,
-        ) {
-            content()
+        key(contentKey) {
+            LazyColumn(
+                verticalArrangement = contentVerticalArrangement,
+                modifier = contentModifier,
+            ) {
+                content()
+            }
         }
     }
 }
@@ -149,6 +155,7 @@ private fun ScreenContentGeneric(
     snackbarHost: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     extraHints: List<ButtonHint> = emptyList(),
+    focusKey: Any? = null,
     content: @Composable () -> Unit,
 ) {
     val colors = FractalTheme.colors
@@ -185,7 +192,7 @@ private fun ScreenContentGeneric(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(scaffoldPadding)
-                .screenFocusContainer(focus)
+                .screenFocusContainer(focus, focusKey)
         ) {
             CompositionLocalProvider(LocalScreenFocus provides focus) { content() }
         }

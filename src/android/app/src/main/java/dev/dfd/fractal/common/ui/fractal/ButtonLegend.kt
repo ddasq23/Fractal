@@ -34,7 +34,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ripple.RippleAlpha
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RippleConfiguration
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -146,7 +150,12 @@ fun ButtonLegendHost(modifier: Modifier = Modifier, content: @Composable () -> U
     val hints = legend.hints
     val showBar = GamepadUi.active && hints.isNotEmpty()
 
-    CompositionLocalProvider(LocalButtonLegend provides legend) {
+    CompositionLocalProvider(
+        LocalButtonLegend provides legend,
+        // Material controls (icon/text buttons, menu items, chips) show focus as a faint ripple
+        // layer: make it strong enough to follow with a gamepad
+        LocalRippleConfiguration provides FocusVisibleRipple,
+    ) {
         Column(
             modifier
                 .fillMaxSize()
@@ -194,6 +203,11 @@ fun ButtonLegendHost(modifier: Modifier = Modifier, content: @Composable () -> U
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+private val FocusVisibleRipple = RippleConfiguration(
+    rippleAlpha = RippleAlpha(draggedAlpha = 0.16f, focusedAlpha = 0.32f, hoveredAlpha = 0.08f, pressedAlpha = 0.16f),
+)
 
 /** The bar along the bottom edge listing what each button does. */
 @Composable

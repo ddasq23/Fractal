@@ -47,6 +47,7 @@ class ScreenFocus internal constructor(internal val view: View, private val save
     private val anchors = LinkedHashMap<Any, LayoutCoordinates>()
     private var focused: FocusRequester? = null
     internal var container: LayoutCoordinates? = null
+    internal val containerRequester = FocusRequester()
     internal var hasFocus by mutableStateOf(false)
 
     /** Sections on the screen; the L/R hint shows from two. */
@@ -60,6 +61,13 @@ class ScreenFocus internal constructor(internal val view: View, private val save
     internal fun remove(requester: FocusRequester) {
         items.remove(requester)
         if (focused == requester) focused = null
+    }
+
+    /** Item focused on entry instead of the first one, when there is nothing to restore. */
+    internal var preferred: FocusRequester? = null
+
+    internal fun forgetSaved() {
+        saved.center = null
     }
 
     internal fun onFocused(requester: FocusRequester) {
@@ -91,19 +99,43 @@ class ScreenFocus internal constructor(internal val view: View, private val save
     private fun tryFocus(candidates: List<FocusRequester>): Boolean =
         candidates.any { runCatching { it.requestFocus() }.getOrDefault(false) }
 
+    /** The item the screen opens on when there is nothing to restore. */
+    private fun firstCandidates(all: List<Pair<FocusRequester, Rect>>): List<FocusRequester> {
+        val view = container?.bounds()
+        val inView = if (view == null) all else all.filter { it.second.top >= view.top - 1f && it.second.top < view.bottom }
+        return listOfNotNull(preferred) + inView.map { it.first } + all.map { it.first }
+    }
+
+    /**
+     * Content that loads after the screen opens (a list read from disk) can push the item focused
+     * on entry down: while the user hasn't moved, keep the focus on what is now the first item.
+     * Returns false once the user moved the focus.
+     */
+    internal fun followLateContent(autoFocused: FocusRequester): FocusRequester? {
+        if (focused != autoFocused || !hasFocus) return null
+        val first = firstCandidates(sortedItems()).firstOrNull() ?: return autoFocused
+        if (first == autoFocused) return autoFocused
+        return if (tryFocus(listOf(first))) first else autoFocused
+    }
+
+    /** What [restoreOrFocusFirst] focused, when it was the first item rather than a restored one. */
+    internal var autoFocused: FocusRequester? = null
+
     /** Focus back on the item last focused here, or on the first one in view. */
     fun restoreOrFocusFirst(): Boolean {
         val all = sortedItems()
-        if (all.isEmpty()) return false
+        // content made of plain Material controls: the first focusable in the content
+        if (all.isEmpty()) return tryFocus(listOf(containerRequester))
         saved.center?.let { center ->
             val nearest = all.minByOrNull { hypot(it.second.center.x - center.x, it.second.center.y - center.y) }
             if (nearest != null && hypot(nearest.second.center.x - center.x, nearest.second.center.y - center.y) < 48f) {
                 if (tryFocus(listOf(nearest.first))) return true
             }
         }
-        val view = container?.bounds()
-        val inView = if (view == null) all else all.filter { it.second.top >= view.top - 1f && it.second.top < view.bottom }
-        return tryFocus(inView.map { it.first }) || tryFocus(all.map { it.first })
+        val target = firstCandidates(all).firstOrNull { runCatching { it.requestFocus() }.getOrDefault(false) }
+            ?: return false
+        autoFocused = target
+        return true
     }
 
     /** Moves the focus to the first item of the next or previous section. */
@@ -145,19 +177,30 @@ fun rememberScreenFocus(): ScreenFocus {
 /**
  * Marks the content container of [focus] and, while a gamepad is in use, puts the focus in it
  * when the screen appears (items may take a few frames to show up, so it keeps trying a little).
+ * A new [contentKey] (a screen that swaps its content in place) focuses its first item again.
  */
 @Composable
-fun Modifier.screenFocusContainer(focus: ScreenFocus): Modifier {
-    LaunchedEffect(focus) {
-        repeat(40) {
+fun Modifier.screenFocusContainer(focus: ScreenFocus, contentKey: Any? = null): Modifier {
+    val firstKey = remember { contentKey }
+    LaunchedEffect(focus, contentKey) {
+        if (contentKey != firstKey) focus.forgetSaved()
+        focus.autoFocused = null
+        for (attempt in 0 until 40) {
             withFrameNanos { }
             if (!GamepadUi.active || focus.hasFocus) return@LaunchedEffect
             leaveTouchMode(focus.view)
-            if (focus.restoreOrFocusFirst()) return@LaunchedEffect
+            if (focus.restoreOrFocusFirst()) break
+        }
+        // then follow content that shows up late, for a moment
+        var auto = focus.autoFocused ?: return@LaunchedEffect
+        repeat(45) {
+            withFrameNanos { }
+            auto = focus.followLateContent(auto) ?: return@LaunchedEffect
         }
     }
     return this
         .onFocusChanged { focus.hasFocus = it.hasFocus }
+        .focusRequester(focus.containerRequester)
         .onGloballyPositioned { focus.container = it }
 }
 
@@ -180,7 +223,7 @@ fun Modifier.screenFocusItem(): Modifier {
  * for dialogs and sheets, which are windows of their own and start with nothing focused.
  */
 @Composable
-fun Modifier.focusOnOpen(enabled: Boolean = true): Modifier {
+fun Modifier.focusOnOpen(enabled: Boolean = true, fallback: FocusRequester? = null): Modifier {
     if (!enabled) return this
     val requester = remember { FocusRequester() }
     val state = remember { FocusOnOpenState() }
@@ -190,8 +233,10 @@ fun Modifier.focusOnOpen(enabled: Boolean = true): Modifier {
         repeat(60) {
             withFrameNanos { }
             if (!GamepadUi.active || state.hasFocus) return@LaunchedEffect
-            leaveTouchMode(view)
-            runCatching { requester.requestFocus() }
+            if (!leaveTouchMode(view)) return@repeat
+            val focused = runCatching { requester.requestFocus() }.getOrDefault(false) ||
+                    (fallback != null && runCatching { fallback.requestFocus() }.getOrDefault(false))
+            if (focused) return@LaunchedEffect
         }
     }
     return this
@@ -211,6 +256,22 @@ fun leaveTouchMode(view: View): Boolean {
 
 private class FocusOnOpenState {
     var hasFocus = false
+}
+
+/**
+ * Makes this item (or the first focusable inside it) the one focused when the screen opens,
+ * instead of the first item: for screens whose first item is destructive (a delete button).
+ */
+@Composable
+fun Modifier.initialScreenFocus(): Modifier {
+    val focus = LocalScreenFocus.current
+    if (focus == null || focus.view !== LocalView.current) return this
+    val requester = remember { FocusRequester() }
+    DisposableEffect(focus, requester) {
+        focus.preferred = requester
+        onDispose { if (focus.preferred == requester) focus.preferred = null }
+    }
+    return focusRequester(requester)
 }
 
 /** Start of a section L/R jump to. */

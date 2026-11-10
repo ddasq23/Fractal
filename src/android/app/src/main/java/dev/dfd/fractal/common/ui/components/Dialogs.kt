@@ -32,6 +32,9 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import dev.dfd.fractal.common.ui.fractal.ButtonHint
 import dev.dfd.fractal.common.ui.fractal.DialogButtonLegend
 import dev.dfd.fractal.common.ui.fractal.dialogHints
@@ -80,6 +83,7 @@ fun FractalAlertDialog(
     confirmButton: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     dismissButton: (@Composable () -> Unit)? = null,
+    icon: (@Composable () -> Unit)? = null,
     title: (@Composable () -> Unit)? = null,
     text: (@Composable () -> Unit)? = null,
     hints: List<ButtonHint> = dialogHints(),
@@ -91,7 +95,13 @@ fun FractalAlertDialog(
             color = AlertDialogDefaults.containerColor,
             tonalElevation = AlertDialogDefaults.TonalElevation,
         ) {
+            val buttonsFocus = remember { FocusRequester() }
             Column(Modifier.padding(24.dp)) {
+                if (icon != null) {
+                    CompositionLocalProvider(LocalContentColor provides AlertDialogDefaults.iconContentColor) {
+                        Box(Modifier.padding(bottom = 16.dp).align(Alignment.CenterHorizontally)) { icon() }
+                    }
+                }
                 if (title != null) {
                     CompositionLocalProvider(LocalContentColor provides AlertDialogDefaults.titleContentColor) {
                         ProvideTextStyle(MaterialTheme.typography.headlineSmall) {
@@ -109,11 +119,12 @@ fun FractalAlertDialog(
                 CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) {
                     ProvideTextStyle(MaterialTheme.typography.labelLarge) {
                         FlowRow(
-                            Modifier.align(Alignment.End),
+                            Modifier.align(Alignment.End).focusRequester(buttonsFocus),
                             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                         ) {
                             dismissButton?.invoke()
-                            Box(Modifier.focusOnOpen()) { confirmButton() }
+                            // focus on the confirm button, or the other one when there is none (progress dialogs)
+                            Box(Modifier.focusOnOpen(fallback = buttonsFocus)) { confirmButton() }
                         }
                     }
                 }
