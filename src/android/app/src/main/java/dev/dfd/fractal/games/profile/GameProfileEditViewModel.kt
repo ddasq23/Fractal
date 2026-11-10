@@ -238,6 +238,20 @@ class GameProfileEditViewModel(val game: Game) : ViewModel() {
         }
     }
 
+    /**
+     * Picks [option] of a pack-backed setting (resolution, FPS limit): the other packs of the setting are
+     * turned off first, they would fight over the same thing; null turns them all off.
+     */
+    fun selectPackOption(setting: PackSetting, option: PackOption?) {
+        val active = _packs.value.orEmpty().filter { it.active }.mapTo(HashSet()) { it.id }
+        setting.packIds.filter { it != option?.packId && it in active }.forEach { setPackActive(it, false) }
+        when {
+            option == null -> Unit
+            option.choice != null -> setPackPreset(option.packId, option.category, option.choice, enable = true)
+            else -> setPackActive(option.packId, true)
+        }
+    }
+
     private val _downloadStatus = MutableStateFlow<GraphicPacksDownloadStatus?>(null)
     val downloadStatus = _downloadStatus.asStateFlow()
     private var downloadJob: Job? = null

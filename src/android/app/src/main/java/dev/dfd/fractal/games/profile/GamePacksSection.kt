@@ -23,12 +23,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.dfd.fractal.common.ui.fractal.FractalButton
+import dev.dfd.fractal.common.ui.fractal.SectionTitle
 import dev.dfd.fractal.common.ui.icons.FractalIcons
 import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.common.ui.theme.FractalTheme
@@ -40,25 +42,94 @@ class PackActions(
     val setActive: (id: Long, active: Boolean) -> Unit,
     /** [enable] also turns the pack on, for one-tap choices. */
     val setPreset: (id: Long, category: String?, choice: String, enable: Boolean) -> Unit,
+    /** An option of a resolution / FPS limit setting, null for Off. */
+    val select: (setting: PackSetting, option: PackOption?) -> Unit,
     val download: () -> Unit,
     val openBrowser: () -> Unit,
 )
 
-// region recommended packs
+// region resolution & FPS limit
 
 private val BotwTitleIds = setOf(0x00050000101C9300L, 0x00050000101C9400L, 0x00050000101C9500L)
 
-/** Games with a recommended packs card. */
+/** Games with a recommended packs card (it holds their resolution and FPS limit rows too). */
 fun hasRecommendedPacks(titleId: Long) = titleId in BotwTitleIds
 
 private fun List<GamePack>.fpsPlusPlus() =
     firstOrNull { it.path.endsWith("/Mods/FPS++", ignoreCase = true) } ?: firstOrNull { it.name.contains("FPS++", ignoreCase = true) }
 
-/** The game's main "Graphics" pack (resolution, shadows...), "<game>/Graphics". */
-private fun List<GamePack>.mainGraphicsPack() =
-    firstOrNull { it.path.split('/').let { s -> s.size == 2 && s[1].equals("Graphics", ignoreCase = true) } }
+/** Off, then the setting's options; picking one enables its pack. */
+@Composable
+private fun PackSettingRow(title: String, description: String, setting: PackSetting, actions: PackActions) {
+    ChoiceRow(
+        title = title,
+        description = description,
+        value = setting.selected,
+        choices = listOf<PackOption?>(null) + setting.options,
+        label = { it?.label ?: tr("Off (game default)") },
+        onSelect = { actions.select(setting, it) },
+    )
+}
 
-private const val OFF = "\u0000off"
+@Composable
+private fun ResolutionRow(setting: PackSetting, actions: PackActions) = PackSettingRow(
+    title = tr("Resolution"),
+    description = tr("From the {0} pack. Lower resolutions are faster", setting.mainPack.name),
+    setting = setting,
+    actions = actions,
+)
+
+@Composable
+private fun FpsLimitRow(setting: PackSetting, actions: PackActions) {
+    val description = tr(
+        "From the {0} pack, which changes the game's own timing so it keeps its normal speed. Pick a rate the device can hold: with some packs the game slows down below it.",
+        setting.mainPack.name,
+    )
+    if (setting.options.size > 2) {
+        PackSettingRow(tr("FPS limit"), description, setting, actions)
+        return
+    }
+    // "Off" and one or two packs ("60FPS"): buttons, like the recommended card
+    Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(tr("FPS limit"), style = MaterialTheme.typography.titleSmall, color = FractalTheme.colors.text)
+        SegmentedChoice(
+            choices = listOf<PackOption?>(null) + setting.options,
+            selected = setting.selected,
+            label = { it?.label ?: tr("Off (game default)") },
+            onSelect = { actions.select(setting, it) },
+        )
+        HintText(description)
+    }
+}
+
+/**
+ * Resolution and FPS limit near the top of the game's settings, for any game whose graphic packs have
+ * them ([resolutionSetting], [fpsSetting]). Nothing when they don't; a download row while the community
+ * packs aren't downloaded.
+ */
+@Composable
+fun GamePackSettings(packs: List<GamePack>?, packsDownloaded: Boolean, downloading: Boolean, actions: PackActions) {
+    if (packs == null) return
+    val resolution = remember(packs) { packs.resolutionSetting() }
+    val fps = remember(packs) { packs.fpsSetting() }
+    if (resolution == null && fps == null) {
+        if (packsDownloaded) return
+        SectionTitle(tr("Resolution & FPS"))
+        ActionRow(
+            title = if (downloading) tr("Downloading…") else tr("Download graphic packs"),
+            description = tr("The community graphic packs add resolution and FPS options for most games"),
+            icon = FractalIcons.Download,
+            onClick = actions.download,
+            enabled = !downloading,
+        )
+        return
+    }
+    SectionTitle(tr("Resolution & FPS"))
+    SettingPanel {
+        resolution?.let { ResolutionRow(it, actions) }
+        fps?.let { FpsLimitRow(it, actions) }
+    }
+}
 
 /**
  * Breath of the Wild: FPS++ removes the game's double-buffered vsync lock (on the RP5 11.8 -> 21 fps;
@@ -82,8 +153,8 @@ fun RecommendedPacksCard(packs: List<GamePack>?, downloading: Boolean, actions: 
             return@SettingPanel
         }
         val fps = packs.fpsPlusPlus()
-        val graphics = packs.mainGraphicsPack()
-        if (fps == null || graphics == null) {
+        val resolution = remember(packs) { packs.resolutionSetting() }
+        if (fps == null || resolution == null) {
             HintText(
                 tr("The recommended packs (FPS++ and Graphics) are not in your graphic packs yet. Download the community graphic packs to get them.")
             )
@@ -102,38 +173,24 @@ fun RecommendedPacksCard(packs: List<GamePack>?, downloading: Boolean, actions: 
                 checked = fps.active,
                 onChange = { actions.setActive(fps.id, it) },
             )
-            val limit = fps.presets.firstOrNull { it.category?.contains("FPS Limit", ignoreCase = true) == true }
-            val choice30 = limit?.choices?.firstOrNull { it.trimStart().startsWith("30") }
-            val choice60 = limit?.choices?.firstOrNull { it.trimStart().startsWith("60") }
+            // FPS++ goes from 240 down to 20: the card offers the two that make sense on a handheld
+            val limit = remember(packs) { packs.fpsSetting() }?.takeIf { it.mainPack.id == fps.id }
+            val choice30 = limit?.options?.firstOrNull { it.packId == fps.id && it.label.trimStart().startsWith("30") }
+            val choice60 = limit?.options?.firstOrNull { it.packId == fps.id && it.label.trimStart().startsWith("60") }
             if (limit != null && (choice30 != null || choice60 != null)) {
                 Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(tr("FPS limit"), style = MaterialTheme.typography.titleSmall, color = FractalTheme.colors.text)
                     SegmentedChoice(
                         choices = listOfNotNull(choice30, choice60),
-                        selected = limit.activeChoice.takeIf { fps.active },
+                        selected = limit.selected,
                         label = { if (it == choice30) tr("30 FPS") else tr("60 FPS") },
-                        onSelect = { actions.setPreset(fps.id, limit.category, it, true) },
+                        onSelect = { actions.select(limit, it) },
                     )
                     HintText(tr("30 FPS gives steadier frame pacing when the device can't hold 60. Picking a limit enables FPS++."))
                 }
             }
         }
-        if (graphics != null) {
-            val resolution = graphics.presets.firstOrNull { it.category.equals("Resolution", ignoreCase = true) }
-            if (resolution != null) {
-                ChoiceRow(
-                    title = tr("Resolution"),
-                    description = tr("From the Graphics pack. Lower resolutions are faster"),
-                    value = if (graphics.active) resolution.activeChoice else OFF,
-                    choices = listOf(OFF) + resolution.choices,
-                    label = { if (it == OFF) tr("Off (game default)") else it },
-                    onSelect = {
-                        if (it == OFF) actions.setActive(graphics.id, false)
-                        else actions.setPreset(graphics.id, resolution.category, it, true)
-                    },
-                )
-            }
-        }
+        if (resolution != null) ResolutionRow(resolution, actions)
     }
 }
 
