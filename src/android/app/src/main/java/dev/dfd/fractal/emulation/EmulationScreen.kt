@@ -4,21 +4,13 @@ import android.annotation.SuppressLint
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ModalDrawerSheet
@@ -27,7 +19,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -41,11 +32,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.MutableCreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -81,6 +70,27 @@ import dev.dfd.fractal.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.
 import dev.dfd.fractal.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.EDIT_SIZE
 import dev.dfd.fractal.nativeinterface.NativeEmulation
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalContext
+import dev.dfd.fractal.common.settings.OverlayShortcut
+import dev.dfd.fractal.common.settings.deleteShortcut
+import dev.dfd.fractal.common.settings.setInputStyle
+import dev.dfd.fractal.common.settings.upsertShortcut
+import dev.dfd.fractal.common.ui.theme.FractalTheme
+import dev.dfd.fractal.emulation.inputoverlay.styleKey
+import dev.dfd.fractal.emulation.inputoverlay.ui.ShortcutEditorDialog
+import dev.dfd.fractal.emulation.inputoverlay.ui.overlayPaletteFor
+import dev.dfd.fractal.emulation.menu.EmulationMenuActions
+import dev.dfd.fractal.emulation.menu.EmulationMenuContent
+import dev.dfd.fractal.emulation.menu.EmulationPanel
+import dev.dfd.fractal.emulation.menu.EmulationPanels
+import dev.dfd.fractal.emulation.menu.SurfaceRef
+import dev.dfd.fractal.emulation.menu.UpscalingFilterChoices
+import dev.dfd.fractal.emulation.menu.emulationMenuColor
+import dev.dfd.fractal.emulation.menu.scalingFilterName
+import dev.dfd.fractal.nativeinterface.NativeSettings
 
 @Composable
 fun EmulationScreen(
@@ -96,15 +106,19 @@ fun EmulationScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var showQuitConfirmationDialog by remember { mutableStateOf(false) }
     var inputOverlayInputMode by rememberSaveable { mutableStateOf(DEFAULT) }
     var showEmulatedUSBDevices by remember { mutableStateOf(false) }
     val overlayController = remember { InputOverlayController() }
     var overlayDialog by remember { mutableStateOf<OverlayDialogState?>(null) }
+    var panel by remember { mutableStateOf<EmulationPanel?>(null) }
+    val mainSurface = remember { SurfaceRef() }
 
     val emulationError by viewModel.emulationError.collectAsState()
     val isEmulationInitialized by viewModel.isEmulationInitialized.collectAsState()
     val sideMenuState by viewModel.sideMenuState.collectAsState()
+    val displayOptions by viewModel.displayOptions.collectAsState()
     val gamePadPosition by viewModel.gamePadPosition.collectAsState()
     val isInputOverlayVisible by viewModel.isInputOverlayVisible.collectAsState()
     val inputOverlaySettings by viewModel.inputOverlaySettings.collectAsState()
@@ -126,6 +140,91 @@ fun EmulationScreen(
         }
     }
 
+    fun applyMenuState(transform: (SideMenuState) -> SideMenuState) {
+        val old = viewModel.sideMenuState.value
+        val new = transform(old)
+        if (new == old) return
+        viewModel.updateSideMenuState(new)
+        if (new.isMotionEnabled != old.isMotionEnabled) setMotionSensorEnabled(new.isMotionEnabled)
+        if (new.isTVReplacedWithPad != old.isTVReplacedWithPad) NativeEmulation.setReplaceTVWithPadView(new.isTVReplacedWithPad)
+    }
+
+    fun captureScreenshot() {
+        scope.launch {
+            val view = mainSurface.view
+            val bitmap = view?.let { captureSurface(it) }
+            val uri = bitmap?.let { saveScreenshot(context, it) }
+            snackbarHostState.showMessage(
+                scope,
+                if (uri != null) tr("Screenshot saved to Pictures/Fractal") else tr("Could not take a screenshot"),
+            )
+        }
+    }
+
+    fun setPaused(paused: Boolean) {
+        viewModel.setPaused(paused)
+    }
+
+    /** Runs a hotkey or shortcut button action. */
+    suspend fun perform(action: HotkeyAction) {
+        // full screen panels take the controller; their own dialogs must not be covered
+        if (panel != null) return
+        when (action) {
+            HotkeyAction.QUIT -> showQuitConfirmationDialog = true
+            HotkeyAction.TOGGLE_MENU -> toggleMenu()
+            HotkeyAction.SHOW_EMULATED_USB_DEVICES_DIALOG -> showEmulatedUSBDevices = true
+            HotkeyAction.TOGGLE_PAUSE -> {
+                val paused = !viewModel.sideMenuState.value.isPaused
+                setPaused(paused)
+                snackbarHostState.showMessage(scope, if (paused) tr("Paused") else tr("Resumed"))
+            }
+
+            HotkeyAction.TAKE_SCREENSHOT -> captureScreenshot()
+            HotkeyAction.SWAP_TV_AND_PAD -> applyMenuState { it.copy(isTVReplacedWithPad = !it.isTVReplacedWithPad) }
+            HotkeyAction.TOGGLE_PAD_SCREEN -> applyMenuState { it.copy(isPadVisible = !it.isPadVisible) }
+            HotkeyAction.TOGGLE_INPUT_OVERLAY -> applyMenuState { it.copy(isInputOverlayVisible = !it.isInputOverlayVisible) }
+            HotkeyAction.TOGGLE_MOTION -> {
+                applyMenuState { it.copy(isMotionEnabled = !it.isMotionEnabled) }
+                snackbarHostState.showMessage(
+                    scope,
+                    if (viewModel.sideMenuState.value.isMotionEnabled) tr("Motion enabled") else tr("Motion disabled"),
+                )
+            }
+
+            HotkeyAction.TOGGLE_FPS_OVERLAY -> {
+                viewModel.updateDisplayOptions { it.copy(showFps = !it.showFps) }
+                viewModel.saveDisplayOptions()
+            }
+
+            HotkeyAction.TOGGLE_ASPECT_RATIO -> {
+                viewModel.updateDisplayOptions {
+                    it.copy(
+                        fullscreenScaling = if (it.fullscreenScaling == NativeSettings.FullscreenScaling.STRETCH)
+                            NativeSettings.FullscreenScaling.KEEP_ASPECT_RATIO else NativeSettings.FullscreenScaling.STRETCH
+                    )
+                }
+                viewModel.saveDisplayOptions()
+                snackbarHostState.showMessage(
+                    scope,
+                    if (viewModel.displayOptions.value.fullscreenScaling == NativeSettings.FullscreenScaling.STRETCH)
+                        tr("Stretch") else tr("Keep aspect ratio"),
+                )
+            }
+
+            HotkeyAction.CYCLE_UPSCALE_FILTER -> {
+                viewModel.updateDisplayOptions {
+                    val index = UpscalingFilterChoices.indexOf(it.upscaleFilter)
+                    it.copy(upscaleFilter = UpscalingFilterChoices[(index + 1).mod(UpscalingFilterChoices.size)])
+                }
+                viewModel.saveDisplayOptions()
+                snackbarHostState.showMessage(
+                    scope,
+                    tr("Upscale filter: {0}", scalingFilterName(viewModel.displayOptions.value.upscaleFilter)),
+                )
+            }
+        }
+    }
+
     BackHandler {
         if (drawerState.isAnimationRunning) {
             return@BackHandler
@@ -138,60 +237,90 @@ fun EmulationScreen(
 
     LaunchedEffect(drawerState.isClosed) {
         setInputListeningEnabled(drawerState.isClosed)
+        if (drawerState.isClosed) {
+            viewModel.saveDisplayOptions()
+        } else {
+            viewModel.refreshDisplayOptions()
+        }
     }
 
     LaunchedEffect(Unit) {
-        HotkeyManager.actions.collect { action ->
-            when (action) {
-                HotkeyAction.QUIT -> showQuitConfirmationDialog = true
-                HotkeyAction.TOGGLE_MENU -> toggleMenu()
-                HotkeyAction.SHOW_EMULATED_USB_DEVICES_DIALOG -> showEmulatedUSBDevices = true
+        HotkeyManager.actions.collect { action -> perform(action) }
+    }
+
+    val menuActions = remember {
+        object : EmulationMenuActions {
+            override fun resume() {
+                viewModel.setPaused(false)
+                closeDrawer()
+            }
+            override fun setPaused(paused: Boolean) = viewModel.setPaused(paused)
+            override fun takeScreenshot() = captureScreenshot()
+            override fun quit() {
+                showQuitConfirmationDialog = true
+                closeDrawer()
+            }
+
+            override fun updateMenuState(transform: (SideMenuState) -> SideMenuState) = applyMenuState(transform)
+            override fun updateDisplay(transform: (DisplayOptions) -> DisplayOptions) = viewModel.updateDisplayOptions(transform)
+            override fun editOverlay() {
+                snackbarHostState.showMessage(scope, tr("Edit input positions"))
+                inputOverlayInputMode = EDIT_POSITION
+                closeDrawer()
+            }
+
+            override fun overlayProfiles() {
+                overlayDialog = OverlayDialogState.Profiles
+                closeDrawer()
+            }
+
+            override fun overlayStyle() {
+                overlayDialog = OverlayDialogState.Options
+                closeDrawer()
+            }
+
+            override fun resetOverlay() {
+                overlayDialog = OverlayDialogState.ConfirmReset
+                closeDrawer()
+            }
+
+            override fun controllerSettings() {
+                panel = EmulationPanel.ControllerPicker
+            }
+
+            override fun hotkeys() {
+                panel = EmulationPanel.Hotkeys
+                closeDrawer()
+            }
+
+            override fun emulatedUsbDevices() {
+                showEmulatedUSBDevices = true
+                closeDrawer()
             }
         }
+    }
+
+    val menuShape = if (FractalTheme.shapes.card is CutCornerShape) {
+        CutCornerShape(bottomEnd = 18.dp)
+    } else {
+        RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
     }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         gesturesEnabled = drawerState.isOpen,
         drawerContent = {
-            ModalDrawerSheet {
-                Column(
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp)
-                        .width(IntrinsicSize.Max)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    EmulationSideMenuContent(
-                        sideMenuState = sideMenuState,
-                        updateState = {
-                            viewModel.updateSideMenuState(it)
-                            setMotionSensorEnabled(it.isMotionEnabled)
-                            NativeEmulation.setReplaceTVWithPadView(it.isTVReplacedWithPad)
-                            closeDrawer()
-                        },
-                        onEditInputOverlay = {
-                            snackbarHostState.showMessage(scope, tr("Edit input positions"))
-                            inputOverlayInputMode = EDIT_POSITION
-                            closeDrawer()
-                        },
-                        onResetInputOverlay = {
-                            overlayDialog = OverlayDialogState.ConfirmReset
-                            closeDrawer()
-                        },
-                        onInputOverlayProfiles = {
-                            overlayDialog = OverlayDialogState.Profiles
-                            closeDrawer()
-                        },
-                        onQuit = {
-                            showQuitConfirmationDialog = true
-                            closeDrawer()
-                        },
-                        onShowEmulatedUSBDevices = {
-                            showEmulatedUSBDevices = true
-                            closeDrawer()
-                        },
-                    )
-                }
+            ModalDrawerSheet(
+                drawerShape = menuShape,
+                drawerContainerColor = emulationMenuColor(),
+                drawerContentColor = FractalTheme.colors.text,
+            ) {
+                EmulationMenuContent(
+                    isOpen = drawerState.isOpen,
+                    state = sideMenuState,
+                    display = displayOptions,
+                    actions = menuActions,
+                )
             }
         },
     ) {
@@ -201,6 +330,7 @@ fun EmulationScreen(
             mainHolderCallback = viewModel.mainHolderCallback,
             padHolderCallback = viewModel.padHolderCallback,
             onInitializeEmulation = viewModel::initializeEmulation,
+            onMainSurfaceView = { mainSurface.view = it },
         )
 
         InputOverlaySurface(
@@ -211,6 +341,8 @@ fun EmulationScreen(
             onEditFinished = viewModel::saveInputOverlayEdits,
             onInputLongPress = { overlayDialog = OverlayDialogState.InputOptions(it) },
             onLegacyLayout = viewModel::migrateLegacyInputOverlayLayout,
+            palette = overlayPaletteFor(inputOverlaySettings),
+            onShortcut = HotkeyManager::trigger,
         )
 
         if (inputOverlayInputMode != DEFAULT) {
@@ -223,6 +355,7 @@ fun EmulationScreen(
                 onResize = { inputOverlayInputMode = EDIT_SIZE },
                 onToggleSnap = { viewModel.updateInputOverlaySettings { it.copy(snapToGrid = !it.snapToGrid) } },
                 onAddMacro = { overlayDialog = OverlayDialogState.MacroEditor(null) },
+                onAddShortcut = { overlayDialog = OverlayDialogState.ShortcutEditor(null) },
                 onProfiles = { overlayDialog = OverlayDialogState.Profiles },
                 onOptions = { overlayDialog = OverlayDialogState.Options },
                 onReset = { overlayDialog = OverlayDialogState.ConfirmReset },
@@ -269,6 +402,20 @@ fun EmulationScreen(
         )
     }
 
+    EmulationPanels(
+        panel = panel,
+        onPanelChange = { next ->
+            if (next == null || next is EmulationPanel.Controller || next == EmulationPanel.Hotkeys) closeDrawer()
+            panel = next
+        },
+        onClosed = {
+            // the panel's window took the key events: nothing pressed before stays held
+            HotkeyManager.clearPressedKeys()
+            // the emulated controller type may have changed
+            overlayController.rebuild()
+        },
+    )
+
     overlayController.controllerType?.let { controllerType ->
         InputOverlayDialogs(
             state = overlayDialog,
@@ -291,6 +438,7 @@ fun EmulationScreen(
 private sealed interface OverlayDialogState {
     data class InputOptions(val target: OverlayTarget) : OverlayDialogState
     data class MacroEditor(val macro: OverlayMacro?) : OverlayDialogState
+    data class ShortcutEditor(val shortcut: OverlayShortcut?) : OverlayDialogState
     data object Profiles : OverlayDialogState
     data object Options : OverlayDialogState
     data object ConfirmReset : OverlayDialogState
@@ -320,7 +468,16 @@ private fun InputOverlayDialogs(
                         val macro = s.activeProfile(controllerType).macros.firstOrNull { it.id == target.id }
                         if (macro == null) s else s.upsertMacro(controllerType, macro.copy(behavior = behavior))
                     }
+
+                    is OverlayTarget.Shortcut -> {}
                 }
+            },
+            onStyleChange = { style -> onUpdate { it.setInputStyle(controllerType, state.target.styleKey, style) } },
+            onStylePreview = { style -> controller.previewInputStyle(state.target, style) },
+            onEditShortcut = { onStateChange(OverlayDialogState.ShortcutEditor(it)) },
+            onDeleteShortcut = { shortcut ->
+                onUpdate { it.deleteShortcut(controllerType, shortcut.id) }
+                dismiss()
             },
             onHide = {
                 val target = state.target
@@ -342,6 +499,15 @@ private fun InputOverlayDialogs(
             controllerType = controllerType,
             onSave = { macro ->
                 onUpdate { it.upsertMacro(controllerType, macro) }
+                dismiss()
+            },
+            onDismiss = dismiss,
+        )
+
+        is OverlayDialogState.ShortcutEditor -> ShortcutEditorDialog(
+            initial = state.shortcut,
+            onSave = { shortcut ->
+                onUpdate { it.upsertShortcut(controllerType, shortcut) }
                 dismiss()
             },
             onDismiss = dismiss,
@@ -387,125 +553,13 @@ private fun InputOverlayDialogs(
 }
 
 @Composable
-private fun EmulationSideMenuContent(
-    sideMenuState: SideMenuState,
-    updateState: (SideMenuState) -> Unit,
-    onShowEmulatedUSBDevices: () -> Unit,
-    onEditInputOverlay: () -> Unit,
-    onResetInputOverlay: () -> Unit,
-    onInputOverlayProfiles: () -> Unit,
-    onQuit: () -> Unit,
-) {
-    CheckboxItem(
-        label = tr("Enable motion"),
-        checked = sideMenuState.isMotionEnabled,
-        onCheckedChange = { updateState(sideMenuState.copy(isMotionEnabled = it)) },
-    )
-
-    CheckboxItem(
-        label = tr("Replace TV with PAD"),
-        checked = sideMenuState.isTVReplacedWithPad,
-        onCheckedChange = { updateState(sideMenuState.copy(isTVReplacedWithPad = it)) },
-    )
-
-    CheckboxItem(
-        label = tr("Show PAD"),
-        checked = sideMenuState.isPadVisible,
-        onCheckedChange = { updateState(sideMenuState.copy(isPadVisible = it)) },
-    )
-
-    TextButtonItem(
-        label = tr("Emulated USB Devices"),
-        onClick = onShowEmulatedUSBDevices,
-    )
-
-    CheckboxItem(
-        label = tr("Show input overlay"),
-        checked = sideMenuState.isInputOverlayVisible,
-        onCheckedChange = { updateState(sideMenuState.copy(isInputOverlayVisible = it)) },
-    )
-
-    TextButtonItem(
-        label = tr("Edit inputs"),
-        enabled = sideMenuState.isInputOverlayVisible,
-        onClick = onEditInputOverlay,
-    )
-
-    TextButtonItem(
-        label = tr("Input overlay profiles"),
-        enabled = sideMenuState.isInputOverlayVisible,
-        onClick = onInputOverlayProfiles,
-    )
-
-    TextButtonItem(
-        label = tr("Reset input overlay"),
-        enabled = sideMenuState.isInputOverlayVisible,
-        onClick = onResetInputOverlay,
-    )
-
-    TextButtonItem(
-        label = tr("Exit"),
-        onClick = onQuit,
-    )
-}
-
-@Composable
-private fun CheckboxItem(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (enabled) 1f else 0.6f)
-            .clickable(enabled) { onCheckedChange(!checked) }
-            .padding(8.dp)
-            .minimumInteractiveComponentSize(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier
-                .padding(end = 8.dp)
-                .weight(1f),
-            fontSize = 16.sp,
-        )
-
-        Checkbox(
-            checked = checked,
-            onCheckedChange = null,
-        )
-    }
-}
-
-@Composable
-private fun TextButtonItem(
-    label: String,
-    onClick: () -> Unit,
-    enabled: Boolean = true,
-) {
-    Text(
-        text = label,
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (enabled) 1f else 0.6f)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(8.dp)
-            .heightIn(min = 48.dp)
-            .wrapContentHeight(align = Alignment.CenterVertically),
-        fontSize = 16.sp,
-    )
-}
-
-@Composable
 private fun EmulationSurfaces(
     sideMenuState: SideMenuState,
     gamePadPosition: GamePadPosition?,
     mainHolderCallback: SurfaceHolder.Callback,
     padHolderCallback: SurfaceHolder.Callback,
-    onInitializeEmulation: () -> Unit
+    onInitializeEmulation: () -> Unit,
+    onMainSurfaceView: (SurfaceView?) -> Unit = {},
 ) {
     if (gamePadPosition == null) {
         return
@@ -522,6 +576,7 @@ private fun EmulationSurfaces(
             isTV = true,
             holderCallback = mainHolderCallback,
             afterInit = { onInitializeEmulation() },
+            onView = onMainSurfaceView,
         )
     }
 
@@ -576,8 +631,10 @@ private fun EmulationSurface(
     modifier: Modifier,
     isTV: Boolean,
     holderCallback: SurfaceHolder.Callback,
-    afterInit: () -> Unit = {}
+    afterInit: () -> Unit = {},
+    onView: (SurfaceView?) -> Unit = {},
 ) {
+    DisposableEffect(Unit) { onDispose { onView(null) } }
     AndroidView(
         modifier = modifier,
         factory = { context ->
@@ -602,6 +659,7 @@ private fun EmulationSurface(
 
                     override fun surfaceDestroyed(holder: SurfaceHolder) {}
                 })
+                onView(this)
             }
         })
 }
