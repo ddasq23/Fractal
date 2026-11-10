@@ -93,6 +93,9 @@ namespace coreinit
 		uint32 selectedCore;
 	};
 
+	// set while the title is paused from the emulator menu: the main core's idle loop sleeps instead of spinning
+	static std::atomic<bool> s_activeThreadsSuspended{false};
+
 	void SuspendActiveThreads()
 	{
 		if (activeThreadCount == 0)
@@ -100,6 +103,7 @@ namespace coreinit
 			return;
 		}
 
+		s_activeThreadsSuspended.store(true, std::memory_order_relaxed);
 		__OSLockScheduler();
 
 		for (sint32 i = 0; i < activeThreadCount; i++)
@@ -113,6 +117,7 @@ namespace coreinit
 
 	void ResumeActiveThreads()
 	{
+		s_activeThreadsSuspended.store(false, std::memory_order_relaxed);
 		if (activeThreadCount == 0)
 		{
 			return;
@@ -1289,6 +1294,10 @@ namespace coreinit
 	static std::chrono::microseconds __OSIdleWaitTimeout()
 	{
 		static const uint64 kMaxUs = (uint64)PerfLog::Tunable("idle_wait_max_us", 0);
+		// paused from the menu: nothing of the game runs, so spinning would only keep a host core at 100%.
+		// 5 ms keeps alarms and system events going; resuming makes threads runnable, which ends the wait at once
+		if (s_activeThreadsSuspended.load(std::memory_order_relaxed))
+			return std::chrono::microseconds(5000);
 		uint64 soonest = OSHostAlarm_GetSoonestAlarmTick();
 		uint64 now = coreinit::OSGetTime();
 		if (soonest <= now)
