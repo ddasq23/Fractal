@@ -18,6 +18,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
 import dev.dfd.fractal.common.ui.fractal.SettingsCard
 import dev.dfd.fractal.common.ui.fractal.SettingsRowTitle
 import dev.dfd.fractal.common.ui.theme.FractalTheme
@@ -41,6 +48,7 @@ fun Slider(
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
     val colors = FractalTheme.colors
+    val focusManager = LocalFocusManager.current
 
     SettingsCard(modifier = modifier, enabled = enabled, focused = focused) {
         Column(Modifier.weight(1f)) {
@@ -60,6 +68,16 @@ fun Slider(
                 onValueChangeFinished = { onValueChange(sliderValue.roundToInt()) },
                 onValueChange = { sliderValue = it },
                 interactionSource = interactionSource,
+                // the Material slider also moves with up/down: keep those for going through the list
+                modifier = Modifier.onPreviewKeyEvent { event ->
+                    val direction = when (event.key) {
+                        Key.DirectionUp -> FocusDirection.Up
+                        Key.DirectionDown -> FocusDirection.Down
+                        else -> return@onPreviewKeyEvent false
+                    }
+                    if (event.type == KeyEventType.KeyDown) focusManager.moveFocus(direction)
+                    true
+                },
                 colors = SliderDefaults.colors(
                     thumbColor = colors.accent,
                     activeTrackColor = colors.accent,

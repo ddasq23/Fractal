@@ -51,12 +51,14 @@ import dev.dfd.fractal.common.ui.theme.FractalTheme
 import dev.dfd.fractal.common.ui.theme.WordmarkStyle
 import dev.dfd.fractal.common.ui.theme.fractalSurface
 
-/** Gamepad A confirms like D-pad center/Enter do. */
+/**
+ * Gamepad A confirms like D-pad center/Enter do, on release. The press is taken too, so Android's
+ * A to D-pad center fallback doesn't also click the item.
+ */
 fun Modifier.gamepadConfirm(onConfirm: () -> Unit): Modifier = onKeyEvent {
-    if (it.key == Key.ButtonA && it.type == KeyEventType.KeyUp) {
-        onConfirm()
-        true
-    } else false
+    if (it.key != Key.ButtonA) return@onKeyEvent false
+    if (it.type == KeyEventType.KeyUp) onConfirm()
+    true
 }
 
 /** White ring drawn around focused items; only visible while navigating with keys/gamepad. */
@@ -96,6 +98,7 @@ fun FractalButton(
                     else -> Modifier.fractalSurface(shapes.button, FractalTheme.surface, colors.surfaceHigh)
                 }
             )
+            .screenFocusItem()
             .gamepadConfirm { if (enabled) onClick() }
             .clickable(
                 interactionSource = interaction,
@@ -137,6 +140,7 @@ fun FractalIconButton(
             .focusRing(focused, shapes.button, gap = 2.dp)
             .clip(shapes.button)
             .background(if (selected) colors.selected else Color.Transparent)
+            .screenFocusItem()
             .gamepadConfirm(onClick)
             .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
             .size(44.dp),

@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
+import dev.dfd.fractal.common.ui.components.FractalAlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -249,7 +249,7 @@ fun GameProfileEditScreen(
     }
 
     if (confirmRemoveShaders) {
-        AlertDialog(
+        FractalAlertDialog(
             onDismissRequest = { confirmRemoveShaders = false },
             title = { Text(tr("Remove shader caches")) },
             text = { Text(tr("Remove the shader caches for {0}?", game.name ?: "")) },

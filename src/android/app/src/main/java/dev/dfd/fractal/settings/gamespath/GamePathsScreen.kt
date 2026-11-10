@@ -27,7 +27,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.layout.Box
+import dev.dfd.fractal.common.ui.fractal.ButtonHint
 import dev.dfd.fractal.common.ui.fractal.FractalButton
+import dev.dfd.fractal.common.ui.fractal.PadButton
+import dev.dfd.fractal.common.ui.fractal.initialScreenFocus
 import dev.dfd.fractal.common.ui.fractal.FractalIconButton
 import dev.dfd.fractal.common.ui.fractal.FractalScreen
 import dev.dfd.fractal.common.ui.icons.FractalIcons
@@ -61,7 +65,11 @@ fun GamePathsScreen(
             gamesPathsViewModel.addGamesPath(gamesPath)
         }
 
-    FractalScreen(title = tr("Game paths"), onBack = navigateBack) {
+    FractalScreen(
+        title = tr("Game paths"),
+        onBack = navigateBack,
+        extraHints = listOf(ButtonHint(PadButton.X, tr("Add game folder")) { launcher.launch(null) }),
+    ) {
         Text(
             tr("Fractal looks for games (.wua, .wux, .wud, .iso, .rpx) in these folders and in every folder inside them."),
             style = MaterialTheme.typography.bodyMedium,
@@ -81,12 +89,15 @@ fun GamePathsScreen(
         gamesPaths.forEach { path ->
             GamePathRow(path, onDelete = { gamesPathsViewModel.removeGamesPath(path) })
         }
-        FractalButton(
-            tr("Add game folder"),
-            onClick = { launcher.launch(null) },
-            icon = FractalIcons.FolderAdd,
-            primary = gamesPaths.isEmpty(),
-        )
+        // the first item would be a folder's remove button: start on this one
+        Box(Modifier.initialScreenFocus()) {
+            FractalButton(
+                tr("Add game folder"),
+                onClick = { launcher.launch(null) },
+                icon = FractalIcons.FolderAdd,
+                primary = gamesPaths.isEmpty(),
+            )
+        }
     }
 }
 

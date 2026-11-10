@@ -39,8 +39,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.dfd.fractal.common.ui.fractal.FractalButton
+import dev.dfd.fractal.common.ui.fractal.focusOnOpen
 import dev.dfd.fractal.common.ui.fractal.focusRing
 import dev.dfd.fractal.common.ui.fractal.gamepadConfirm
+import dev.dfd.fractal.common.ui.fractal.screenFocusItem
 import dev.dfd.fractal.common.ui.icons.FractalIcons
 import dev.dfd.fractal.common.ui.theme.FractalTheme
 import dev.dfd.fractal.common.ui.theme.fractalSurface
@@ -56,6 +58,7 @@ private fun Modifier.settingRow(enabled: Boolean, role: Role, onClick: () -> Uni
         .fillMaxWidth()
         .focusRing(focused, shape, gap = 2.dp)
         .clip(shape)
+        .screenFocusItem()
         .gamepadConfirm { if (enabled) onClick() }
         .clickable(interaction, indication = null, enabled = enabled, role = role, onClick = onClick)
         .fractalSurface(shape, FractalTheme.surface)
@@ -140,7 +143,8 @@ fun <T> ChoiceSheet(
                 onClick = { onSelect(choice) },
                 icon = if (choice == value) FractalIcons.Check else null,
                 primary = choice == value,
-                modifier = Modifier.fillMaxWidth(),
+                // with a gamepad the sheet opens on the current value
+                modifier = Modifier.fillMaxWidth().focusOnOpen(choice == value),
             )
         }
     }

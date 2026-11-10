@@ -84,6 +84,7 @@ fun SettingsCard(
                 .focusRing(showRing, shape, gap = 2.dp)
                 .clip(shape)
                 .fractalSurface(shape, FractalTheme.surface, if (showRing) colors.surfaceHigh else null)
+                .screenFocusItem()
                 .then(clickModifier)
                 .heightIn(min = 60.dp)
                 .padding(horizontal = 16.dp, vertical = 12.dp)

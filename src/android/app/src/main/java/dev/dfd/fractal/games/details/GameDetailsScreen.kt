@@ -32,6 +32,7 @@ import dev.dfd.fractal.common.ui.fractal.FractalScreen
 import dev.dfd.fractal.common.ui.fractal.SectionTitle
 import dev.dfd.fractal.common.ui.fractal.focusRing
 import dev.dfd.fractal.common.ui.fractal.gamepadConfirm
+import dev.dfd.fractal.common.ui.fractal.screenFocusItem
 import dev.dfd.fractal.common.ui.localization.regionToString
 import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.common.ui.theme.FractalTheme
@@ -102,6 +103,7 @@ private fun DetailRow(label: String, value: String, onCopy: (String, String) -> 
             .fillMaxWidth()
             .focusRing(focused, shape, gap = 2.dp)
             .clip(shape)
+            .screenFocusItem()
             .gamepadConfirm { onCopy(label, value) }
             .clickable(interaction, indication = null, role = Role.Button) { onCopy(label, value) }
             .fractalSurface(shape, FractalTheme.surface)

@@ -37,6 +37,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import dev.dfd.fractal.common.ui.fractal.DISABLED_ROW_ALPHA
+import dev.dfd.fractal.common.ui.fractal.DialogButtonLegend
+import dev.dfd.fractal.common.ui.fractal.dialogHints
+import dev.dfd.fractal.common.ui.fractal.focusOnOpen
 import dev.dfd.fractal.common.ui.fractal.FractalButton
 import dev.dfd.fractal.common.ui.fractal.SettingsCard
 import dev.dfd.fractal.common.ui.fractal.SettingsRowDescription
@@ -194,10 +197,12 @@ private fun <T> SelectDialog(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    choices.forEach { choice ->
+                    val anySelected = choices.any { it == currentChoice }
+                    choices.forEachIndexed { index, choice ->
                         Choice(
                             label = choiceToString(choice),
                             selected = currentChoice == choice,
+                            focusOnOpen = if (anySelected) currentChoice == choice else index == 0,
                             isEnabled = isChoiceEnabled(choice),
                             onClick = {
                                 onChoiceChanged(choice)
@@ -213,13 +218,17 @@ private fun <T> SelectDialog(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .align(Alignment.End),
                 )
+                DialogButtonLegend(
+                    dialogHints(confirm = tr("Select")),
+                    Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
+                )
             }
         }
     }
 }
 
 @Composable
-private fun Choice(label: String, selected: Boolean, isEnabled: Boolean, onClick: () -> Unit) {
+private fun Choice(label: String, selected: Boolean, isEnabled: Boolean, focusOnOpen: Boolean, onClick: () -> Unit) {
     val colors = FractalTheme.colors
     val shape = FractalTheme.shapes.card
     val interaction = remember { MutableInteractionSource() }
@@ -231,6 +240,7 @@ private fun Choice(label: String, selected: Boolean, isEnabled: Boolean, onClick
             .focusRing(focused, shape, gap = 2.dp)
             .clip(shape)
             .background(if (selected) colors.selected else if (focused) colors.surfaceHigh else Color.Transparent)
+            .focusOnOpen(focusOnOpen)
             .gamepadConfirm { if (isEnabled) onClick() }
             .clickable(
                 interactionSource = interaction,

@@ -50,6 +50,7 @@ import dev.dfd.fractal.common.settings.LibraryView
 import dev.dfd.fractal.common.ui.components.ThemedContent
 import dev.dfd.fractal.common.ui.fractal.focusRing
 import dev.dfd.fractal.common.ui.fractal.gamepadConfirm
+import dev.dfd.fractal.common.ui.fractal.screenFocusItem
 import dev.dfd.fractal.common.ui.icons.FractalIcons
 import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.common.ui.theme.FractalTheme
@@ -113,6 +114,7 @@ private fun PickerTile(
         modifier
             .focusRing(focused, shape)
             .clip(shape)
+            .screenFocusItem()
             .gamepadConfirm(onClick)
             .clickable(interaction, indication = null, role = Role.RadioButton, onClick = onClick)
             .fractalSurface(
@@ -313,6 +315,7 @@ fun SettingToggle(title: String, description: String, enabled: Boolean, onChange
             .fillMaxWidth()
             .focusRing(focused, shape, gap = 2.dp)
             .clip(shape)
+            .screenFocusItem()
             .gamepadConfirm { onChange(!enabled) }
             .clickable(interaction, indication = null, role = Role.Switch) { onChange(!enabled) }
             .fractalSurface(shape, FractalTheme.surface)
