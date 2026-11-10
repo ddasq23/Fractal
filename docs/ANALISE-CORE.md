@@ -713,14 +713,30 @@ resolução de ~15 ms.
   readbacks/s passaram pelo caminho novo e o BotW ficou em 11,72 contra 11,72.
 - **TLS `initial-exec`** para as variáveis `thread_local` quentes (~2 % no `tlsdesc_resolver`): o
   bionic recusa o `dlopen` ("using IE access model") e o app não abre.
+- **Um command pool por slot** (reset do pool inteiro em vez de `vkResetCommandBuffer`). O perfil
+  DWARF da LatteThread no BotW (RP5) mostrou o reset a 7,3 % da thread, quase tudo `memcpy`/`free`
+  dentro do driver Adreno. Com `vkResetCommandPool` o custo continua exatamente 7,3 %, e o FPS
+  empatou nos dois aparelhos (RP5 11,8/11,7 contra 11,7/11,7; Cube 6,4/6,3 contra 6,4/6,5).
+  Revertido.
 
 **Onde está o limite agora:**
 
 - MK8 no RP5: GPU 89–91 % ocupada a 400 MHz (no carregador). Ganho de CPU não aparece mais.
 - MK8 e BotW no Cube: GPU (Mali) 99–100 %.
-- BotW no RP5: o pingue-pongue CPU ↔ LatteThread ↔ GPU da noite de 09/11. Na LatteThread, 19 %
-  é a espera ativa na fence e 30 % é o driver Adreno, mas o unwinding por frame pointer não entra
-  no driver. O próximo passo é um perfil DWARF só da LatteThread.
+- BotW no RP5: o frame (86 ms) é serial. A LatteThread espera 23,8 ms por frame na fence
+  (`WAIT_REG_MEM` por um valor que o jogo escreve no fim do trabalho de CPU), e o jogo espera
+  27,8 ms nos dois `GX2DrawDone` até a LatteThread esvaziar a fila. O núcleo 1 passa ~37 % no
+  laço ocioso (`__OSThreadCoreIdle`, `alarm_update`, `AXOut_update`), e só ~45 % é JIT. O
+  trabalho real do jogo (~48 ms) e o da LatteThread (~31 ms) se somam.
+  - O submit, que é 19,8 % da LatteThread (inclusivo), cai justamente quando ela entra na espera
+    da fence. Por isso cortar custo ali não dá FPS.
+  - O que conta é o processamento das draws (`draw_execute`, 38 %): `vkCmdDrawIndexed` (4,8 % da
+    thread), `vkCmdBindDescriptorSets` (3,3 %), `LatteBufferCache_Sync` (4 %) e
+    `draw_setRenderPass` (4,6 %).
+  - A escrita das readbacks na memória do guest é 4,9 % (`memcpy` de ~52 readbacks/s; o buffer
+    já é `HOST_CACHED`).
+  - Perfil feito com `simpleperf record -t <tid> --call-graph dwarf` com root no RP5. O
+    unwinding por frame pointer perdia 45 % do tempo do driver.
 
 ## Pendências e limitações
 
