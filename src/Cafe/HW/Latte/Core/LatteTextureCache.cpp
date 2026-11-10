@@ -398,7 +398,7 @@ void LatteTexture_RefreshInfoCache();
 void LatteTC_CleanupUnusedTextures()
 {
 	static size_t currentScanIndex = 0;
-	uint32 currentTick = GetTickCount();
+	uint32 currentTick = LatteGPU_GetTick();
 	sint32 maxDelete = 10;
 	std::vector<LatteTexture*>& allTextures = LatteTexture::GetAllTextures();
 	if (!allTextures.empty())

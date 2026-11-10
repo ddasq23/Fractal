@@ -120,6 +120,20 @@ void LatteTC_RegisterTexture(LatteTexture* tex);
 void LatteTC_UnregisterTexture(LatteTexture* tex);
 
 uint32 LatteTexture_CalculateTextureDataHash(LatteTexture* hostTexture);
+
+// millisecond tick for texture cache aging (LatteGPUState.currentDrawCallTick, set on every draw).
+// The coarse clock has GetTickCount-on-Windows like resolution and skips the hardware counter read
+// of CLOCK_MONOTONIC_RAW (~3 % of the GPU thread in Mario Kart 8 on Android)
+inline uint32 LatteGPU_GetTick()
+{
+#if defined(__linux__)
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
+	return (uint32)(1000 * (uint64)ts.tv_sec + ts.tv_nsec / 1000000);
+#else
+	return GetTickCount();
+#endif
+}
 void LatteTexture_ReloadData(LatteTexture* hostTexture);
 
 bool LatteTC_HasTextureChanged(LatteTexture* hostTexture, bool force = false);

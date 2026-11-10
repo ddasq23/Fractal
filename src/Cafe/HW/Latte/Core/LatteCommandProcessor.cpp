@@ -751,7 +751,7 @@ LatteCMDPtr LatteCP_itDrawIndex2(LatteCMDPtr cmd, uint32 nWords, DrawPassContext
 	uint32 count = LatteReadCMD();
 	uint32 ukn3 = LatteReadCMD();
 
-	LatteGPUState.currentDrawCallTick = GetTickCount();
+	LatteGPUState.currentDrawCallTick = LatteGPU_GetTick();
 	drawPassCtx.executeDraw(count, false, physIndices);
 	return cmd;
 }
@@ -761,7 +761,7 @@ LatteCMDPtr LatteCP_itDrawIndexAuto(LatteCMDPtr cmd, uint32 nWords, DrawPassCont
 	cemu_assert_debug(nWords == 2);
 	uint32 count = LatteReadCMD();
 	uint32 ukn = LatteReadCMD();
-	LatteGPUState.currentDrawCallTick = GetTickCount();
+	LatteGPUState.currentDrawCallTick = LatteGPU_GetTick();
 	// todo - better way to identify compute drawcalls
 	auto& sqConfig = LatteGPUState.contextNew.SQ_CONFIG;
 	if (sqConfig.get_PS_PRIO() == 0 && sqConfig.get_VS_PRIO() == 1 && sqConfig.get_GS_PRIO() == 2 && sqConfig.get_ES_PRIO() == 3)
@@ -787,7 +787,7 @@ LatteCMDPtr LatteCP_itDrawImmediate(LatteCMDPtr cmd, uint32 nWords, DrawPassCont
 	// reserve array for index data	
 	if (_tempIndexArrayMPTR == MPTR_NULL)
 		_tempIndexArrayMPTR = coreinit_allocFromSysArea(0x4000 * sizeof(uint32), 0x4);
-	LatteGPUState.currentDrawCallTick = GetTickCount();
+	LatteGPUState.currentDrawCallTick = LatteGPU_GetTick();
 	// calculate size of index data in packet and read indices
 	uint32 numIndexU32s;
 	auto indexType = LatteGPUState.contextNew.VGT_DMA_INDEX_TYPE.get_INDEX_TYPE();
