@@ -4,7 +4,6 @@ package dev.dfd.fractal.graphicpacks
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -17,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -28,7 +26,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.contentColorFor
@@ -45,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,9 +50,15 @@ import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.dfd.fractal.R
 import dev.dfd.fractal.common.ui.components.DefaultAppBarTitle
+import dev.dfd.fractal.common.ui.components.FractalAlertDialog
 import dev.dfd.fractal.common.ui.components.ScreenContentLazy
 import dev.dfd.fractal.common.ui.components.SearchToolbarInput
 import dev.dfd.fractal.common.ui.components.SingleSelection
+import dev.dfd.fractal.common.ui.components.Toggle
+import dev.dfd.fractal.common.ui.fractal.ButtonHint
+import dev.dfd.fractal.common.ui.fractal.PadButton
+import dev.dfd.fractal.common.ui.fractal.SettingsCard
+import dev.dfd.fractal.common.ui.fractal.SettingsRowText
 import dev.dfd.fractal.common.ui.extensions.showMessage
 import dev.dfd.fractal.common.ui.localization.tr
 
@@ -134,6 +138,16 @@ fun GraphicPacksScreen(
             }
         },
         navigateBack = ::handleBack,
+        extraHints = if (currentNode.isRoot()) listOf(
+            ButtonHint(PadButton.X, tr("Download")) { graphicPacksViewModel.downloadNewUpdate(context) },
+            ButtonHint(PadButton.Y, if (showGraphicPackSearch) tr("Close search") else tr("Search")) {
+                showGraphicPackSearch = !showGraphicPackSearch
+            },
+            ButtonHint(PadButton.SELECT, if (installedOnly) tr("Show all") else tr("Installed only")) {
+                graphicPacksViewModel.setInstalledOnly(!installedOnly)
+            },
+        ) else emptyList(),
+        contentKey = currentNode,
     ) {
         if (showGraphicPackSearch && currentNode.isRoot()) {
             graphicPackDataSearchItems(
@@ -192,7 +206,8 @@ private fun GraphicPacksDownloadDialog(
     onCancelRequest: () -> Unit,
     text: String,
 ) {
-    AlertDialog(
+    FractalAlertDialog(
+        hints = listOf(ButtonHint(PadButton.A, tr("Cancel"))),
         title = {
             Text(text = tr("Graphic packs download"))
         },
@@ -281,27 +296,13 @@ private fun LazyListScope.graphicPackDataSearchItems(
     onClick: (GraphicPackDataNode) -> Unit,
 ) {
     items(nodes) {
-        Row(
-            modifier = Modifier
-                .animateItem()
-                .clickable(onClick = dropUnlessResumed { onClick(it) })
-                .padding(8.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+        SettingsCard(
+            modifier = Modifier.animateItem(),
+            onClick = dropUnlessResumed { onClick(it) },
+            role = Role.Button,
         ) {
             GraphicPackDataListItemIcon(it.enabled)
-            Column {
-                Text(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    text = it.name ?: "",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    text = it.path,
-                )
-            }
+            SettingsRowText(it.name ?: "", it.path, Modifier.weight(1f))
         }
     }
 }
@@ -312,17 +313,11 @@ private fun LazyListScope.graphicPackDataNodeItem(
     graphicPackData: GraphicPackData
 ) {
     item {
-        Row(
-            modifier = Modifier.padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = tr("Enabled"))
-            Switch(
-                modifier = Modifier.padding(horizontal = 8.dp),
-                checked = graphicPackData.active,
-                onCheckedChange = onSetCurrentGraphicPackActive,
-            )
-        }
+        Toggle(
+            label = tr("Enabled"),
+            checked = graphicPackData.active,
+            onCheckedChanged = onSetCurrentGraphicPackActive,
+        )
     }
     item {
         Text(
@@ -425,21 +420,14 @@ private fun GraphicPackListItem(
     modifier: Modifier,
     icon: @Composable () -> Unit,
 ) {
-    Row(
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .padding(8.dp)
-            .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    SettingsCard(modifier = modifier, onClick = onClick, role = Role.Button) {
         icon()
         Text(
-            modifier = Modifier
-                .weight(1.0f)
-                .padding(horizontal = 8.dp),
+            modifier = Modifier.weight(1.0f),
             text = label ?: "",
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.titleSmall,
         )
     }
 }
