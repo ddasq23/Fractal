@@ -34,9 +34,10 @@ fun OverlaySettingsScreen(navigateBack: () -> Unit) {
         appBarText = tr("Overlay settings"),
         navigateBack = navigateBack,
     ) {
-        Header(tr("Overlay"))
+        Header(tr("Performance overlay"))
         SingleSelection(
             label = tr("Position"),
+            description = tr("Statistics drawn over the game"),
             choice = overlayPosition,
             choices = OverlayPositionChoices,
             choiceToString = { overlayScreenPositionToString(it) },
@@ -50,6 +51,7 @@ fun OverlaySettingsScreen(navigateBack: () -> Unit) {
         Header(tr("Notifications"))
         SingleSelection(
             label = tr("Position"),
+            description = tr("Short messages shown while playing"),
             choice = notificationsPosition,
             choices = OverlayPositionChoices,
             choiceToString = { overlayScreenPositionToString(it) },
@@ -81,6 +83,7 @@ private fun OverlaySettings() {
         onValueChange = NativeSettings::setOverlayTextScalePercentage,
         labelFormatter = { "${it}%" }
     )
+    Header(tr("Shown statistics"))
     Toggle(
         label = tr("FPS"),
         description = tr("The number of frames per second. Average over last 5 seconds"),
@@ -124,6 +127,7 @@ private fun NotificationSettings() {
         onValueChange = NativeSettings::setNotificationsTextScalePercentage,
         labelFormatter = { "$it%" }
     )
+    Header(tr("Shown notifications"))
     Toggle(
         label = tr("Controller profiles"),
         description = tr("Displays the active controller profile when starting a game"),

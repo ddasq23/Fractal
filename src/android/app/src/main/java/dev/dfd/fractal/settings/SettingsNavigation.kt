@@ -36,9 +36,6 @@ object CustomDriversRoute
 
 private object SettingsRoutes {
     @Serializable
-    object GeneralSettings
-
-    @Serializable
     object GeneralSettingsScreenRoute
 
     @Serializable
@@ -52,12 +49,6 @@ private object SettingsRoutes {
 
     @Serializable
     object GraphicsSettingsScreenRoute
-
-    @Serializable
-    object CustomDriversScreenRoute
-
-    @Serializable
-    object GamePathsScreenRoute
 
     @Serializable
     object OverlaySettingsScreenRoute
@@ -98,16 +89,20 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
         composable<SettingsRoutes.SettingsHomeScreenRoute> {
             SettingsHomeScreen(
                 navigateBack = { navController.popBackStack() },
-                goToGeneralSettings = { navController.navigate(SettingsRoutes.GeneralSettings) },
-                goToInputSettings = { navController.navigate(SettingsRoutes.InputSettingsRoute) },
-                goToGraphicsSettings = { navController.navigate(SettingsRoutes.GraphicsSettingsScreenRoute) },
-                goToAudioSettings = { navController.navigate(SettingsRoutes.AudioSettingsScreenRoute) },
-                goToOverlaySettings = { navController.navigate(SettingsRoutes.OverlaySettingsScreenRoute) },
+                goToGeneralSettings = { navController.navigate(SettingsRoutes.GeneralSettingsScreenRoute) },
+                goToGamePaths = { navController.navigate(GamePathsRoute) },
                 goToAccountSettings = { navController.navigate(SettingsRoutes.AccountSettingsScreenRoute) },
-                goToEmulatedUSBDevicesSettings = { navController.navigate(SettingsRoutes.EmulatedUSBDevicesSettingsScreenRoute) },
-                goToAppearance = { navController.navigate(AppearanceRoute) },
-                goToDrivers = { navController.navigate(CustomDriversRoute) },
                 goToWelcome = goToWelcome,
+                goToGraphicsSettings = { navController.navigate(SettingsRoutes.GraphicsSettingsScreenRoute) },
+                // the only way to the drivers screen from the settings; the library and the welcome setup open it too
+                goToDrivers = { navController.navigate(CustomDriversRoute) },
+                goToAudioSettings = { navController.navigate(SettingsRoutes.AudioSettingsScreenRoute) },
+                goToInputSettings = { navController.navigate(SettingsRoutes.InputSettingsRoute) },
+                goToInputOverlaySettings = { navController.navigate(SettingsRoutes.InputOverlaySettingsScreenRoute) },
+                goToHotkeySettings = { navController.navigate(SettingsRoutes.HotkeySettingsScreenRoute) },
+                goToAppearance = { navController.navigate(AppearanceRoute) },
+                goToOverlaySettings = { navController.navigate(SettingsRoutes.OverlaySettingsScreenRoute) },
+                goToEmulatedUSBDevicesSettings = { navController.navigate(SettingsRoutes.EmulatedUSBDevicesSettingsScreenRoute) },
             )
         }
         composable<SettingsRoutes.AudioSettingsScreenRoute> {
@@ -117,14 +112,6 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
         }
         composable<SettingsRoutes.GraphicsSettingsScreenRoute> {
             GraphicsSettingsScreen(
-                navigateBack = { navController.popBackStack() },
-                goToCustomDriversSettings = {
-                    navController.navigate(SettingsRoutes.CustomDriversScreenRoute)
-                }
-            )
-        }
-        composable<SettingsRoutes.CustomDriversScreenRoute> {
-            DriversScreen(
                 navigateBack = { navController.popBackStack() },
             )
         }
@@ -138,6 +125,16 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
                 navigateBack = { navController.popBackStack() },
             )
         }
+        composable<SettingsRoutes.HotkeySettingsScreenRoute> {
+            HotkeySettingsScreen(
+                navigateBack = { navController.popBackStack() }
+            )
+        }
+        composable<SettingsRoutes.InputOverlaySettingsScreenRoute> {
+            InputOverlaySettingsScreen(
+                navigateBack = { navController.popBackStack() }
+            )
+        }
         navigation<SettingsRoutes.InputSettingsRoute>(startDestination = SettingsRoutes.InputSettingsScreenRoute) {
             composable<SettingsRoutes.ControllerInputSettingsScreenRoute> { navBackStackEntry ->
                 val controllerIndex =
@@ -145,18 +142,6 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
                 ControllerInputSettingsScreen(
                     navigateBack = { navController.popBackStack() },
                     controllerIndex = controllerIndex,
-                )
-            }
-
-            composable<SettingsRoutes.HotkeySettingsScreenRoute> {
-                HotkeySettingsScreen(
-                    navigateBack = { navController.popBackStack() }
-                )
-            }
-
-            composable<SettingsRoutes.InputOverlaySettingsScreenRoute> {
-                InputOverlaySettingsScreen(
-                    navigateBack = { navController.popBackStack() }
                 )
             }
 
@@ -169,12 +154,6 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
             composable<SettingsRoutes.InputSettingsScreenRoute> {
                 InputSettingsScreen(
                     navigateBack = { navController.popBackStack() },
-                    goToHotkeySettings = {
-                        navController.navigate(SettingsRoutes.HotkeySettingsScreenRoute)
-                    },
-                    goToInputOverlaySettings = {
-                        navController.navigate(SettingsRoutes.InputOverlaySettingsScreenRoute)
-                    },
                     goToControllerSettings = { controllerIndex ->
                         navController.navigate(
                             SettingsRoutes.ControllerInputSettingsScreenRoute(
@@ -188,18 +167,10 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
                 )
             }
         }
-        navigation<SettingsRoutes.GeneralSettings>(startDestination = SettingsRoutes.GeneralSettingsScreenRoute) {
-            composable<SettingsRoutes.GeneralSettingsScreenRoute> {
-                GeneralSettingsScreen(
-                    navigateBack = { navController.popBackStack() },
-                    goToGamePathsSettings = { navController.navigate(SettingsRoutes.GamePathsScreenRoute) }
-                )
-            }
-            composable<SettingsRoutes.GamePathsScreenRoute> {
-                GamePathsScreen(
-                    navigateBack = { navController.popBackStack() },
-                )
-            }
+        composable<SettingsRoutes.GeneralSettingsScreenRoute> {
+            GeneralSettingsScreen(
+                navigateBack = { navController.popBackStack() },
+            )
         }
 
         composable<SettingsRoutes.AccountSettingsScreenRoute> {

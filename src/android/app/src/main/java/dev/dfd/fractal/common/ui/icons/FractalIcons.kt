@@ -183,4 +183,70 @@ object FractalIcons {
         moveTo(12f, 3f); lineTo(9f, 12f); lineTo(12f, 21f)
         moveTo(12f, 3f); lineTo(15f, 12f); lineTo(12f, 21f)
     }
+
+    val Display = icon("display") {
+        moveTo(3f, 4.5f); lineTo(21f, 4.5f); lineTo(21f, 16f); lineTo(3f, 16f); close()
+        moveTo(12f, 16f); lineTo(12f, 20f)
+        moveTo(7.5f, 20f); lineTo(16.5f, 20f)
+    }
+
+    val Speaker = icon("speaker") {
+        moveTo(3.5f, 9f); lineTo(7.5f, 9f); lineTo(12.5f, 4.5f); lineTo(12.5f, 19.5f); lineTo(7.5f, 15f); lineTo(3.5f, 15f); close()
+        moveTo(15.5f, 9f); lineTo(17f, 12f); lineTo(15.5f, 15f)
+        moveTo(18.5f, 6f); lineTo(21f, 12f); lineTo(18.5f, 18f)
+    }
+
+    val Gamepad = icon("gamepad") {
+        moveTo(7f, 6.5f); lineTo(17f, 6.5f); lineTo(21.5f, 17f); lineTo(17.5f, 18.5f); lineTo(14.5f, 14.5f)
+        lineTo(9.5f, 14.5f); lineTo(6.5f, 18.5f); lineTo(2.5f, 17f); close()
+        moveTo(8f, 9f); lineTo(8f, 12.5f)
+        moveTo(6.25f, 10.75f); lineTo(9.75f, 10.75f)
+        moveTo(15.5f, 9.5f); lineTo(15.5f, 9.7f)
+        moveTo(17.2f, 11.5f); lineTo(17.2f, 11.7f)
+    }
+
+    /** Phone with touch controls on it. */
+    val TouchControls = icon("touch_controls") {
+        moveTo(2.5f, 6f); lineTo(21.5f, 6f); lineTo(21.5f, 18f); lineTo(2.5f, 18f); close()
+        moveTo(7f, 10f); lineTo(7f, 14f)
+        moveTo(5f, 12f); lineTo(9f, 12f)
+        moveTo(17f, 9.8f); lineTo(19.2f, 12f); lineTo(17f, 14.2f); lineTo(14.8f, 12f); close()
+    }
+
+    val Keyboard = icon("keyboard") {
+        moveTo(2.5f, 6.5f); lineTo(21.5f, 6.5f); lineTo(21.5f, 17.5f); lineTo(2.5f, 17.5f); close()
+        moveTo(6f, 10f); lineTo(6.2f, 10f)
+        moveTo(9.5f, 10f); lineTo(9.7f, 10f)
+        moveTo(13f, 10f); lineTo(13.2f, 10f)
+        moveTo(16.5f, 10f); lineTo(16.7f, 10f)
+        moveTo(7.5f, 14f); lineTo(16.5f, 14f)
+    }
+
+    val User = icon("user") {
+        moveTo(12f, 3.5f); lineTo(15.5f, 7.25f); lineTo(12f, 11f); lineTo(8.5f, 7.25f); close()
+        moveTo(4.5f, 20.5f); lineTo(7f, 14f); lineTo(17f, 14f); lineTo(19.5f, 20.5f); close()
+    }
+
+    val Usb = icon("usb") {
+        moveTo(12f, 5.5f); lineTo(12f, 18f)
+        moveTo(10f, 6f); lineTo(12f, 3f); lineTo(14f, 6f); close()
+        moveTo(12f, 18f); lineTo(13.75f, 19.75f); lineTo(12f, 21.5f); lineTo(10.25f, 19.75f); close()
+        moveTo(12f, 13.5f); lineTo(7f, 11f); lineTo(7f, 8.5f)
+        moveTo(5.75f, 6f); lineTo(8.25f, 6f); lineTo(8.25f, 8.5f); lineTo(5.75f, 8.5f); close()
+        moveTo(12f, 15.5f); lineTo(17f, 13f); lineTo(17f, 9.5f)
+        moveTo(17f, 7f); lineTo(18.25f, 8.25f); lineTo(17f, 9.5f); lineTo(15.75f, 8.25f); close()
+    }
+
+    /** Line chart: performance statistics. */
+    val Stats = icon("stats") {
+        moveTo(3.5f, 20f); lineTo(20.5f, 20f)
+        moveTo(4f, 15.5f); lineTo(9f, 10f); lineTo(13f, 13.5f); lineTo(20f, 5.5f)
+        moveTo(16f, 5.5f); lineTo(20f, 5.5f); lineTo(20f, 9.5f)
+    }
+
+    /** Four point star: first-use setup. */
+    val Sparkle = icon("sparkle") {
+        moveTo(12f, 3f); lineTo(14f, 10f); lineTo(21f, 12f); lineTo(14f, 14f)
+        lineTo(12f, 21f); lineTo(10f, 14f); lineTo(3f, 12f); lineTo(10f, 10f); close()
+    }
 }
