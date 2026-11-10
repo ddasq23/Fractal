@@ -94,6 +94,7 @@ fun GameProfileEditScreen(
         PackActions(
             setActive = viewModel::setPackActive,
             setPreset = viewModel::setPackPreset,
+            select = viewModel::selectPackOption,
             download = { viewModel.downloadPacks(userFolder) },
             openBrowser = goToGraphicPacks,
         )
@@ -120,6 +121,8 @@ fun GameProfileEditScreen(
             if (hasRecommendedPacks(game.titleId)) {
                 SectionTitle(tr("Recommended"))
                 RecommendedPacksCard(packs, downloading, packActions)
+            } else {
+                GamePackSettings(packs, packsDownloaded, downloading, packActions)
             }
 
             val v = values
