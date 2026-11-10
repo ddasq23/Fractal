@@ -22,7 +22,7 @@ class InputOverlaySettingsViewModel(
             InputOverlaySettings(),
         )
 
-    private fun updateOverlay(transform: (InputOverlaySettings) -> InputOverlaySettings) {
+    fun update(transform: (InputOverlaySettings) -> InputOverlaySettings) {
         viewModelScope.launch {
             dataStore.updateData {
                 it.copy(
@@ -32,27 +32,15 @@ class InputOverlaySettingsViewModel(
         }
     }
 
-    fun setVibrateOnTouch(enabled: Boolean) = updateOverlay {
-        it.copy(isVibrateOnTouchEnabled = enabled)
-    }
-
-    fun setOverlayEnabled(enabled: Boolean) = updateOverlay {
+    fun setOverlayEnabled(enabled: Boolean) = update {
         it.copy(isOverlayEnabled = enabled)
     }
 
-    fun setControllerIndex(index: Int) = updateOverlay {
+    fun setControllerIndex(index: Int) = update {
         it.copy(controllerIndex = index)
     }
 
-    fun setAlpha(alpha: Int) = updateOverlay {
-        it.copy(alpha = alpha)
-    }
-
-    fun setInputVisibility(input: OverlayInputConfig, visible: Boolean) = updateOverlay {
-        it.copy(
-            inputVisibilityMap = it.inputVisibilityMap.toMutableMap().apply {
-                this[input] = visible
-            }
-        )
+    fun setInputVisibility(input: OverlayInputConfig, visible: Boolean) = update {
+        it.copy(inputVisibilityMap = it.inputVisibilityMap + (input to visible))
     }
 }
