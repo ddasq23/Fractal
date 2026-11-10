@@ -184,14 +184,15 @@ private fun GridCard(game: Game, actions: LibraryActions, focusRequester: FocusR
                     .clip(FractalTheme.shapes.card),
             )
             Spacer(Modifier.weight(1f))
+            val summary = playSummary(game)
+            // the square art leaves room for two lines below it: a long title gets one when the play summary is shown
             Text(
                 game.name ?: "",
                 style = MaterialTheme.typography.titleSmall,
                 color = Color.White,
-                maxLines = 2,
+                maxLines = if (summary.isEmpty()) 2 else 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            val summary = playSummary(game)
             if (summary.isEmpty()) {
                 Text(
                     regionName(game.region),
