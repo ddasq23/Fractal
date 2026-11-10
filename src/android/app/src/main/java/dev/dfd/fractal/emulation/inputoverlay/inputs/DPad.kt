@@ -18,9 +18,9 @@ import kotlin.math.min
 
 class DPad(
     private val onButtonStateChange: (button: OverlayDpad, state: Boolean) -> Unit,
-    private val alpha: Int,
+    alpha: Int,
     rect: Rect,
-) : Input(rect) {
+) : Input(rect, alpha) {
     private var backgroundFillColor: Int = 0
     private var backgroundStrokeColor: Int = 0
 
@@ -138,6 +138,14 @@ class DPad(
                 }
             }
 
+            MotionEvent.ACTION_CANCEL -> {
+                if (currentPointerId != -1) {
+                    currentPointerId = -1
+                    updateState(NONE)
+                    return true
+                }
+            }
+
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
                 val pointerId = event.getPointerId(event.actionIndex)
                 if (pointerId == currentPointerId) {
@@ -166,6 +174,7 @@ class DPad(
     }
 
     override fun resetInput() {
+        currentPointerId = -1
         updateState(NONE)
     }
 

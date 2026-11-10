@@ -5,7 +5,6 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -16,15 +15,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -48,22 +43,39 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.MutableCreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
-import dev.dfd.fractal.R
 import dev.dfd.fractal.common.settings.GamePadPosition
 import dev.dfd.fractal.common.settings.HotkeyAction
 import dev.dfd.fractal.common.ui.extensions.showMessage
 import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.emulation.emulatedusbdevices.EmulatedUSBDevicesDialog
 import dev.dfd.fractal.emulation.input.HotkeyManager
+import dev.dfd.fractal.common.settings.InputOverlaySettings
+import dev.dfd.fractal.common.settings.OverlayControllerType
+import dev.dfd.fractal.common.settings.OverlayMacro
+import dev.dfd.fractal.common.settings.activeProfile
+import dev.dfd.fractal.common.settings.createProfile
+import dev.dfd.fractal.common.settings.deleteMacro
+import dev.dfd.fractal.common.settings.deleteProfile
+import dev.dfd.fractal.common.settings.renameProfile
+import dev.dfd.fractal.common.settings.selectProfile
+import dev.dfd.fractal.common.settings.setBehavior
+import dev.dfd.fractal.common.settings.upsertMacro
+import dev.dfd.fractal.emulation.inputoverlay.InputOverlayController
 import dev.dfd.fractal.emulation.inputoverlay.InputOverlaySurface
-import dev.dfd.fractal.emulation.inputoverlay.InputOverlaySurfaceView
+import dev.dfd.fractal.emulation.inputoverlay.OverlayTarget
+import dev.dfd.fractal.emulation.inputoverlay.ui.ConfirmDialog
+import dev.dfd.fractal.emulation.inputoverlay.ui.InputOptionsDialog
+import dev.dfd.fractal.emulation.inputoverlay.ui.MacroEditorDialog
+import dev.dfd.fractal.emulation.inputoverlay.ui.OverlayAppearanceDialog
+import dev.dfd.fractal.emulation.inputoverlay.ui.OverlayEditToolbar
+import dev.dfd.fractal.emulation.inputoverlay.ui.ProfilesDialog
+import dev.dfd.fractal.emulation.inputoverlay.ui.displayName
 import dev.dfd.fractal.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.DEFAULT
 import dev.dfd.fractal.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.EDIT_POSITION
 import dev.dfd.fractal.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.EDIT_SIZE
@@ -87,6 +99,8 @@ fun EmulationScreen(
     var showQuitConfirmationDialog by remember { mutableStateOf(false) }
     var inputOverlayInputMode by rememberSaveable { mutableStateOf(DEFAULT) }
     var showEmulatedUSBDevices by remember { mutableStateOf(false) }
+    val overlayController = remember { InputOverlayController() }
+    var overlayDialog by remember { mutableStateOf<OverlayDialogState?>(null) }
 
     val emulationError by viewModel.emulationError.collectAsState()
     val isEmulationInitialized by viewModel.isEmulationInitialized.collectAsState()
@@ -161,7 +175,11 @@ fun EmulationScreen(
                             closeDrawer()
                         },
                         onResetInputOverlay = {
-                            viewModel.resetInputOverlayLayout()
+                            overlayDialog = OverlayDialogState.ConfirmReset
+                            closeDrawer()
+                        },
+                        onInputOverlayProfiles = {
+                            overlayDialog = OverlayDialogState.Profiles
                             closeDrawer()
                         },
                         onQuit = {
@@ -189,23 +207,33 @@ fun EmulationScreen(
             isVisible = isInputOverlayVisible,
             inputOverlaySettings = inputOverlaySettings,
             inputMode = inputOverlayInputMode,
-            onEditFinished = { viewModel.saveInputOverlayRectangles(it) },
+            controller = overlayController,
+            onEditFinished = viewModel::saveInputOverlayEdits,
+            onInputLongPress = { overlayDialog = OverlayDialogState.InputOptions(it) },
+            onLegacyLayout = viewModel::migrateLegacyInputOverlayLayout,
         )
 
         if (inputOverlayInputMode != DEFAULT) {
-            EditInputsLayout(
+            val controllerType = overlayController.controllerType
+            OverlayEditToolbar(
                 inputMode = inputOverlayInputMode,
-                onFinishClick = {
-                    snackbarHostState.showMessage(scope, tr("Exited input edit mode"))
+                profileName = controllerType?.let { inputOverlaySettings.activeProfile(it).displayName() } ?: "",
+                snapToGrid = inputOverlaySettings.snapToGrid,
+                onMove = { inputOverlayInputMode = EDIT_POSITION },
+                onResize = { inputOverlayInputMode = EDIT_SIZE },
+                onToggleSnap = { viewModel.updateInputOverlaySettings { it.copy(snapToGrid = !it.snapToGrid) } },
+                onAddMacro = { overlayDialog = OverlayDialogState.MacroEditor(null) },
+                onProfiles = { overlayDialog = OverlayDialogState.Profiles },
+                onOptions = { overlayDialog = OverlayDialogState.Options },
+                onReset = { overlayDialog = OverlayDialogState.ConfirmReset },
+                onCancel = {
+                    overlayController.discardEdits()
+                    snackbarHostState.showMessage(scope, tr("Changes discarded"))
                     inputOverlayInputMode = DEFAULT
                 },
-                onMoveClick = {
-                    snackbarHostState.showMessage(scope, tr("Edit input positions"))
-                    inputOverlayInputMode = EDIT_POSITION
-                },
-                onResizeClick = {
-                    snackbarHostState.showMessage(scope, tr("Edit input size"))
-                    inputOverlayInputMode = EDIT_SIZE
+                onDone = {
+                    snackbarHostState.showMessage(scope, tr("Layout saved"))
+                    inputOverlayInputMode = DEFAULT
                 },
             )
         }
@@ -241,44 +269,120 @@ fun EmulationScreen(
         )
     }
 
+    overlayController.controllerType?.let { controllerType ->
+        InputOverlayDialogs(
+            state = overlayDialog,
+            settings = inputOverlaySettings,
+            controllerType = controllerType,
+            controller = overlayController,
+            onUpdate = viewModel::updateInputOverlaySettings,
+            onReset = {
+                overlayController.showDefaultLayout()
+                viewModel.resetInputOverlayLayout(controllerType)
+            },
+            onStateChange = { overlayDialog = it },
+        )
+    }
+
     EmulationTextInputDialog()
 }
 
+/** Dialogs opened from the overlay edit mode and the side menu. */
+private sealed interface OverlayDialogState {
+    data class InputOptions(val target: OverlayTarget) : OverlayDialogState
+    data class MacroEditor(val macro: OverlayMacro?) : OverlayDialogState
+    data object Profiles : OverlayDialogState
+    data object Options : OverlayDialogState
+    data object ConfirmReset : OverlayDialogState
+}
+
 @Composable
-private fun EditInputsLayout(
-    inputMode: InputOverlaySurfaceView.InputMode,
-    onFinishClick: () -> Unit,
-    onMoveClick: () -> Unit,
-    onResizeClick: () -> Unit
+private fun InputOverlayDialogs(
+    state: OverlayDialogState?,
+    settings: InputOverlaySettings,
+    controllerType: OverlayControllerType,
+    controller: InputOverlayController,
+    onUpdate: ((InputOverlaySettings) -> InputOverlaySettings) -> Unit,
+    onReset: () -> Unit,
+    onStateChange: (OverlayDialogState?) -> Unit,
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Button(onClick = onFinishClick) { Text(tr("Done")) }
-
-            Row(
-                modifier = Modifier
-                    .wrapContentSize()
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(36.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FilledIconButton(enabled = inputMode != EDIT_POSITION, onClick = onMoveClick) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_move),
-                        contentDescription = tr("Move")
-                    )
+    val dismiss = { onStateChange(null) }
+    when (state) {
+        null -> {}
+        is OverlayDialogState.InputOptions -> InputOptionsDialog(
+            target = state.target,
+            settings = settings,
+            controllerType = controllerType,
+            onBehaviorChange = { behavior ->
+                when (val target = state.target) {
+                    is OverlayTarget.Builtin -> onUpdate { it.setBehavior(controllerType, target.config, behavior) }
+                    is OverlayTarget.Macro -> onUpdate { s ->
+                        val macro = s.activeProfile(controllerType).macros.firstOrNull { it.id == target.id }
+                        if (macro == null) s else s.upsertMacro(controllerType, macro.copy(behavior = behavior))
+                    }
                 }
-
-                FilledIconButton(enabled = inputMode != EDIT_SIZE, onClick = onResizeClick) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_resize),
-                        contentDescription = tr("Resize"),
-                    )
+            },
+            onHide = {
+                val target = state.target
+                if (target is OverlayTarget.Builtin) {
+                    onUpdate { it.copy(inputVisibilityMap = it.inputVisibilityMap + (target.config to false)) }
                 }
-            }
-        }
+                dismiss()
+            },
+            onEditMacro = { onStateChange(OverlayDialogState.MacroEditor(it)) },
+            onDeleteMacro = { macro ->
+                onUpdate { it.deleteMacro(controllerType, macro.id) }
+                dismiss()
+            },
+            onDismiss = dismiss,
+        )
+
+        is OverlayDialogState.MacroEditor -> MacroEditorDialog(
+            initial = state.macro,
+            controllerType = controllerType,
+            onSave = { macro ->
+                onUpdate { it.upsertMacro(controllerType, macro) }
+                dismiss()
+            },
+            onDismiss = dismiss,
+        )
+
+        OverlayDialogState.Profiles -> ProfilesDialog(
+            settings = settings,
+            controllerType = controllerType,
+            onSelect = { profile ->
+                controller.commitEdits()
+                onUpdate { it.selectProfile(controllerType, profile.id) }
+            },
+            onCreate = { name, copyFrom ->
+                controller.commitEdits()
+                onUpdate { it.createProfile(controllerType, name, copyFrom) }
+            },
+            onRename = { profile, name -> onUpdate { it.renameProfile(profile.id, name) } },
+            onDelete = { profile -> onUpdate { it.deleteProfile(controllerType, profile.id) } },
+            onDismiss = dismiss,
+        )
+
+        OverlayDialogState.Options -> OverlayAppearanceDialog(
+            settings = settings,
+            onUpdate = onUpdate,
+            onPreview = controller::previewAppearance,
+            onDismiss = dismiss,
+        )
+
+        OverlayDialogState.ConfirmReset -> ConfirmDialog(
+            title = tr("Reset input overlay"),
+            message = tr(
+                "Put every input of the profile \"{0}\" back in its default position and size?",
+                settings.activeProfile(controllerType).displayName(),
+            ),
+            confirmText = tr("Reset"),
+            onConfirm = {
+                onReset()
+                dismiss()
+            },
+            onDismiss = dismiss,
+        )
     }
 }
 
@@ -289,6 +393,7 @@ private fun EmulationSideMenuContent(
     onShowEmulatedUSBDevices: () -> Unit,
     onEditInputOverlay: () -> Unit,
     onResetInputOverlay: () -> Unit,
+    onInputOverlayProfiles: () -> Unit,
     onQuit: () -> Unit,
 ) {
     CheckboxItem(
@@ -324,6 +429,12 @@ private fun EmulationSideMenuContent(
         label = tr("Edit inputs"),
         enabled = sideMenuState.isInputOverlayVisible,
         onClick = onEditInputOverlay,
+    )
+
+    TextButtonItem(
+        label = tr("Input overlay profiles"),
+        enabled = sideMenuState.isInputOverlayVisible,
+        onClick = onInputOverlayProfiles,
     )
 
     TextButtonItem(

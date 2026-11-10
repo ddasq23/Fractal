@@ -49,6 +49,7 @@ data class GuiSettings(
     val onboardingCompleted: Boolean = false,
 )
 
+/** Absolute pixel rectangle, as saved by versions before layout profiles. */
 @Serializable
 data class InputOverlayRect(
     val left: Int,
@@ -57,14 +58,26 @@ data class InputOverlayRect(
     val bottom: Int,
 )
 
+const val OVERLAY_SCALE_MIN = 0.5f
+const val OVERLAY_SCALE_MAX = 2.0f
+
 @Serializable
 data class InputOverlaySettings(
     val isVibrateOnTouchEnabled: Boolean = false,
     val isOverlayEnabled: Boolean = false,
     val controllerIndex: Int = 0,
     val alpha: Int = 64,
+    /** Size multiplier applied to every input on top of its own size. */
+    val scale: Float = 1f,
+    /** A finger moving from a button onto another releases the first and presses the second. */
+    val slideBetweenButtons: Boolean = false,
+    /** Inputs moved or resized in edit mode snap to a grid. */
+    val snapToGrid: Boolean = false,
     val inputVisibilityMap: Map<OverlayInputConfig, Boolean> = emptyMap(),
+    /** Legacy absolute pixel layout; moved into [profiles] by the overlay on first load. */
     val inputOverlayRectMap: Map<OverlayInputConfig, InputOverlayRect> = emptyMap(),
+    val profiles: List<OverlayLayoutProfile> = emptyList(),
+    val activeProfileIds: Map<OverlayControllerType, String> = emptyMap(),
 )
 
 @Serializable

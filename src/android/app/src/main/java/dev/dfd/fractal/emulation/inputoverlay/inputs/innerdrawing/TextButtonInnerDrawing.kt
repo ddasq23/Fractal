@@ -24,7 +24,14 @@ class TextButtonInnerDrawing(private val text: String) : ButtonInnerDrawing {
     }
 
     override fun configure(boundingRect: Rect, alpha: Int) {
+        textPaint.isAntiAlias = true
         textPaint.textSize = min(boundingRect.width(), boundingRect.height()) * 0.65f
+        // long labels (macros) shrink to fit the width
+        val maxWidth = boundingRect.width() * 0.85f
+        val textWidth = textPaint.measureText(text)
+        if (textWidth > maxWidth && textWidth > 0f) {
+            textPaint.textSize *= maxWidth / textWidth
+        }
         activeColor = Colors.activeStroke(alpha)
         inactiveColor = Colors.inactiveStroke(alpha)
         staticLayout = createStaticLayout()

@@ -8,10 +8,9 @@ import kotlin.math.min
 
 class RoundButton(
     private val innerDrawing: ButtonInnerDrawing,
-    onButtonStateChange: (state: Boolean) -> Unit,
-    private val alpha: Int,
+    alpha: Int,
     rect: Rect,
-) : Button(onButtonStateChange, rect) {
+) : Button(rect, alpha) {
     private var centerX: Float = 0f
     private var centerY: Float = 0f
     private var radius: Float = 0f
@@ -22,8 +21,8 @@ class RoundButton(
     }
 
     override fun configure() {
-        centerX = rect.centerX().toFloat()
-        centerY = rect.centerY().toFloat()
+        centerX = rect.exactCenterX()
+        centerY = rect.exactCenterY()
         radius = min(rect.width().toFloat(), rect.height().toFloat()) / 2f
         radius2 = radius * radius
         innerDrawing.configure(rect, alpha)

@@ -16,9 +16,12 @@ import dev.dfd.fractal.common.either.bind
 import dev.dfd.fractal.common.either.mapError
 import dev.dfd.fractal.common.settings.AppSettings
 import dev.dfd.fractal.common.settings.AppSettingsStore
-import dev.dfd.fractal.common.settings.InputOverlayRect
 import dev.dfd.fractal.common.settings.InputOverlaySettings
-import dev.dfd.fractal.common.settings.OverlayInputConfig
+import dev.dfd.fractal.common.settings.OverlayControllerType
+import dev.dfd.fractal.common.settings.applyEditedRects
+import dev.dfd.fractal.common.settings.migrateLegacyRects
+import dev.dfd.fractal.common.settings.resetActiveLayout
+import dev.dfd.fractal.emulation.inputoverlay.OverlayEditResult
 import dev.dfd.fractal.nativeinterface.NativeEmulation
 import dev.dfd.fractal.nativeinterface.NativeEmulation.PrepareTitleResult
 import dev.dfd.fractal.nativeinterface.NativeException
@@ -100,27 +103,31 @@ class EmulationViewModel(
         InputOverlaySettings(),
     )
 
-    fun saveInputOverlayRectangles(inputOverlayRectMap: Map<OverlayInputConfig, InputOverlayRect>) {
+    fun updateInputOverlaySettings(transform: (InputOverlaySettings) -> InputOverlaySettings) {
         viewModelScope.launch {
             dataStore.updateData {
-                val overlaySettings =
-                    it.inputOverlaySettings.copy(inputOverlayRectMap = inputOverlayRectMap)
-
-                it.copy(inputOverlaySettings = overlaySettings)
+                it.copy(inputOverlaySettings = transform(it.inputOverlaySettings))
             }
         }
     }
 
-    fun resetInputOverlayLayout() {
-        viewModelScope.launch {
-            dataStore.updateData {
-                val overlaySettings =
-                    it.inputOverlaySettings.copy(inputOverlayRectMap = emptyMap())
-
-                it.copy(inputOverlaySettings = overlaySettings)
-            }
+    fun saveInputOverlayEdits(result: OverlayEditResult) {
+        if (result.isEmpty) return
+        updateInputOverlaySettings {
+            it.applyEditedRects(result.controllerType, result.rects, result.macroRects)
         }
     }
+
+    /** Converts the pixel layout of older versions, measured on an overlay of this size. */
+    fun migrateLegacyInputOverlayLayout(width: Int, height: Int) =
+        updateInputOverlaySettings { it.migrateLegacyRects(width, height) }
+
+    /** Resets positions and sizes of the active layout profile of [controllerType]. */
+    fun resetInputOverlayLayout(controllerType: OverlayControllerType?) =
+        updateInputOverlaySettings { settings ->
+            val reset = controllerType?.let { settings.resetActiveLayout(it) } ?: settings
+            reset.copy(inputOverlayRectMap = emptyMap())
+        }
 
     fun updateSideMenuState(sideMenuState: SideMenuState) {
         _sideMenuState.value = sideMenuState
