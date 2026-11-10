@@ -2,3 +2,5 @@
 /src/main/assets/hash.txt
 *.po
 *.pot
+# App translations are tracked; cemu.po files are generated from upstream Cemu at build time.
+!/src/main/assets/translations/*/fractal.po
