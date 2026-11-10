@@ -22,7 +22,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.dfd.fractal.R
 import dev.dfd.fractal.common.android.context.getDeviceVibrator
+import dev.dfd.fractal.common.settings.HotkeyAction
 import dev.dfd.fractal.common.settings.InputOverlaySettings
+import dev.dfd.fractal.common.settings.OverlayButtonShape
+import dev.dfd.fractal.common.settings.OverlayInputStyle
+import dev.dfd.fractal.common.settings.OverlayShortcut
+import dev.dfd.fractal.common.settings.styleKey
+import dev.dfd.fractal.emulation.input.shortLabel
 import dev.dfd.fractal.common.settings.MacroKind
 import dev.dfd.fractal.common.settings.MacroStep
 import dev.dfd.fractal.common.settings.NormalizedRect
@@ -65,6 +71,10 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
 
     var onEditFinishedListener: ((OverlayEditResult) -> Unit)? = null
     var onInputLongPressListener: ((OverlayTarget) -> Unit)? = null
+
+    /** A shortcut button was pressed. */
+    var onShortcutListener: ((HotkeyAction) -> Unit)? = null
+    private var palette: OverlayPalette = OverlayPalette.CLASSIC
 
     /** Old absolute pixel layout found; called with the overlay size to convert it. */
     var onLegacyLayoutListener: ((width: Int, height: Int) -> Unit)? = null
@@ -172,6 +182,21 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
         invalidate()
     }
 
+    /** Recolors the inputs. */
+    fun applyPalette(palette: OverlayPalette) {
+        if (this.palette == palette) return
+        this.palette = palette
+        Colors.palette = palette
+        for (input in inputs) input.refreshColors()
+        invalidate()
+    }
+
+    /** Builds the inputs again, e.g. after the emulated controller type changed. */
+    fun rebuild() {
+        setInputs()
+        invalidate()
+    }
+
     fun setVisible(isVisible: Boolean) {
         if (this.isVisible == isVisible) {
             return
@@ -252,17 +277,32 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
     fun previewAppearance(alpha: Int?, scale: Float?) {
         if (alpha != null && alpha != currentAlpha) {
             previewAlpha = alpha
-            for (input in inputs) input.setAlpha(alpha)
+            for (input in inputs) if (input.alphaOverride == null) input.setAlpha(alpha)
         }
         if (scale != null && scale != currentScale) {
             previewScale = scale
             for (input in inputs) {
-                toPixels(input.layout, editRect)
+                toPixels(input.layout, editRect, input.styleScale)
                 input.setBounds(editRect.left, editRect.top, editRect.right, editRect.bottom)
             }
         }
         invalidate()
     }
+
+    /** Shows [style] on the input with [key] without saving it; a new shape shows once saved. */
+    fun previewInputStyle(key: String, style: OverlayInputStyle) {
+        val input = inputs.firstOrNull { it.styleKey() == key } ?: return
+        input.alphaOverride = style.opacity
+        input.setAlpha(style.opacity ?: currentAlpha)
+        if (input.styleScale != style.scale) {
+            input.styleScale = style.scale
+            toPixels(input.layout, editRect, input.styleScale)
+            input.setBounds(editRect.left, editRect.top, editRect.right, editRect.bottom)
+        }
+        invalidate()
+    }
+
+    private fun Input.styleKey(): String? = macroId ?: shortcutId ?: config?.let { styleKey(it) }
 
     // ---- native output ----
 
@@ -460,11 +500,11 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
     // ---- layout ----
 
     /** Pixel bounds of [layout] on this surface with the global scale, kept inside the surface. */
-    private fun toPixels(layout: NormalizedRect, out: Rect) {
+    private fun toPixels(layout: NormalizedRect, out: Rect, styleScale: Float) {
         val w = width
         val h = height
         val shortSide = min(w, h).toFloat()
-        val scale = currentScale
+        val scale = currentScale * styleScale
         val inputWidth = (layout.width * shortSide * scale).roundToInt().coerceIn(1, max(w, 1))
         val inputHeight = (layout.height * shortSide * scale).roundToInt().coerceIn(1, max(h, 1))
         val left = (layout.centerX * w - inputWidth * 0.5f).roundToInt().coerceIn(0, max(w - inputWidth, 0))
@@ -473,9 +513,9 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
     }
 
     /** Inverse of [toPixels]: the layout that shows as [rect] with the current scale. */
-    private fun toLayout(rect: Rect): NormalizedRect {
+    private fun toLayout(rect: Rect, styleScale: Float): NormalizedRect {
         val shortSide = max(min(width, height), 1).toFloat()
-        val scale = currentScale
+        val scale = currentScale * styleScale
         return NormalizedRect(
             centerX = rect.exactCenterX() / max(width, 1),
             centerY = rect.exactCenterY() / max(height, 1),
@@ -513,12 +553,23 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
 
     private fun <T : Input> T.placed(layout: NormalizedRect): T {
         this.layout = layout
-        toPixels(layout, editRect)
+        toPixels(layout, editRect, styleScale)
         setBounds(editRect.left, editRect.top, editRect.right, editRect.bottom)
         return this
     }
 
     private fun newButtonRect(): Rect = Rect(0, 0, 1, 1)
+
+    private fun styleOf(key: String): OverlayInputStyle? = profile?.styles?.get(key)
+
+    private fun alphaOf(style: OverlayInputStyle?): Int = style?.opacity ?: currentAlpha
+
+    /** Applies the per input opacity and size of [style]; call before [placed]. */
+    private fun <T : Input> T.styled(style: OverlayInputStyle?): T {
+        alphaOverride = style?.opacity
+        styleScale = (style?.scale ?: 1f).coerceIn(0.1f, 10f)
+        return this
+    }
 
     private fun addButton(button: Button, config: OverlayInputConfig?, behaviorSource: OverlayLayoutProfile?) {
         button.config = config
@@ -547,22 +598,28 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
             OverlayButton.R_STICK_CLICK -> TextButtonInnerDrawing("R3")
             else -> TextButtonInnerDrawing(overlayButton.name)
         }
-        val isRectangle = when (overlayButton) {
+        val style = profile.styles[styleKey(config)]
+        val isRectangle = style?.shape?.let { it == OverlayButtonShape.SQUARE } ?: when (overlayButton) {
             OverlayButton.ZL, OverlayButton.ZR, OverlayButton.L, OverlayButton.R, OverlayButton.Z -> true
             else -> false
         }
         val button = if (isRectangle) {
-            RectangleButton(innerDrawing, currentAlpha, newButtonRect())
+            RectangleButton(innerDrawing, alphaOf(style), newButtonRect())
         } else {
-            RoundButton(innerDrawing, currentAlpha, newButtonRect())
+            RoundButton(innerDrawing, alphaOf(style), newButtonRect())
         }
         button.output = ButtonsOutput(intArrayOf(nativeButtonFor(type, overlayButton)))
-        addButton(button.placed(layoutFor(config, profile)), config, profile)
+        addButton(button.styled(style).placed(layoutFor(config, profile)), config, profile)
     }
 
     private fun addMacro(type: OverlayControllerType, macro: OverlayMacro, index: Int) {
         val label = macro.label.ifBlank { "M${index + 1}" }
-        val button = RectangleButton(TextButtonInnerDrawing(label), currentAlpha, newButtonRect())
+        val style = styleOf(macro.id)
+        val button = if (style?.shape == OverlayButtonShape.ROUND) {
+            RoundButton(TextButtonInnerDrawing(label), alphaOf(style), newButtonRect())
+        } else {
+            RectangleButton(TextButtonInnerDrawing(label), alphaOf(style), newButtonRect())
+        }
         button.macroId = macro.id
         when (macro.kind) {
             MacroKind.COMBO -> {
@@ -587,7 +644,44 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
                 button.behavior = macro.behavior.copy(turbo = false)
             }
         }
-        addButton(button.placed(layoutFor(macro, index)), null, null)
+        addButton(button.styled(style).placed(layoutFor(macro, index)), null, null)
+    }
+
+    /** Runs its action once per press. */
+    private inner class ShortcutOutput(private val action: HotkeyAction) : ButtonOutput {
+        override fun setPressed(pressed: Boolean, nowNanos: Long) {
+            if (pressed) onShortcutListener?.invoke(action)
+        }
+
+        override fun release() {}
+    }
+
+    private fun defaultLayoutForShortcut(index: Int): NormalizedRect {
+        val shortSide = max(min(width, height), 1).toFloat()
+        val column = index % 6
+        val row = index / 6
+        return NormalizedRect(
+            centerX = (0.27f + column * 0.09f).coerceIn(0.05f, 0.95f),
+            centerY = (0.07f + row * 0.1f).coerceIn(0.05f, 0.95f),
+            width = dpToPx(SHORTCUT_WIDTH_DP) / shortSide,
+            height = dpToPx(SHORTCUT_HEIGHT_DP) / shortSide,
+        )
+    }
+
+    private fun addShortcut(shortcut: OverlayShortcut, index: Int) {
+        val label = shortcut.label.ifBlank { shortcut.action.shortLabel() }
+        val style = styleOf(shortcut.id)
+        val button = if (style?.shape == OverlayButtonShape.ROUND) {
+            RoundButton(TextButtonInnerDrawing(label), alphaOf(style), newButtonRect())
+        } else {
+            RectangleButton(TextButtonInnerDrawing(label), alphaOf(style), newButtonRect())
+        }
+        button.shortcutId = shortcut.id
+        button.output = ShortcutOutput(shortcut.action)
+        val layout = pendingMacroRects[shortcut.id]
+            ?: (if (showDefaults) null else shortcut.rect)
+            ?: defaultLayoutForShortcut(index)
+        addButton(button.styled(style).placed(layout), null, null)
     }
 
     private fun setInputs() {
@@ -624,6 +718,7 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
             pendingMacroRects.clear()
         }
         this.profile = profile
+        Colors.palette = palette
 
         onJoystickChange = when (type) {
             OverlayControllerType.VPAD -> ::onVPADJoystickStateChange
@@ -637,9 +732,10 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
             when (config) {
                 OverlayInputConfig.JOYSTICK_LEFT, OverlayInputConfig.JOYSTICK_RIGHT -> {
                     val joystick = if (config == OverlayInputConfig.JOYSTICK_LEFT) OverlayJoystick.LEFT else OverlayJoystick.RIGHT
-                    val input = Joystick({ x, y -> onJoystickStateChange(joystick, x, y) }, currentAlpha, newButtonRect())
+                    val style = profile.styles[styleKey(config)]
+                    val input = Joystick({ x, y -> onJoystickStateChange(joystick, x, y) }, alphaOf(style), newButtonRect())
                     input.config = config
-                    inputs.add(input.placed(layoutFor(config, profile)))
+                    inputs.add(input.styled(style).placed(layoutFor(config, profile)))
                     pointerInputs.add(input)
                 }
 
@@ -652,9 +748,9 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
                         } else {
                             releaseNative(id)
                         }
-                    }, currentAlpha, newButtonRect())
+                    }, alphaOf(profile.styles[styleKey(config)]), newButtonRect())
                     input.config = config
-                    inputs.add(input.placed(layoutFor(config, profile)))
+                    inputs.add(input.styled(profile.styles[styleKey(config)]).placed(layoutFor(config, profile)))
                     pointerInputs.add(input)
                 }
 
@@ -663,12 +759,14 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
         }
 
         profile.macros.forEachIndexed { index, macro -> addMacro(type, macro, index) }
+        profile.shortcuts.forEachIndexed { index, shortcut -> addShortcut(shortcut, index) }
 
         if (inputMode != InputMode.DEFAULT) updateEditOutlines()
     }
 
     private fun Input.toTarget(): OverlayTarget? {
         macroId?.let { return OverlayTarget.Macro(it) }
+        shortcutId?.let { return OverlayTarget.Shortcut(it) }
         return config?.let { OverlayTarget.Builtin(it) }
     }
 
@@ -851,9 +949,9 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
 
     private fun finishEdit(input: Input) {
         if (!editMoved) return
-        val layout = toLayout(input.rect)
+        val layout = toLayout(input.rect, input.styleScale)
         input.layout = layout
-        input.macroId?.let { pendingMacroRects[it] = layout }
+        (input.macroId ?: input.shortcutId)?.let { pendingMacroRects[it] = layout }
             ?: input.config?.let { pendingRects[it] = layout }
     }
 
@@ -947,6 +1045,8 @@ class InputOverlaySurfaceView(context: Context) : SurfaceView(context), OnTouchL
         private const val GRID_SIZE_DP = 16
         private const val MACRO_WIDTH_DP = 72
         private const val MACRO_HEIGHT_DP = 40
+        private const val SHORTCUT_WIDTH_DP = 60
+        private const val SHORTCUT_HEIGHT_DP = 34
         private const val MAX_POINTER_ID = 32
         private const val MAX_NATIVE_BUTTON_ID = 64
     }
@@ -986,6 +1086,8 @@ fun InputOverlaySurface(
     onEditFinished: (OverlayEditResult) -> Unit,
     onInputLongPress: (OverlayTarget) -> Unit,
     onLegacyLayout: (width: Int, height: Int) -> Unit,
+    palette: OverlayPalette = OverlayPalette.CLASSIC,
+    onShortcut: (HotkeyAction) -> Unit = {},
 ) {
     AndroidView(
         modifier = Modifier.fillMaxSize(),
@@ -995,6 +1097,8 @@ fun InputOverlaySurface(
                 onEditFinishedListener = onEditFinished
                 onInputLongPressListener = onInputLongPress
                 onLegacyLayoutListener = onLegacyLayout
+                onShortcutListener = onShortcut
+                applyPalette(palette)
                 setVisible(isVisible)
                 setInputMode(inputMode)
                 applySettings(inputOverlaySettings)
@@ -1005,6 +1109,8 @@ fun InputOverlaySurface(
             view.onEditFinishedListener = onEditFinished
             view.onInputLongPressListener = onInputLongPress
             view.onLegacyLayoutListener = onLegacyLayout
+            view.onShortcutListener = onShortcut
+            view.applyPalette(palette)
             view.setVisible(isVisible)
             view.setInputMode(inputMode)
             view.applySettings(inputOverlaySettings)

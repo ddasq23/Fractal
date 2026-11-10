@@ -53,6 +53,7 @@ fun OverlayEditToolbar(
     onReset: () -> Unit,
     onCancel: () -> Unit,
     onDone: () -> Unit,
+    onAddShortcut: () -> Unit = {},
 ) {
     var atTop by rememberSaveable { mutableStateOf(true) }
     val colors = FractalTheme.colors
@@ -84,6 +85,7 @@ fun OverlayEditToolbar(
                 )
                 ToolbarButton(FractalIcons.Grid, tr("Grid"), selected = snapToGrid, onClick = onToggleSnap)
                 ToolbarButton(FractalIcons.Box, tr("Add macro"), onClick = onAddMacro)
+                ToolbarButton(FractalIcons.Shortcut, tr("Add shortcut"), onClick = onAddShortcut)
                 ToolbarButton(FractalIcons.Tune, tr("Options"), onClick = onOptions)
                 ToolbarButton(FractalIcons.Refresh, tr("Reset"), onClick = onReset)
                 ToolbarButton(

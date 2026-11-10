@@ -25,6 +25,7 @@ import dev.dfd.fractal.emulation.inputoverlay.OverlayEditResult
 import dev.dfd.fractal.nativeinterface.NativeEmulation
 import dev.dfd.fractal.nativeinterface.NativeEmulation.PrepareTitleResult
 import dev.dfd.fractal.nativeinterface.NativeException
+import dev.dfd.fractal.nativeinterface.NativeSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,7 +42,30 @@ data class SideMenuState(
     val isTVReplacedWithPad: Boolean = false,
     val isPadVisible: Boolean = false,
     val isInputOverlayVisible: Boolean = false,
+    /** Paused from the menu or a hotkey; going to the background and back keeps it paused. */
+    val isPaused: Boolean = false,
 )
+
+/** Emulator settings the in-game menu changes live; they are global and saved when the menu closes. */
+data class DisplayOptions(
+    val upscaleFilter: Int = NativeSettings.ScalingFilter.BILINEAR_FILTER,
+    val upscaleSharpness: Int = 0,
+    val downscaleFilter: Int = NativeSettings.ScalingFilter.BILINEAR_FILTER,
+    val fullscreenScaling: Int = NativeSettings.FullscreenScaling.KEEP_ASPECT_RATIO,
+    val vsyncMode: Int = NativeSettings.VSyncMode.DOUBLE_BUFFERING,
+    val showFps: Boolean = false,
+) {
+    companion object {
+        fun fromNative() = DisplayOptions(
+            upscaleFilter = NativeSettings.getUpscalingFilter(),
+            upscaleSharpness = NativeSettings.getUpscalingSharpness(),
+            downscaleFilter = NativeSettings.getDownscalingFilter(),
+            fullscreenScaling = NativeSettings.getFullscreenScaling(),
+            vsyncMode = NativeSettings.getVsyncMode(),
+            showFps = NativeSettings.isOverlayFPSEnabled(),
+        )
+    }
+}
 
 class ConditionFlags(
     var isMainConditionMet: Boolean = false, var isPadConditionMet: Boolean = false
@@ -133,6 +157,47 @@ class EmulationViewModel(
         _sideMenuState.value = sideMenuState
     }
 
+    /** Suspends or resumes the game's threads. Does nothing before the game runs. */
+    fun setPaused(paused: Boolean) {
+        if (!_isEmulationInitialized.value || _emulationError.value != null) return
+        if (_sideMenuState.value.isPaused == paused) return
+        _sideMenuState.update { it.copy(isPaused = paused) }
+        // with the main surface gone the game is paused already and resumes with it
+        if (destroyedSurfaces.get(isMain = true)) return
+        if (paused) NativeEmulation.pauseTitle() else NativeEmulation.resumeTitle()
+    }
+
+    private val _displayOptions = MutableStateFlow(DisplayOptions.fromNative())
+    val displayOptions = _displayOptions.asStateFlow()
+    private var displayOptionsChanged = false
+
+    /** Reads the options again, e.g. when the menu opens. */
+    fun refreshDisplayOptions() {
+        _displayOptions.value = DisplayOptions.fromNative()
+    }
+
+    /** Applies [transform] to the live emulator settings; they are saved by [saveDisplayOptions]. */
+    fun updateDisplayOptions(transform: (DisplayOptions) -> DisplayOptions) {
+        val old = _displayOptions.value
+        val new = transform(old)
+        if (new == old) return
+        if (new.upscaleFilter != old.upscaleFilter) NativeSettings.setUpscalingFilter(new.upscaleFilter)
+        if (new.upscaleSharpness != old.upscaleSharpness) NativeSettings.setUpscalingSharpness(new.upscaleSharpness)
+        if (new.downscaleFilter != old.downscaleFilter) NativeSettings.setDownscalingFilter(new.downscaleFilter)
+        if (new.fullscreenScaling != old.fullscreenScaling) NativeSettings.setFullscreenScaling(new.fullscreenScaling)
+        if (new.vsyncMode != old.vsyncMode) NativeSettings.setVsyncMode(new.vsyncMode)
+        if (new.showFps != old.showFps) NativeSettings.setOverlayFPSEnabled(new.showFps)
+        _displayOptions.value = new
+        displayOptionsChanged = true
+    }
+
+    /** Writes settings.xml if the menu or a hotkey changed something. */
+    fun saveDisplayOptions() {
+        if (!displayOptionsChanged) return
+        displayOptionsChanged = false
+        viewModelScope.launch(Dispatchers.IO) { runCatching { NativeSettings.saveSettings() } }
+    }
+
     val gamePadPosition = dataStore.data.map { it.emulationSettings.gamePadPosition }
         .stateIn(
             viewModelScope,
@@ -164,7 +229,7 @@ class EmulationViewModel(
                 NativeEmulation.setSurface(surfaceHolder.surface, isMainCanvas)
                 val mainSurfaceWasDestroyed = destroyedSurfaces.get(isMain = true)
 
-                if (mainSurfaceWasDestroyed && isMainCanvas) {
+                if (mainSurfaceWasDestroyed && isMainCanvas && !_sideMenuState.value.isPaused) {
                     NativeEmulation.resumeTitle()
                 }
 

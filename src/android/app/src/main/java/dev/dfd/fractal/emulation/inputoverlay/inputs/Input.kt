@@ -25,8 +25,20 @@ abstract class Input protected constructor(
     /** Id of the macro this input runs, or null for a built in input. */
     var macroId: String? = null
 
+    /** Id of the shortcut this input is, or null. */
+    var shortcutId: String? = null
+
     /** Resolution independent layout [rect] comes from, before the global scale. */
     var layout: NormalizedRect = NormalizedRect(0.5f, 0.5f, 0.1f, 0.1f)
+
+    /** Size multiplier of this input on top of [layout] and the global scale. */
+    var styleScale: Float = 1f
+
+    /** Opacity set for this input alone, or null to follow the overlay opacity. */
+    var alphaOverride: Int? = null
+
+    /** Picks up a new [Colors.palette]. */
+    fun refreshColors() = configure()
 
     private var boundingRectangleColor = 0
     private var drawBoundingRectangle = false

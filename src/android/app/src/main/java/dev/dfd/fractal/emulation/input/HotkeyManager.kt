@@ -56,4 +56,18 @@ object HotkeyManager {
             onBufferOverflow = BufferOverflow.DROP_OLDEST
         )
     val actions = _actions.asSharedFlow()
+
+    /**
+     * Forgets held keys, e.g. after a dialog window took the key events:
+     * keys released there would otherwise stay held here.
+     */
+    fun clearPressedKeys() {
+        pressedKeys.clear()
+        activeActions.clear()
+    }
+
+    /** Runs [action] as if its combo had been pressed, e.g. from an on-screen shortcut button. */
+    fun trigger(action: HotkeyAction) {
+        _actions.tryEmit(action)
+    }
 }
