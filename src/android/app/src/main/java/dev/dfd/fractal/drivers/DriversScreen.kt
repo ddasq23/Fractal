@@ -74,7 +74,7 @@ fun DriversScreen(navigateBack: () -> Unit, viewModel: DriversViewModel = viewMo
         title = tr("Drivers"),
         onBack = navigateBack,
         extraHints = buildList {
-            if (viewModel.supportsCustomDrivers) add(ButtonHint(PadButton.X, tr("Import from file")) {
+            if (viewModel.supportsCustomDrivers) add(ButtonHint(PadButton.X, tr("Import")) {
                 importLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
             })
             if (viewModel.visibleSources(gpu).isNotEmpty()) add(ButtonHint(PadButton.Y, tr("Refresh")) { viewModel.refresh() })

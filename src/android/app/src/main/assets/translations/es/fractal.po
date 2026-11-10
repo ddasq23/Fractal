@@ -2469,8 +2469,6 @@ msgstr "Filtro de escalado: {0}"
 msgid "Uses the device's motion sensors for the GamePad gyro"
 msgstr "Usa los sensores de movimiento del dispositivo para el giroscopio del GamePad"
 
-msgid "Change view"
-msgstr "Cambiar vista"
 
 msgid "Close search"
 msgstr "Cerrar búsqueda"
@@ -2481,8 +2479,6 @@ msgstr "Confirmar"
 msgid "Download"
 msgstr "Descargar"
 
-msgid "Install title"
-msgstr "Instalar título"
 
 msgid "Section"
 msgstr "Sección"
@@ -2492,3 +2488,9 @@ msgstr "Mostrar todo"
 
 msgid "Step"
 msgstr "Paso"
+
+msgid "Configure"
+msgstr "Configurar"
+
+msgid "View"
+msgstr "Vista"

@@ -13,8 +13,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -67,6 +65,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.dfd.fractal.common.ui.localization.tr
@@ -219,13 +219,14 @@ fun ButtonLegendBar(hints: List<ButtonHint>, modifier: Modifier = Modifier) {
             .fractalSurface(RectangleShape, FractalTheme.surface)
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
     ) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.border.copy(alpha = 0.6f)))
+        // compact on purpose: small handheld screens lose little height to it
+        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.border.copy(alpha = 0.35f)))
         LegendRow(
             hints,
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 34.dp)
-                .padding(horizontal = 16.dp, vertical = 5.dp),
+                .heightIn(min = 24.dp)
+                .padding(horizontal = 12.dp, vertical = 2.dp),
         )
     }
 }
@@ -237,16 +238,35 @@ fun DialogButtonLegend(hints: List<ButtonHint> = dialogHints(), modifier: Modifi
     LegendRow(hints, modifier.fillMaxWidth().padding(top = 8.dp))
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * One line, right-aligned. Hints are listed most important first; the ones that don't fit are left out
+ * instead of wrapping, so the bar never takes more than a line on a small screen.
+ */
 @Composable
 private fun LegendRow(hints: List<ButtonHint>, modifier: Modifier) {
-    FlowRow(
-        modifier,
-        horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.End),
-        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
-        itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
-        hints.forEach { hint -> LegendItem(hint) }
+    val gap = with(LocalDensity.current) { 12.dp.roundToPx() }
+    Layout(content = { hints.forEach { hint -> LegendItem(hint) } }, modifier = modifier) { measurables, constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val placeables = measurables.map { it.measure(loose) }
+        val maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
+        var used = 0
+        var count = 0
+        for (p in placeables) {
+            val next = used + (if (count > 0) gap else 0) + p.width
+            if (next > maxWidth) break
+            used = next
+            count++
+        }
+        val shown = placeables.take(count)
+        val height = maxOf(shown.maxOfOrNull { it.height } ?: 0, constraints.minHeight)
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth else used
+        layout(width, height) {
+            var x = width - used
+            shown.forEach { p ->
+                p.placeRelative(x, (height - p.height) / 2)
+                x += p.width + gap
+            }
+        }
     }
 }
 
@@ -254,17 +274,17 @@ private fun LegendRow(hints: List<ButtonHint>, modifier: Modifier) {
 private fun LegendItem(hint: ButtonHint) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         hint.buttons.forEachIndexed { index, button ->
-            if (index > 0) Spacer(Modifier.width(3.dp))
-            ButtonGlyph(button)
+            if (index > 0) Spacer(Modifier.width(2.dp))
+            ButtonGlyph(button, size = 15.dp)
         }
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(4.dp))
         Text(
             hint.label,
-            style = MaterialTheme.typography.labelMedium,
-            color = FractalTheme.colors.text,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 13.sp, letterSpacing = 0.2.sp),
+            color = FractalTheme.colors.textSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.widthIn(max = 180.dp),
+            modifier = Modifier.widthIn(max = 120.dp),
         )
     }
 }
@@ -281,7 +301,7 @@ fun ButtonGlyph(button: PadButton, size: Dp = 20.dp) {
             Modifier.size(size).clip(CircleShape).background(fill),
             contentAlignment = Alignment.Center,
         ) {
-            Text(button.label, style = labelStyle.copy(fontSize = 11.sp, lineHeight = 11.sp))
+            Text(button.label, style = labelStyle.copy(fontSize = (size.value * 0.55f).sp, lineHeight = (size.value * 0.55f).sp))
         }
 
         PadButton.L1, PadButton.R1, PadButton.L2, PadButton.R2 -> Box(
@@ -290,10 +310,10 @@ fun ButtonGlyph(button: PadButton, size: Dp = 20.dp) {
                 .widthIn(min = size * 1.35f)
                 .clip(RoundedCornerShape(topStart = size / 2, topEnd = size / 2, bottomStart = 4.dp, bottomEnd = 4.dp))
                 .background(fill)
-                .padding(horizontal = 5.dp),
+                .padding(horizontal = 4.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(button.label, style = labelStyle.copy(fontSize = 11.sp, lineHeight = 11.sp))
+            Text(button.label, style = labelStyle.copy(fontSize = (size.value * 0.55f).sp, lineHeight = (size.value * 0.55f).sp))
         }
 
         PadButton.START, PadButton.SELECT -> Box(
@@ -301,10 +321,10 @@ fun ButtonGlyph(button: PadButton, size: Dp = 20.dp) {
                 .height(size * 0.72f)
                 .clip(RoundedCornerShape(50))
                 .background(fill)
-                .padding(horizontal = 7.dp),
+                .padding(horizontal = 5.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(button.label, style = labelStyle.copy(fontSize = 9.sp, lineHeight = 9.sp, letterSpacing = 0.6.sp))
+            Text(button.label, style = labelStyle.copy(fontSize = (size.value * 0.45f).sp, lineHeight = (size.value * 0.45f).sp, letterSpacing = 0.4.sp))
         }
 
         PadButton.DPAD -> Canvas(Modifier.size(size)) {

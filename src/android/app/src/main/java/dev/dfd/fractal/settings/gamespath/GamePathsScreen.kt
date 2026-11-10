@@ -68,7 +68,7 @@ fun GamePathsScreen(
     FractalScreen(
         title = tr("Game paths"),
         onBack = navigateBack,
-        extraHints = listOf(ButtonHint(PadButton.X, tr("Add game folder")) { launcher.launch(null) }),
+        extraHints = listOf(ButtonHint(PadButton.X, tr("Add folder")) { launcher.launch(null) }),
     ) {
         Text(
             tr("Fractal looks for games (.wua, .wux, .wud, .iso, .rpx) in these folders and in every folder inside them."),

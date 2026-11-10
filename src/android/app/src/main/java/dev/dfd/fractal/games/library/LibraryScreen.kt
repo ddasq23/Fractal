@@ -197,11 +197,11 @@ fun LibraryScreen(
     ButtonHints(
         buildList {
             if (selected != null) add(ButtonHint(PadButton.A, tr("Play")))
-            if (selected != null) add(ButtonHint(PadButton.Y, tr("Game settings")) { navigation.goToGameEditProfile(selected) })
+            if (selected != null) add(ButtonHint(PadButton.Y, tr("Configure")) { navigation.goToGameEditProfile(selected) })
             add(ButtonHint(PadButton.X, tr("Settings")) { navigation.goToSettings() })
             if (selected != null) add(ButtonHint(PadButton.SELECT, tr("More")) { menuGame = selected })
             add(ButtonHint(PadButton.START, tr("Options")) { optionsOpen = true })
-            add(ButtonHint(listOf(PadButton.L1, PadButton.R1), tr("Change view")) { cycleView(if (it == PadButton.R1) 1 else -1) })
+            add(ButtonHint(listOf(PadButton.L1, PadButton.R1), tr("View")) { cycleView(if (it == PadButton.R1) 1 else -1) })
         }
     )
     BackHandler(enabled = searchOpen) {

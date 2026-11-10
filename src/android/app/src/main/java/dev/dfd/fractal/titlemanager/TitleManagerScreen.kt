@@ -156,7 +156,7 @@ fun TitleManagerScreen(
         appBarText = tr("Title manager"),
         navigateBack = navigateBack,
         extraHints = listOf(
-            ButtonHint(PadButton.X, tr("Install title")) { installTitleLauncher.launch(null) },
+            ButtonHint(PadButton.X, tr("Install")) { installTitleLauncher.launch(null) },
             ButtonHint(PadButton.Y, tr("Filter")) { showFilterSheet = true },
             ButtonHint(PadButton.SELECT, tr("Refresh")) {
                 titleListViewModel.refresh()
