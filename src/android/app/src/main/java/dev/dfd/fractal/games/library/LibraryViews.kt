@@ -76,6 +76,7 @@ import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.common.ui.theme.BackgroundKind
 import dev.dfd.fractal.common.ui.theme.FractalTheme
 import dev.dfd.fractal.common.ui.theme.themedPanel
+import dev.dfd.fractal.games.GameIcons
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
 
 /** What a library view can do with a game. */
@@ -190,11 +191,31 @@ private fun GridCard(game: Game, actions: LibraryActions, focusRequester: FocusR
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                regionName(game.region),
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.7f),
-            )
+            val summary = playSummary(game)
+            if (summary.isEmpty()) {
+                Text(
+                    regionName(game.region),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.7f),
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        GameIcons.Clock,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(12.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        summary,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
         if (game.isFavorite) {
             Icon(
@@ -281,6 +302,9 @@ fun LibraryCarousel(
             Spacer(Modifier.height(if (compact) 8.dp else 12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatusChip(regionName(game.region), icon = FractalIcons.Globe)
+                if (game.minutesPlayed > 0)
+                    StatusChip(tr("{0} played", formatPlaytime(game.minutesPlayed)), icon = GameIcons.Clock)
+                game.lastPlayedDate?.let { StatusChip(tr("Last played: {0}", formatLastPlayed(it))) }
                 status?.let { s ->
                     StatusChip(s.driver, icon = FractalIcons.Chip)
                     if (s.activeGraphicPacks > 0)
@@ -408,6 +432,25 @@ private fun ListRow(
                 maxLines = 1,
             )
         }
+        if (game.minutesPlayed > 0 || game.lastPlayedDate != null) {
+            Column(Modifier.padding(horizontal = 12.dp), horizontalAlignment = Alignment.End) {
+                if (game.minutesPlayed > 0)
+                    Text(
+                        formatPlaytime(game.minutesPlayed, compact = true),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = colors.text,
+                        maxLines = 1,
+                    )
+                game.lastPlayedDate?.let {
+                    Text(
+                        formatLastPlayed(it),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.textSecondary,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
         status?.let { StatusChip(it.driver, icon = FractalIcons.Chip, modifier = Modifier.padding(end = 14.dp)) }
     }
 }
@@ -440,7 +483,8 @@ private fun DetailsPanel(game: Game, actions: LibraryActions, modifier: Modifier
             tr("Configuration"),
             status?.let { if (it.hasCustomProfile) tr("Own configuration") else tr("Global") } ?: "…",
         )
-        DetailLine(tr("Played"), formatPlaytime(game.minutesPlayed))
+        DetailLine(tr("Play time"), formatPlaytime(game.minutesPlayed))
+        DetailLine(tr("Last played"), formatLastPlayed(game.lastPlayedDate))
       }
       Spacer(Modifier.height(12.dp))
       Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -463,12 +507,6 @@ private fun DetailLine(label: String, value: String) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = FractalTheme.colors.textSecondary, modifier = Modifier.weight(0.42f))
         Text(value, style = MaterialTheme.typography.bodySmall, color = FractalTheme.colors.text, modifier = Modifier.weight(0.58f))
     }
-}
-
-private fun formatPlaytime(minutes: Int): String = when {
-    minutes <= 0 -> tr("Never")
-    minutes < 60 -> "$minutes min"
-    else -> "${minutes / 60} h ${minutes % 60} min"
 }
 
 // endregion

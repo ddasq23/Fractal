@@ -2,31 +2,47 @@ package dev.dfd.fractal.games.details
 
 import android.content.ClipData
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import dev.dfd.fractal.common.ui.components.ScreenContent
+import dev.dfd.fractal.common.ui.fractal.FractalScreen
+import dev.dfd.fractal.common.ui.fractal.SectionTitle
+import dev.dfd.fractal.common.ui.fractal.focusRing
+import dev.dfd.fractal.common.ui.fractal.gamepadConfirm
 import dev.dfd.fractal.common.ui.localization.regionToString
 import dev.dfd.fractal.common.ui.localization.tr
-import dev.dfd.fractal.games.GameIcon
+import dev.dfd.fractal.common.ui.theme.FractalTheme
+import dev.dfd.fractal.common.ui.theme.fractalSurface
+import dev.dfd.fractal.common.ui.theme.themedPanel
+import dev.dfd.fractal.games.library.GameArt
+import dev.dfd.fractal.games.library.formatLastPlayed
+import dev.dfd.fractal.games.library.formatPlaytime
+import dev.dfd.fractal.games.library.lastPlayedDate
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 @Composable
 fun GameDetailsScreen(game: Game?, navigateBack: () -> Unit) {
@@ -37,92 +53,61 @@ fun GameDetailsScreen(game: Game?, navigateBack: () -> Unit) {
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboard = LocalClipboard.current
 
-    @Composable
-    fun <T> TitleDetailsEntry(entryName: String, entryData: T?) {
-        Column(
-            modifier = Modifier
-                .clickable {
-                    scope.launch {
-                        val data = entryData?.toString() ?: return@launch
-                        val clipData = ClipData.newPlainText(entryName, data)
-                        clipboard.setClipEntry(ClipEntry(clipData))
-                        snackbarHostState.currentSnackbarData?.dismiss()
-                        snackbarHostState.showSnackbar(tr("Copied to clipboard"))
-                    }
+    fun copy(label: String, value: String) = scope.launch {
+        clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(label, value)))
+        snackbarHostState.currentSnackbarData?.dismiss()
+        snackbarHostState.showSnackbar(tr("Copied to clipboard"))
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        FractalScreen(title = tr("About title"), onBack = navigateBack) {
+            Row(
+                Modifier.fillMaxWidth().themedPanel().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GameArt(game, Modifier.size(112.dp).clip(FractalTheme.shapes.cover))
+                Spacer(Modifier.width(18.dp))
+                Column {
+                    Text(game.name ?: "", style = MaterialTheme.typography.headlineSmall, color = FractalTheme.colors.text)
+                    Text(
+                        regionToString(game.region),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = FractalTheme.colors.textSecondary,
+                    )
                 }
-                .padding(horizontal = 8.dp, vertical = 16.dp)
-                .fillMaxWidth()
-        ) {
-            Text(
-                text = entryName,
-                fontWeight = FontWeight.Bold,
-                fontSize = 24.sp,
-            )
-            Text(
-                text = entryData?.toString() ?: "",
-                fontSize = 16.sp,
-            )
+            }
+            SectionTitle(tr("Activity"))
+            DetailRow(tr("You've played"), formatPlaytime(game.minutesPlayed), ::copy)
+            DetailRow(tr("Last played"), formatLastPlayed(game.lastPlayedDate), ::copy)
+            SectionTitle(tr("Title"))
+            DetailRow(tr("Title name"), game.name ?: "", ::copy)
+            DetailRow(tr("Title ID"), "%016X".format(game.titleId), ::copy)
+            DetailRow(tr("Version"), game.version.toString(), ::copy)
+            DetailRow(tr("DLC"), game.dlc.toString(), ::copy)
+            DetailRow(tr("Region"), regionToString(game.region), ::copy)
+            DetailRow(tr("Path"), game.path, ::copy)
         }
+        SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter))
     }
+}
 
-    ScreenContent(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        appBarText = tr("About title"),
-        navigateBack = navigateBack,
+/** Label and value; tapping copies the value. */
+@Composable
+private fun DetailRow(label: String, value: String, onCopy: (String, String) -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val shape = FractalTheme.shapes.card
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .focusRing(focused, shape, gap = 2.dp)
+            .clip(shape)
+            .gamepadConfirm { onCopy(label, value) }
+            .clickable(interaction, indication = null, role = Role.Button) { onCopy(label, value) }
+            .fractalSurface(shape, FractalTheme.surface)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
-        GameIcon(
-            game = game,
-            modifier = Modifier.size(128.dp),
-        )
-        TitleDetailsEntry(entryName = tr("Title name"), entryData = game.name)
-        TitleDetailsEntry(entryName = tr("Title ID"), entryData = game.titleId)
-        TitleDetailsEntry(entryName = tr("Version"), entryData = game.version)
-        TitleDetailsEntry(entryName = tr("DLC"), entryData = game.dlc)
-        TitleDetailsEntry(
-            entryName = tr("You've played"),
-            entryData = getTimePlayed(game)
-        )
-        TitleDetailsEntry(
-            entryName = tr("Last played"),
-            entryData = getLastPlayedDate(game)
-        )
-        TitleDetailsEntry(
-            entryName = tr("Region"),
-            entryData = regionToString(game.region)
-        )
-        TitleDetailsEntry(
-            entryName = tr("Path"),
-            entryData = game.path
-        )
+        Text(label, style = MaterialTheme.typography.labelMedium, color = FractalTheme.colors.textSecondary)
+        Text(value, style = MaterialTheme.typography.bodyLarge, color = FractalTheme.colors.text)
     }
-}
-
-private fun getTimePlayed(game: Game): String {
-    if (game.minutesPlayed == 0) {
-        return tr("Never played")
-    }
-    if (game.minutesPlayed < 60) {
-        return tr("Minutes: {0}", game.minutesPlayed)
-    }
-    return tr(
-        "Hours: {0} Minutes: {1}",
-        game.minutesPlayed / 60,
-        game.minutesPlayed % 60
-    )
-}
-
-private val DateFormatter = DateTimeFormatter.ofLocalizedDate(
-    FormatStyle.SHORT
-)
-
-private fun getLastPlayedDate(game: Game): String {
-    if (game.lastPlayedYear.toInt() == 0) {
-        return tr("Never played")
-    }
-    val lastPlayedDate = LocalDate.of(
-        game.lastPlayedYear.toInt(),
-        game.lastPlayedMonth.toInt(),
-        game.lastPlayedDay.toInt()
-    )
-    return DateFormatter.format(lastPlayedDate)
 }

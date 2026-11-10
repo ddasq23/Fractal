@@ -98,6 +98,8 @@ fun NavGraphBuilder.gamesNavigation(
             GameProfileEditScreen(
                 game = game,
                 navigateBack = { navController.popBackStack() },
+                goToGraphicPacks = goToGraphicPacks,
+                onPlay = startGame,
             )
         }
     }

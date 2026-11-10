@@ -65,6 +65,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.dfd.fractal.common.settings.AppSettingsStore
+import dev.dfd.fractal.common.settings.LibrarySort
 import dev.dfd.fractal.common.settings.LibraryView
 import dev.dfd.fractal.common.ui.components.LocalFocusedGameArt
 import dev.dfd.fractal.common.ui.extensions.showMessage
@@ -79,6 +80,8 @@ import dev.dfd.fractal.common.ui.theme.NavStyle
 import dev.dfd.fractal.common.ui.theme.fractalSurface
 import dev.dfd.fractal.common.ui.theme.rememberGuiSettings
 import dev.dfd.fractal.common.ui.theme.themedPanel
+import dev.dfd.fractal.games.GameIcons
+import dev.dfd.fractal.games.data.rememberGameDataActions
 import dev.dfd.fractal.games.list.GamesListViewModel
 import dev.dfd.fractal.nativeinterface.NativeActiveSettings
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
@@ -110,10 +113,13 @@ fun LibraryScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    val games by viewModel.games.collectAsStateWithLifecycle()
+    val allGames by viewModel.games.collectAsStateWithLifecycle()
     val query by viewModel.filterText.collectAsStateWithLifecycle()
     val gui by rememberGuiSettings()
     val view = gui?.libraryView ?: LibraryView.GRID
+    val sort = gui?.librarySort ?: LibrarySort.NAME
+    val games = remember(allGames, sort) { sortGames(allGames, sort) }
+    val dataActions = rememberGameDataActions(snackbar)
     val tokens = FractalTheme.tokens
     val focusedArt = LocalFocusedGameArt.current
 
@@ -123,14 +129,19 @@ fun LibraryScreen(
     var menuGame by remember { mutableStateOf<Game?>(null) }
     var shaderDialogGame by remember { mutableStateOf<Game?>(null) }
     var optionsOpen by remember { mutableStateOf(false) }
+    var sortOpen by remember { mutableStateOf(false) }
+    // play time and last played change while a game runs: reload them when coming back
+    var returningFromGame by rememberSaveable { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
     val entryFocus = remember { FocusRequester() }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
     LaunchedEffect(lifecycleState) {
-        if (lifecycleState == Lifecycle.State.RESUMED && viewModel.gamePathsHaveChanged())
-            viewModel.refreshGames()
+        if (lifecycleState != Lifecycle.State.RESUMED) return@LaunchedEffect
+        if (viewModel.gamePathsHaveChanged()) viewModel.refreshGames()
+        else if (returningFromGame) viewModel.refreshPlayStats()
+        returningFromGame = false
     }
     DisposableEffect(lifecycleOwner) { onDispose { viewModel.setFilterText("") } }
 
@@ -147,9 +158,13 @@ fun LibraryScreen(
         AppSettingsStore.dataStore.updateData { it.copy(guiSettings = it.guiSettings.copy(libraryView = newView)) }
     }
 
+    fun setSort(newSort: LibrarySort) = scope.launch {
+        AppSettingsStore.dataStore.updateData { it.copy(guiSettings = it.guiSettings.copy(librarySort = newSort)) }
+    }
+
     val actions = remember(navigation) {
         LibraryActions(
-            play = navigation.startGame,
+            play = { game -> returningFromGame = true; navigation.startGame(game) },
             configure = navigation.goToGameEditProfile,
             openMenu = { menuGame = it },
             focus = { selectedPath = it.path },
@@ -164,7 +179,7 @@ fun LibraryScreen(
                     Key.ButtonY, Key.ButtonX, Key.ButtonStart, Key.Menu, Key.ButtonL1, Key.ButtonR1 -> true
                     else -> false
                 }
-                if (!handled || menuGame != null || optionsOpen) return@onPreviewKeyEvent false
+                if (!handled || menuGame != null || optionsOpen || sortOpen) return@onPreviewKeyEvent false
                 if (event.type == KeyEventType.KeyUp) {
                     when (event.key) {
                         Key.ButtonY -> selected?.let(navigation.goToGameEditProfile)
@@ -190,6 +205,7 @@ fun LibraryScreen(
                 },
                 query = query,
                 onQueryChange = viewModel::setFilterText,
+                onSort = { sortOpen = true },
                 onSettings = navigation.goToSettings,
                 onOptions = { optionsOpen = true },
                 onAddFolder = navigation.goToGamePaths,
@@ -257,6 +273,10 @@ fun LibraryScreen(
                 viewModel.setGameTitleFavorite(game, !game.isFavorite); menuGame = null
             }
             SheetAction(tr("Edit game profile"), FractalIcons.Tune) { menuGame = null; navigation.goToGameEditProfile(game) }
+            SheetAction(tr("Export save"), GameIcons.Export) { menuGame = null; dataActions.exportSave(game) }
+            SheetAction(tr("Import save"), GameIcons.Import) { menuGame = null; dataActions.importSave(game) }
+            SheetAction(tr("Export shader cache"), GameIcons.Export) { menuGame = null; dataActions.exportShaderCache(game) }
+            SheetAction(tr("Import shader cache"), GameIcons.Import) { menuGame = null; dataActions.importShaderCache(game) }
             SheetAction(tr("Remove shader caches"), FractalIcons.Trash) { menuGame = null; shaderDialogGame = game }
             SheetAction(tr("About title"), FractalIcons.Info) { menuGame = null; navigation.goToGameDetails(game) }
             SheetAction(tr("Create shortcut"), FractalIcons.Shortcut) {
@@ -271,6 +291,7 @@ fun LibraryScreen(
             SheetAction(tr("Settings"), FractalIcons.Settings) { optionsOpen = false; navigation.goToSettings() }
             SheetAction(tr("Appearance"), FractalIcons.Palette) { optionsOpen = false; navigation.goToAppearance() }
             SheetAction(tr("Game folders"), FractalIcons.FolderAdd) { optionsOpen = false; navigation.goToGamePaths() }
+            SheetAction(tr("Sort by: {0}", librarySortName(sort)), GameIcons.Sort) { optionsOpen = false; sortOpen = true }
             SheetAction(tr("Graphic packs"), FractalIcons.Layers) { optionsOpen = false; navigation.goToGraphicPacks() }
             SheetAction(tr("Drivers"), FractalIcons.Chip) { optionsOpen = false; navigation.goToDrivers() }
             SheetAction(tr("Title manager"), FractalIcons.Box) { optionsOpen = false; navigation.goToTitleManager() }
@@ -288,6 +309,25 @@ fun LibraryScreen(
             }
             SheetAction(tr("Welcome setup"), FractalIcons.Next) { optionsOpen = false; navigation.goToWelcome() }
             SheetAction(tr("About Fractal"), FractalIcons.Info) { optionsOpen = false; navigation.goToAbout() }
+        }
+    }
+
+    if (sortOpen) {
+        ActionSheet(title = tr("Sort by"), onDismiss = { sortOpen = false }) {
+            LibrarySort.entries.forEach { option ->
+                FractalButton(
+                    librarySortName(option),
+                    onClick = { sortOpen = false; setSort(option) },
+                    icon = if (option == sort) FractalIcons.Check else null,
+                    primary = option == sort,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            Text(
+                tr("Favorites always stay at the top."),
+                style = MaterialTheme.typography.bodySmall,
+                color = FractalTheme.colors.textSecondary,
+            )
         }
     }
 
@@ -317,6 +357,7 @@ private fun LibraryNavBar(
     onSearchToggle: () -> Unit,
     query: String,
     onQueryChange: (String) -> Unit,
+    onSort: () -> Unit,
     onSettings: () -> Unit,
     onOptions: () -> Unit,
     onAddFolder: () -> Unit,
@@ -341,6 +382,7 @@ private fun LibraryNavBar(
             Spacer(Modifier.height(12.dp))
             viewButtons()
             FractalIconButton(FractalIcons.Search, tr("Search"), onSearchToggle, selected = searchOpen)
+            FractalIconButton(GameIcons.Sort, tr("Sort by"), onSort)
             Spacer(Modifier.weight(1f))
             FractalIconButton(FractalIcons.Settings, tr("Settings"), onSettings)
             FractalIconButton(FractalIcons.More, tr("Options"), onOptions)
@@ -373,6 +415,7 @@ private fun LibraryNavBar(
                 if (pill) Spacer(Modifier.width(24.dp)) else Spacer(Modifier.weight(1f))
                 if (searchOpen) SearchField(query, onQueryChange, Modifier.widthIn(min = 180.dp, max = 320.dp))
                 FractalIconButton(FractalIcons.Search, tr("Search"), onSearchToggle, selected = searchOpen)
+                FractalIconButton(GameIcons.Sort, tr("Sort by"), onSort)
                 Spacer(Modifier.width(8.dp))
                 viewButtons()
                 Spacer(Modifier.width(8.dp))

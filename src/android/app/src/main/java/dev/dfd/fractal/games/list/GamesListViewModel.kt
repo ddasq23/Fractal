@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 
 class GamesListViewModel : ViewModel() {
     private var gamePaths = NativeSettings.getGamesPaths().toSet()
@@ -39,10 +40,16 @@ class GamesListViewModel : ViewModel() {
 
     init {
         NativeGameTitles.setGameTitleLoadedCallback(NativeGameTitles.GameTitleLoadedCallback { game: Game ->
-            if (_games.value.any { it.titleId == game.titleId || it.path == game.path })
-                return@GameTitleLoadedCallback
-
-            _games.value += game
+            _games.update { games ->
+                val existing = games.firstOrNull { it.titleId == game.titleId || it.path == game.path }
+                when {
+                    existing == null -> games + game
+                    // a refresh after playing brings new play time and last played date
+                    existing.titleId == game.titleId && existing.isSameEntry(game) -> games
+                    existing.titleId == game.titleId -> games - existing + game
+                    else -> games
+                }
+            }
         })
         refreshGames()
     }
@@ -79,4 +86,14 @@ class GamesListViewModel : ViewModel() {
         _games.value = emptySet()
         NativeGameTitles.reloadGameTitles()
     }
+
+    /** Reloads the titles keeping the current list on screen; entries are updated as they come back. */
+    fun refreshPlayStats() {
+        NativeGameTitles.reloadGameTitles()
+    }
 }
+
+private fun Game.isSameEntry(other: Game) =
+    path == other.path && name == other.name && version == other.version && dlc == other.dlc &&
+            minutesPlayed == other.minutesPlayed && isFavorite == other.isFavorite &&
+            lastPlayedYear == other.lastPlayedYear && lastPlayedMonth == other.lastPlayedMonth && lastPlayedDay == other.lastPlayedDay

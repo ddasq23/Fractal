@@ -25,6 +25,14 @@ enum class LibraryView {
     LIST,
 }
 
+/** Library order; favorites always come first. */
+@Serializable
+enum class LibrarySort {
+    NAME,
+    LAST_PLAYED,
+    PLAY_TIME,
+}
+
 @Serializable
 data class GuiSettings(
     val language: String = DEFAULT_LANGUAGE,
@@ -37,6 +45,7 @@ data class GuiSettings(
     val animationEconomy: Boolean = false,
     val introOnLaunch: Boolean = true,
     val libraryView: LibraryView = LibraryView.GRID,
+    val librarySort: LibrarySort = LibrarySort.NAME,
     val onboardingCompleted: Boolean = false,
 )
 
