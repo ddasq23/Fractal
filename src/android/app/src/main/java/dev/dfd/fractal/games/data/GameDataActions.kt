@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.AlertDialog
+import dev.dfd.fractal.common.ui.components.FractalAlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -258,7 +258,7 @@ private fun ImportConfirmationDialog(request: ImportConfirmation, onConfirm: () 
     val size = remember(request) { Formatter.formatFileSize(context, request.summary.bytes) }
     val save = request.kind == TransferKind.SAVE
     val otherTitle = request.summary.sourceTitleId?.takeIf { it != request.game.titleId }
-    AlertDialog(
+    FractalAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (save) tr("Import save") else tr("Import shader cache")) },
         text = {
