@@ -96,7 +96,7 @@ namespace PerfLog
 	static std::vector<ScriptedPress> s_inputScript; // set before s_active, read-only afterwards
 
 	static std::mutex s_jitMutex;
-	static std::ofstream s_jitMap, s_jitFail;
+	static std::ofstream s_jitMap, s_jitFail, s_jitCode;
 
 	bool IsActive()
 	{
@@ -555,6 +555,9 @@ namespace PerfLog
 			std::scoped_lock lock(s_jitMutex);
 			s_jitMap.open(dir / "jitmap.txt", std::ios::trunc);
 			s_jitFail.open(dir / "jitfail.txt", std::ios::trunc);
+			// tuning jit_code=1: also keep the host code of each function, for per-instruction profiles
+			if (Tunable("jit_code", 0) != 0)
+				s_jitCode.open(dir / "jitcode.bin", std::ios::trunc | std::ios::binary);
 		}
 #if defined(__aarch64__)
 		PPCRecompilerAArch64Gen_reportInterfaceFunctionsToPerfLog();
@@ -581,6 +584,7 @@ namespace PerfLog
 		std::scoped_lock lock(s_jitMutex);
 		s_jitMap.close();
 		s_jitFail.close();
+		s_jitCode.close();
 	}
 
 	void RenderPassBegin()
@@ -776,6 +780,19 @@ namespace PerfLog
 		s_gpuLastEndNs = std::max(s_gpuLastEndNs, endNs);
 	}
 
+	// jitcode.bin records: uint64 host address, uint32 size, uint32 ppc address, then the code bytes
+	static void WriteJitCode(const void* hostCode, uint32 hostSize, uint32 ppcAddress)
+	{
+		if (!s_jitCode.is_open())
+			return;
+		uint64 address = (uint64)(uintptr_t)hostCode;
+		s_jitCode.write((const char*)&address, 8);
+		s_jitCode.write((const char*)&hostSize, 4);
+		s_jitCode.write((const char*)&ppcAddress, 4);
+		s_jitCode.write((const char*)hostCode, hostSize);
+		s_jitCode.flush();
+	}
+
 	void JitFunction(uint32 ppcAddress, uint32 ppcSize, const void* hostCode, uint32 hostSize)
 	{
 		if (!IsActive())
@@ -785,6 +802,7 @@ namespace PerfLog
 			return;
 		s_jitMap << fmt::format("{:x} {:x} {:08x} {}\n", (uint64)(uintptr_t)hostCode, hostSize, ppcAddress, ppcSize);
 		s_jitMap.flush();
+		WriteJitCode(hostCode, hostSize, ppcAddress);
 	}
 
 	void JitGlue(const void* hostCode, uint32 hostSize, const char* name)
@@ -794,6 +812,7 @@ namespace PerfLog
 			return;
 		s_jitMap << fmt::format("{:x} {:x} 0 {}\n", (uint64)(uintptr_t)hostCode, hostSize, name);
 		s_jitMap.flush();
+		WriteJitCode(hostCode, hostSize, 0);
 	}
 
 	void JitFailure(uint32 ppcAddress, uint32 ppcSize, const char* stage)
