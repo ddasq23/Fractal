@@ -353,7 +353,7 @@ namespace PerfLog
 				   "shaders,shaders_cached,shaders_failed,shader_ms,"
 				   "pipelines,pipelines_sync,pipelines_failed,pipeline_ms,pipeline_sync_ms,gpu_busy_ms,render_passes,draws,"
 				   "rpe_other,rpe_fbo,rpe_buffer_upload,rpe_buffer_copy,rpe_texture_upload,rpe_clear,rpe_copy,rpe_readback,rpe_query,rpe_submit,rpe_self_dependency,buffer_uploads_direct,barriers,gpu_wait_ms,readbacks,selfdep_kept,selfdep_other_subresource,selfdep_color,selfdep_depth,selfdep_why_drawwrites,selfdep_why_passwrote,selfdep_why_otherbarrier,selfdep_why_vertex,upload_fb_blocked,upload_fb_current,upload_fb_inflight,buffer_renames,buffer_rename_kb,rename_skip_streamout,rename_skip_size,rename_skip_heap,rename_skip_busy,copies_via_buffer,uploads_prologue,depth_passes,depth_unused,depth_readonly,depth_store_skipped,depth_store_restarts,drawdone,gw_other_ms,gw_present_ms,gw_readback_ms,gw_query_ms,gw_flush_ms,gw_pool_ms,"
-				   "rs_other,rs_fbo,rs_buffer_upload,rs_buffer_copy,rs_texture_upload,rs_clear,rs_copy,rs_readback,rs_query,rs_submit,rs_self_dependency,wait_timestamp_ms,wait_flip_ms,wait_vsync_ms,"
+				   "rs_other,rs_fbo,rs_buffer_upload,rs_buffer_copy,rs_texture_upload,rs_clear,rs_copy,rs_readback,rs_query,rs_submit,rs_self_dependency,wait_timestamp_ms,wait_flip_ms,wait_vsync_ms,wait_cp_fence_ms,"
 				   "cpu_process_pct,rss_mb" << freqHeader << "\n";
 		threads << "t_s,tid,name,cpu_pct\n";
 		frames << "t_ms,ft_ms\n";

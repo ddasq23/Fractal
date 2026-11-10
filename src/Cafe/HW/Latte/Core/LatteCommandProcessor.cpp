@@ -493,6 +493,7 @@ LatteCMDPtr LatteCP_itWaitRegMem(LatteCMDPtr cmd, uint32 nWords)
 	{
 		// wait for memory address
 		performanceMonitor.gpuTime_fenceTime.beginMeasuring();
+		const auto fenceWaitStart = std::chrono::steady_clock::now();
 		while (true)
 		{
 			uint32 fenceMemValue = _swapEndianU32(*fencePtr);
@@ -547,8 +548,14 @@ LatteCMDPtr LatteCP_itWaitRegMem(LatteCMDPtr cmd, uint32 nWords)
 			// check if any GPU events happened
 			LatteTiming_HandleTimedVsync();
 			LatteAsyncCommands_checkAndExecute();
+			// perf/tuning.txt cp_fence_sleep_us=N: after a short spin, sleep N us per round so the CPU thread that
+			// writes the fence can have the core (default 0: spin)
+			static const sint64 s_fenceSleepUs = PerfLog::Tunable("cp_fence_sleep_us", 0);
+			if (s_fenceSleepUs > 0 && std::chrono::steady_clock::now() - fenceWaitStart > std::chrono::microseconds(50))
+				std::this_thread::sleep_for(std::chrono::microseconds(s_fenceSleepUs));
 		}
 		performanceMonitor.gpuTime_fenceTime.endMeasuring();
+		PerfLog::GuestWaited(PerfLog::GuestWait::CpFence, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - fenceWaitStart).count());
 	}
 	else
 	{

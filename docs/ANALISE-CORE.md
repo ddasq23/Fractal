@@ -647,6 +647,17 @@ necessária e o ganho tem de vir de encurtar a LatteThread. Dela, 19 % é `clock
 `LatteCP_itWaitRegMem`, ~15 % é o driver Adreno e o resto é tradução espalhada (hash de textura 2,8 %,
 conversão de índices 2,1 %).
 
+A espera também acontece no sentido contrário. `wait_cp_fence_ms` mede a LatteThread parada em
+`WAIT_REG_MEM`: o `GX2SetGPUFence` do jogo manda a GPU esperar um valor que outra thread da CPU
+escreve quando termina o trabalho dela. No BotW do RP5 são 22,3 ms por frame. O frame vira um
+pingue-pongue: a LatteThread espera a CPU (22 ms) e a CPU espera a LatteThread (27 ms). Dos ~56 ms
+em que a LatteThread ocupa a CPU, ~22 ms são esse giro; o trabalho real de tradução fica em ~34 ms.
+O `disableGPUFence` dos perfis do BotW não existe neste código (só aparece no `.ini`, e com `false`).
+
+Dormir nessa espera piora (`cp_fence_sleep_us`, padrão 0 = girar). A ideia era liberar o núcleo grande
+para a thread que escreve a fence. RP5 BotW, alternado: girando 11,2 / 11,2; dormindo 100 µs 10,8 /
+10,7; 20 µs 10,6. A LatteThread cai de 63 % para 47 % de CPU, mas a resposta à fence fica mais lenta.
+
 **Turnip no RP5: pior em tudo.** Mesa Turnip v26.0.0 R8, com aquecimento antes de medir:
 
 | RP5 | driver de fábrica | Turnip R8 |

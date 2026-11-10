@@ -46,7 +46,7 @@ namespace PerfLog
 	void ImageCopyViaBuffer(); // image copy between formats that both have framebuffer compression went through a buffer
 	void TextureUploadInPrologue(); // texture upload recorded ahead of the command buffer instead of ending the render pass
 	void DrawDone(); // the guest called GX2DrawDone
-	enum class GuestWait { Timestamp, Flip, Vsync, Count }; // Timestamp: GX2WaitTimeStamp, also reached from GX2DrawDone
+	enum class GuestWait { Timestamp, Flip, Vsync, CpFence, Count }; // Timestamp: GX2WaitTimeStamp, also reached from GX2DrawDone; CpFence: the command processor waiting in WAIT_REG_MEM for a value the CPU writes
 	void GuestWaited(GuestWait what, uint64 ns); // host time a guest thread spent blocked in a GX2 wait
 	void DepthAttachmentUse(bool tested, bool written); // at the end of a render pass with a depth attachment: did a draw test or write it
 	void DepthStoreSkipped(bool restarted); // a render pass began without the depth/stencil store, or had to restart with it
