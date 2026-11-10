@@ -184,7 +184,7 @@ fun GameProfileEditScreen(
             if (v != null) {
                 ToggleRow(
                     title = tr("Turnip: render in system memory"),
-                    description = tr("Only for Mesa Turnip custom drivers (Adreno): renders without tiling (TU_DEBUG=sysmem). Fixes GPU hangs in some games, like Breath of the Wild at boot; other drivers ignore it."),
+                    description = tr("Turnip only: render in system memory instead of tiles. Faster on Adreno 6xx and avoids GPU hangs in some games. Other drivers ignore it."),
                     checked = v.turnipSysmem,
                     onChange = viewModel::setTurnipSysmem,
                 )

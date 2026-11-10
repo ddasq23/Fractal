@@ -110,6 +110,17 @@ object GameDataTransfer {
 
     // region inspect
 
+    /** Reads the rest of the current entry without keeping it (shader caches can be hundreds of MB). */
+    private fun ZipInputStream.skipEntry(): Long {
+        val buffer = ByteArray(64 * 1024)
+        var total = 0L
+        while (true) {
+            val read = read(buffer)
+            if (read < 0) return total
+            total += read
+        }
+    }
+
     private inline fun forEachZipEntry(context: Context, source: Uri, block: (name: String, zip: ZipInputStream) -> Unit) {
         val input = context.contentResolver.openInputStream(source)
             ?: throw TransferException(tr("Could not open the chosen file"))
@@ -151,10 +162,13 @@ object GameDataTransfer {
             else if (prefix != entryPrefix)
                 throw TransferException(tr("The zip holds more than one save"))
             if (segments[index] == "user") hasUser = true
-            val data = zip.readBytes()
-            if (segments[index] == "meta" && segments.drop(index + 1) == listOf("meta.xml"))
+            if (segments[index] == "meta" && segments.drop(index + 1) == listOf("meta.xml")) {
+                val data = zip.readBytes()
                 metaTitle = MetaTitleId.find(data.decodeToString())?.groupValues?.get(1)?.toULongOrNull(16)?.toLong()
-            bytes += data.size
+                bytes += data.size
+            } else {
+                bytes += zip.skipEntry()
+            }
             count++
         }
         if (!hasUser) throw TransferException(tr("No save found in the zip: it needs a user folder"))
@@ -176,7 +190,7 @@ object GameDataTransfer {
                 otherTitles += entryTitle.uppercase()
                 return@forEachZipEntry
             }
-            bytes += zip.readBytes().size
+            bytes += zip.skipEntry()
             files[name] = entryTitle + "_" + match.groupValues[2] + ".bin"
         }
         if (files.isEmpty()) {

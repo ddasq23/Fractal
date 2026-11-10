@@ -64,7 +64,7 @@ object NativeGameTitles {
     @JvmStatic
     external fun setFullSyncAtGX2DrawDoneForTitleEnabled(gameTitleId: Long, enabled: Boolean)
 
-    /** Mesa Turnip only: render passes in system memory instead of tiled GMEM (game profile "turnipSysmem"). */
+    /** Mesa Turnip only: render passes in system memory instead of tiled GMEM (game profile "turnipSysmem", unset = on). */
     @JvmStatic
     external fun isTurnipSysmemForTitleEnabled(gameTitleId: Long): Boolean
 
