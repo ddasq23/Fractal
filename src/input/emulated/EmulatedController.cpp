@@ -67,6 +67,7 @@ void EmulatedController::update()
 
 void EmulatedController::controllers_update_states()
 {
+	m_tapLatched.store(m_tapPending.exchange(0, std::memory_order_acq_rel), std::memory_order_release);
 	std::shared_lock lock(m_mutex);
 	for (const auto& controller : m_controllers)
 	{
@@ -285,6 +286,8 @@ void EmulatedController::setButtonValue(uint64 mapping, bool value)
 {
 	std::scoped_lock lock(m_mutex); // writes the map: exclusive
 	m_overriddenButtonMappings[mapping] = value;
+	if (value && mapping < 64)
+		m_tapPending.fetch_or(1ull << mapping, std::memory_order_acq_rel);
 
 }
 void EmulatedController::setAxisValue(uint64 mapping, float value)
@@ -301,6 +304,8 @@ bool EmulatedController::is_mapping_down(uint64 mapping) const
 	{
 		return true;
 	}
+	if (mapping < 64 && (m_tapLatched.load(std::memory_order_acquire) >> mapping) & 1)
+		return true;
 
 	const auto it = m_mappings.find(mapping);
 	if (it != m_mappings.cend())

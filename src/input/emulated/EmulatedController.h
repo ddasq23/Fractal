@@ -1,5 +1,6 @@
 #pragma once
 #include <pugixml.hpp>
+#include <atomic>
 
 class ControllerBase;
 
@@ -121,6 +122,10 @@ protected:
 	std::unordered_map<uint64, Mapping> m_mappings;
 	std::unordered_map<uint64, bool> m_overriddenButtonMappings;
 	std::unordered_map<uint64, float> m_overriddenAxisMappings;
+	// Touch presses shorter than the time between two guest reads (an instant tap, or a quick finger
+	// tap in a 30 fps game) would be lost: every overridden press is latched until the next read sees it.
+	std::atomic<uint64> m_tapPending{0};
+	std::atomic<uint64> m_tapLatched{0};
  
 	bool m_homebutton_down = false;
 };
