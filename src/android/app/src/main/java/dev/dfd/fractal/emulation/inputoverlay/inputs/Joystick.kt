@@ -11,9 +11,9 @@ import kotlin.math.sqrt
 
 class Joystick(
     private val onStickStateChange: (x: Float, y: Float) -> Unit,
-    private val alpha: Int,
+    alpha: Int,
     boundingRectangle: Rect,
-) : Input(boundingRectangle) {
+) : Input(boundingRectangle, alpha) {
     private var backgroundFillColor: Int = 0
     private var currentPointerId = -1
     private var pressed = false
@@ -66,6 +66,16 @@ class Joystick(
                 }
             }
 
+            MotionEvent.ACTION_CANCEL -> {
+                if (currentPointerId != -1) {
+                    centerX = originalCenterX
+                    centerY = originalCenterY
+                    currentPointerId = -1
+                    updateState(false, 0.0f, 0.0f)
+                    return true
+                }
+            }
+
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
                 if (currentPointerId == event.getPointerId(event.actionIndex)) {
                     centerX = originalCenterX
@@ -100,6 +110,9 @@ class Joystick(
     }
 
     override fun resetInput() {
+        currentPointerId = -1
+        centerX = originalCenterX
+        centerY = originalCenterY
         updateState(false, 0f, 0f)
     }
 

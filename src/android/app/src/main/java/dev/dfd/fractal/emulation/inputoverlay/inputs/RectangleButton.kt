@@ -2,29 +2,25 @@ package dev.dfd.fractal.emulation.inputoverlay.inputs
 
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.graphics.RectF
 import dev.dfd.fractal.emulation.inputoverlay.fillRoundRectangleWithStroke
 import dev.dfd.fractal.emulation.inputoverlay.inputs.innerdrawing.ButtonInnerDrawing
 
 class RectangleButton(
     private val innerDrawing: ButtonInnerDrawing,
-    onButtonStateChange: (state: Boolean) -> Unit,
-    private val alpha: Int,
+    alpha: Int,
     rect: Rect,
-) : Button(onButtonStateChange, rect) {
-    var left: Float = 0f
-    var top: Float = 0f
-    var right: Float = 0f
-    var bottom: Float = 0f
+) : Button(rect, alpha) {
+    private val bounds = RectF()
+
+    override val keepsAspectRatio: Boolean = false
 
     init {
         configure()
     }
 
     override fun configure() {
-        this.left = rect.left.toFloat()
-        this.top = rect.top.toFloat()
-        this.right = rect.right.toFloat()
-        this.bottom = rect.bottom.toFloat()
+        bounds.set(rect)
         configureColors(alpha)
         innerDrawing.configure(rect, alpha)
     }
@@ -39,22 +35,12 @@ class RectangleButton(
             fillColor = inactiveFillColor
             strokeColor = inactiveStrokeColor
         }
-        canvas.fillRoundRectangleWithStroke(
-            left,
-            top,
-            right,
-            bottom,
-            RECTANGLE_RADIUS,
-            paint,
-            fillColor,
-            strokeColor
-        )
+        canvas.fillRoundRectangleWithStroke(bounds, RECTANGLE_RADIUS, paint, fillColor, strokeColor)
         innerDrawing.draw(canvas, state)
     }
 
-    override fun isInside(x: Float, y: Float): Boolean {
-        return x in left..<right && y in top..<bottom
-    }
+    override fun isInside(x: Float, y: Float): Boolean =
+        x >= bounds.left && x < bounds.right && y >= bounds.top && y < bounds.bottom
 
     companion object {
         const val RECTANGLE_RADIUS = 5f

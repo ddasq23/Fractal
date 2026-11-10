@@ -5,77 +5,66 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.view.MotionEvent
 import androidx.annotation.ColorInt
-import dev.dfd.fractal.common.settings.InputOverlayRect
+import dev.dfd.fractal.common.settings.NormalizedRect
+import dev.dfd.fractal.common.settings.OverlayInputConfig
 import dev.dfd.fractal.emulation.inputoverlay.Colors
-import kotlin.math.max
-import kotlin.math.min
 
 abstract class Input protected constructor(
-    protected var rect: Rect,
+    rect: Rect,
+    alpha: Int,
 ) {
+    /** Bounds on the overlay, in pixels. Change it with [setBounds]. */
+    val rect: Rect = Rect(rect)
+
+    protected var alpha: Int = alpha
+        private set
+
+    /** The built in input this is, or null for a macro. */
+    var config: OverlayInputConfig? = null
+
+    /** Id of the macro this input runs, or null for a built in input. */
+    var macroId: String? = null
+
+    /** Resolution independent layout [rect] comes from, before the global scale. */
+    var layout: NormalizedRect = NormalizedRect(0.5f, 0.5f, 0.1f, 0.1f)
+
+    private var boundingRectangleColor = 0
     private var drawBoundingRectangle = false
-    private val boundingRectanglePaint = Paint()
+    private val boundingRectanglePaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+    }
     protected var activeFillColor = 0
     protected var activeStrokeColor = 0
     protected var inactiveFillColor = 0
     protected var inactiveStrokeColor = 0
     protected val paint = Paint().apply {
         strokeWidth = 3f
+        isAntiAlias = true
     }
 
-    fun getBoundingRectangle() = InputOverlayRect(
-        left = rect.left,
-        top = rect.top,
-        right = rect.right,
-        bottom = rect.bottom,
-    )
+    /** Round inputs keep their aspect ratio when resized. */
+    open val keepsAspectRatio: Boolean = true
 
-    abstract fun onTouch(event: MotionEvent): Boolean
+    /**
+     * Touch handling for inputs that follow their own pointer (sticks, d-pad).
+     * Buttons are driven by the overlay through [Button.pointerDown]/[Button.pointerUp].
+     */
+    open fun onTouch(event: MotionEvent): Boolean = false
 
-    fun moveInput(x: Int, y: Int, maxWidth: Int, maxHeight: Int) {
-        val width = rect.width()
-        val height = rect.height()
-        val left = min(
-            max(x - width / 2, 0),
-            maxWidth - width
-        )
-        val top = min(
-            max(y - height / 2, 0),
-            maxHeight - height
-        )
-        rect = Rect(
-            left,
-            top,
-            left + width,
-            top + height
-        )
+    fun setBounds(left: Int, top: Int, right: Int, bottom: Int) {
+        rect.set(left, top, right, bottom)
         configure()
     }
 
-    fun resize(diffX: Int, diffY: Int, maxWidth: Int, maxHeight: Int, minWidthHeight: Int) {
-        val newRight = rect.right + diffX
-        val newBottom = rect.bottom + diffY
-        if (newRight - rect.left < minWidthHeight
-            || newBottom - rect.top < minWidthHeight
-            || newRight > maxWidth
-            || newBottom > maxHeight
-        ) {
-            return
-        }
-        rect = Rect(
-            rect.left,
-            rect.top,
-            newRight,
-            newBottom
-        )
+    fun setAlpha(alpha: Int) {
+        if (this.alpha == alpha) return
+        this.alpha = alpha
         configure()
     }
 
-    protected abstract fun resetInput()
-
-    fun reset() {
-        drawBoundingRectangle = false
-    }
+    /** Releases everything the input holds. */
+    abstract fun resetInput()
 
     protected abstract fun configure()
 
@@ -88,16 +77,21 @@ abstract class Input protected constructor(
 
     protected abstract fun drawInput(canvas: Canvas)
 
+    /** Drawn over the input, e.g. behavior indicators. */
+    protected open fun drawDecorations(canvas: Canvas) {}
+
     fun draw(canvas: Canvas) {
+        drawInput(canvas)
+        drawDecorations(canvas)
         if (drawBoundingRectangle) {
+            boundingRectanglePaint.color = boundingRectangleColor
             canvas.drawRect(rect, boundingRectanglePaint)
         }
-        drawInput(canvas)
     }
 
     fun enableDrawingBoundingRect(@ColorInt color: Int) {
         drawBoundingRectangle = true
-        boundingRectanglePaint.color = color
+        boundingRectangleColor = color
     }
 
     fun disableDrawingBoundingRect() {
