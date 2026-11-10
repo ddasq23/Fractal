@@ -29,6 +29,7 @@ import dev.dfd.fractal.emulation.input.DeviceMotionHandler
 import dev.dfd.fractal.emulation.input.HotkeyManager
 import dev.dfd.fractal.emulation.input.InputHandler
 import dev.dfd.fractal.emulation.input.NativeInputDeviceListener
+import dev.dfd.fractal.settings.input.controller.AutoControllerMappingListener
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -40,6 +41,7 @@ private class InputDelegateManager(context: Context) {
     private val controllerMotionHandler = ControllerMotionHandler(context)
     private val deviceControllerCallbacks = DeviceControllerCallbacks(context)
     private val deviceMotionHandler = DeviceMotionHandler(context)
+    private val autoControllerMapping = AutoControllerMappingListener(context)
 
     fun setDeviceMotionEnabled(isListening: Boolean) =
         deviceMotionHandler.setIsListening(isListening)
@@ -49,6 +51,7 @@ private class InputDelegateManager(context: Context) {
         controllerCallbacks.register()
         controllerMotionHandler.register()
         deviceControllerCallbacks.register()
+        autoControllerMapping.register()
     }
 
     fun unregisterAll() {
@@ -56,6 +59,7 @@ private class InputDelegateManager(context: Context) {
         controllerCallbacks.unregister()
         controllerMotionHandler.unregister()
         deviceControllerCallbacks.unregister()
+        autoControllerMapping.unregister()
     }
 
     fun onResume(rotation: Int) {
