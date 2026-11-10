@@ -3,8 +3,9 @@ package dev.dfd.fractal
 import android.app.Application
 import dev.dfd.fractal.common.android.context.internalFolder
 import dev.dfd.fractal.common.settings.AppSettingsStore
+import dev.dfd.fractal.common.ui.localization.deviceLanguage
+import dev.dfd.fractal.common.ui.localization.isSupportedLanguage
 import dev.dfd.fractal.common.ui.localization.setLanguage
-import dev.dfd.fractal.common.ui.localization.setTranslations
 import dev.dfd.fractal.nativeinterface.NativeActiveSettings.initializeActiveSettings
 import dev.dfd.fractal.nativeinterface.NativeActiveSettings.setInternalDir
 import dev.dfd.fractal.nativeinterface.NativeActiveSettings.setNativeLibDir
@@ -41,10 +42,15 @@ class CemuApplication : Application() {
     }
 
     private fun initializeTranslations() {
-        setTranslations(this)
+        val dataStore = AppSettingsStore.dataStore
+        val saved = runBlocking { dataStore.data.map { it.guiSettings.language }.first() }
 
-        val language = runBlocking {
-            AppSettingsStore.dataStore.data.map { it.guiSettings.language }.first()
+        // First run (or a language the app no longer offers): follow the device language and save
+        // it, so later changes to the device language don't override the user's choice.
+        val language = saved?.takeIf(::isSupportedLanguage) ?: deviceLanguage().also { detected ->
+            runBlocking {
+                dataStore.updateData { it.copy(guiSettings = it.guiSettings.copy(language = detected)) }
+            }
         }
 
         setLanguage(language, this)

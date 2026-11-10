@@ -1,8 +1,7 @@
-@file:Suppress("TYPEALIAS_EXPANSION_DEPRECATION")
-
 package dev.dfd.fractal.common.ui.localization
 
 import android.content.Context
+import android.os.LocaleList
 import android.util.Log
 import android.view.View.LAYOUT_DIRECTION_RTL
 import androidx.compose.runtime.Composable
@@ -15,84 +14,89 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.text.layoutDirection
 import dev.dfd.fractal.nativeinterface.NativeLocalization
-import name.kropp.kotlinx.gettext.Gettext
-import name.kropp.kotlinx.gettext.Locale
-import name.kropp.kotlinx.gettext.load
 import java.io.IOException
 import java.text.MessageFormat
-
-private var I18n = Gettext.Fallback
-
-private abstract class Translation(val locale: Locale) {
-    abstract fun load(context: Context)
-}
-
-private class AssetTranslation(locale: Locale, private val assetFile: String) :
-    Translation(locale) {
-    override fun load(context: Context) {
-        try {
-            val poFileContent = context.assets.open(assetFile).use { source -> source.readBytes() }
-            I18n = Gettext.load(locale, poFileContent.inputStream())
-            NativeLocalization.setTranslations(parsePoFile(poFileContent.inputStream()))
-        } catch (_: IOException) {
-            Log.e("CemuTranslations", "failed to load translations from asset: $assetFile")
-            return
-        }
-    }
-}
+import java.util.Locale
 
 private const val TRANSLATIONS_FOLDER = "translations"
-private const val TRANSLATIONS_FILE_NAME = "cemu.po"
+
+/**
+ * Translation files of a language, loaded in order: entries of a later file replace the ones of
+ * an earlier file. cemu.po holds the Cemu core strings and is generated from upstream Cemu's
+ * catalogs at build time; fractal.po holds the app's own strings and is tracked in the repository.
+ */
+private val TRANSLATION_FILES = listOf("cemu.po", "fractal.po")
+
 const val DEFAULT_LANGUAGE = "en"
 
-private val DefaultTranslation = object : Translation(Locale(DEFAULT_LANGUAGE)) {
-    override fun load(context: Context) {
-        I18n = Gettext.Fallback
-        NativeLocalization.setTranslations(emptyMap())
+data class Language(val code: String, val displayName: String, val locale: Locale)
+
+/** Languages offered by the app. English is the source language (the msgids), so it needs no file. */
+private val SupportedLanguages = listOf(
+    Language("en", "English", Locale.forLanguageTag("en")),
+    Language("pt", "Português (Brasil)", Locale.forLanguageTag("pt-BR")),
+    Language("es", "Español", Locale.forLanguageTag("es")),
+)
+
+fun getAvailableLanguages(): List<Language> = SupportedLanguages
+
+fun isSupportedLanguage(code: String?): Boolean = SupportedLanguages.any { it.code == code }
+
+/**
+ * Language picked on the first run: the device's language when the app has it, English otherwise.
+ * Only the primary device language is considered.
+ */
+fun deviceLanguage(): String {
+    val locale = LocaleList.getDefault().get(0) ?: Locale.getDefault()
+    return when (locale.language) {
+        "pt" -> "pt"
+        "es" -> "es"
+        else -> DEFAULT_LANGUAGE
     }
 }
 
-private var Translations = listOf<Translation>(DefaultTranslation)
+@Volatile
+private var Strings: Map<String, String> = emptyMap()
 
-data class Language(val code: String, val displayName: String)
-
-fun getAvailableLanguages() =
-    Translations.map { Language(it.locale.language, it.locale.getDisplayName(it.locale)) }
-
-fun setLanguage(languageCode: String, context: Context) {
-    val translation = Translations.firstOrNull { it.locale.language == languageCode } ?: return
-    translation.load(context)
-    CurrentLocale = translation.locale
+private fun loadStrings(context: Context, languageCode: String): Map<String, String> {
+    val strings = mutableMapOf<String, String>()
+    for (file in TRANSLATION_FILES) {
+        val assetFile = "$TRANSLATIONS_FOLDER/$languageCode/$file"
+        try {
+            context.assets.open(assetFile).use { strings.putAll(parsePoFile(it)) }
+        } catch (_: IOException) {
+            Log.w("FractalTranslations", "missing translation asset: $assetFile")
+        }
+    }
+    return strings
 }
 
-fun setTranslations(context: Context) {
-    val assetTranslations = context.assets.list(TRANSLATIONS_FOLDER)?.filter { language ->
-        if (language == DEFAULT_LANGUAGE) return@filter false
-
-        context.assets.list("$TRANSLATIONS_FOLDER/$language")
-            ?.contains(TRANSLATIONS_FILE_NAME)
-            ?: false
-    }?.map { language ->
-        val locale = Locale(language)
-        val assetFile = "$TRANSLATIONS_FOLDER/$language/$TRANSLATIONS_FILE_NAME"
-        AssetTranslation(locale, assetFile)
-    } ?: listOf()
-
-    Translations = listOf(DefaultTranslation).plus(assetTranslations)
+/** Applies [languageCode] to the app and the Cemu core; unsupported codes fall back to English. */
+fun setLanguage(languageCode: String, context: Context) {
+    val language = SupportedLanguages.firstOrNull { it.code == languageCode }
+        ?: SupportedLanguages.first { it.code == DEFAULT_LANGUAGE }
+    val strings = if (language.code == DEFAULT_LANGUAGE) emptyMap() else loadStrings(context, language.code)
+    Strings = strings
+    NativeLocalization.setTranslations(strings)
+    CurrentLanguage = language
 }
 
 fun trNoop(text: String) = text
 
-fun tr(text: String) = I18n.tr(text)
+fun tr(text: String): String = Strings[text] ?: text
 
-fun tr(text: String, vararg args: Any): String = MessageFormat.format(I18n.tr(text), *args)
+fun tr(text: String, vararg args: Any): String = MessageFormat.format(tr(text), *args)
 
-private var CurrentLocale by mutableStateOf(DefaultTranslation.locale)
-val LocalLocale = staticCompositionLocalOf { Locale("en") }
+private var CurrentLanguage by mutableStateOf(SupportedLanguages.first())
+
+/** Code of the language in use; observable from composition. */
+val currentLanguageCode: String get() = CurrentLanguage.code
+
+val LocalLocale = staticCompositionLocalOf { Locale.forLanguageTag(DEFAULT_LANGUAGE) }
 
 @Composable
 fun TranslatableContent(content: @Composable () -> Unit) {
-    val currentLocale = CurrentLocale
+    val currentLocale = CurrentLanguage.locale
     val layoutDirection = when (currentLocale.layoutDirection) {
         LAYOUT_DIRECTION_RTL -> LayoutDirection.Rtl
         else -> LayoutDirection.Ltr
