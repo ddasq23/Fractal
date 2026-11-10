@@ -33,7 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
+import dev.dfd.fractal.common.ui.components.FractalAlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -51,12 +51,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.documentfile.provider.DocumentFile
@@ -69,7 +66,16 @@ import dev.dfd.fractal.common.settings.LibrarySort
 import dev.dfd.fractal.common.settings.LibraryView
 import dev.dfd.fractal.common.ui.components.LocalFocusedGameArt
 import dev.dfd.fractal.common.ui.extensions.showMessage
+import androidx.activity.compose.BackHandler
+import dev.dfd.fractal.common.ui.fractal.ButtonHint
+import dev.dfd.fractal.common.ui.fractal.ButtonHints
+import dev.dfd.fractal.common.ui.fractal.DialogButtonLegend
 import dev.dfd.fractal.common.ui.fractal.FractalButton
+import dev.dfd.fractal.common.ui.fractal.PadButton
+import dev.dfd.fractal.common.ui.fractal.dialogHints
+import dev.dfd.fractal.common.ui.fractal.focusOnOpen
+import dev.dfd.fractal.common.ui.fractal.GamepadUi
+import dev.dfd.fractal.common.ui.fractal.leaveTouchMode
 import dev.dfd.fractal.common.ui.fractal.FractalIconButton
 import dev.dfd.fractal.common.ui.fractal.FractalWordmark
 import dev.dfd.fractal.common.ui.fractal.SierpinskiMark
@@ -150,8 +156,19 @@ fun LibraryScreen(
 
     // put focus on the selected game when the list appears or the view changes,
     // so the gamepad works right away and returning from another screen keeps the place
+    val rootView = LocalView.current
     LaunchedEffect(games.isNotEmpty(), view) {
-        if (games.isNotEmpty()) runCatching { entryFocus.requestFocus() }
+        if (games.isEmpty()) return@LaunchedEffect
+        runCatching { entryFocus.requestFocus() }
+        // at launch the window is in touch mode, where the focus doesn't show: leave it with a gamepad
+        if (!GamepadUi.active) return@LaunchedEffect
+        repeat(30) {
+            withFrameNanos { }
+            if (leaveTouchMode(rootView)) {
+                runCatching { entryFocus.requestFocus() }
+                return@LaunchedEffect
+            }
+        }
     }
 
     fun setView(newView: LibraryView) = scope.launch {
@@ -171,28 +188,28 @@ fun LibraryScreen(
         )
     }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .onPreviewKeyEvent { event ->
-                val handled = when (event.key) {
-                    Key.ButtonY, Key.ButtonX, Key.ButtonStart, Key.Menu, Key.ButtonL1, Key.ButtonR1 -> true
-                    else -> false
-                }
-                if (!handled || menuGame != null || optionsOpen || sortOpen) return@onPreviewKeyEvent false
-                if (event.type == KeyEventType.KeyUp) {
-                    when (event.key) {
-                        Key.ButtonY -> selected?.let(navigation.goToGameEditProfile)
-                        Key.ButtonX -> navigation.goToSettings()
-                        Key.ButtonStart, Key.Menu -> optionsOpen = true
-                        Key.ButtonL1 -> setView(LibraryView.entries[(view.ordinal + LibraryView.entries.size - 1) % LibraryView.entries.size])
-                        Key.ButtonR1 -> setView(LibraryView.entries[(view.ordinal + 1) % LibraryView.entries.size])
-                        else -> Unit
-                    }
-                }
-                true
-            },
-    ) {
+    fun cycleView(step: Int) {
+        val views = LibraryView.entries
+        setView(views[(view.ordinal + step + views.size) % views.size])
+    }
+
+    // gamepad: A plays the focused game (the cards handle it), the others are routed by the legend host
+    ButtonHints(
+        buildList {
+            if (selected != null) add(ButtonHint(PadButton.A, tr("Play")))
+            if (selected != null) add(ButtonHint(PadButton.Y, tr("Game settings")) { navigation.goToGameEditProfile(selected) })
+            add(ButtonHint(PadButton.X, tr("Settings")) { navigation.goToSettings() })
+            if (selected != null) add(ButtonHint(PadButton.SELECT, tr("More")) { menuGame = selected })
+            add(ButtonHint(PadButton.START, tr("Options")) { optionsOpen = true })
+            add(ButtonHint(listOf(PadButton.L1, PadButton.R1), tr("Change view")) { cycleView(if (it == PadButton.R1) 1 else -1) })
+        }
+    )
+    BackHandler(enabled = searchOpen) {
+        searchOpen = false
+        viewModel.setFilterText("")
+    }
+
+    Box(Modifier.fillMaxSize()) {
         val navBar: @Composable (Modifier) -> Unit = { modifier ->
             LibraryNavBar(
                 style = tokens.nav,
@@ -332,7 +349,7 @@ fun LibraryScreen(
     }
 
     shaderDialogGame?.let { game ->
-        AlertDialog(
+        FractalAlertDialog(
             onDismissRequest = { shaderDialogGame = null },
             title = { Text(tr("Remove shader caches")) },
             text = { Text(tr("Remove the shader caches for {0}?", game.name ?: "")) },
@@ -487,13 +504,18 @@ fun ActionSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
             Modifier
                 .widthIn(min = 320.dp, max = 460.dp)
                 .fractalSurface(FractalTheme.shapes.panel, FractalTheme.surface, FractalTheme.colors.surface.copy(alpha = 1f))
-                .verticalScroll(rememberScrollState())
                 .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(title, style = MaterialTheme.typography.titleLarge, color = FractalTheme.colors.text, maxLines = 2)
-            Spacer(Modifier.height(6.dp))
-            content()
+            Column(
+                Modifier.weight(1f, fill = false).focusOnOpen().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(title, style = MaterialTheme.typography.titleLarge, color = FractalTheme.colors.text, maxLines = 2)
+                Spacer(Modifier.height(6.dp))
+                content()
+            }
+            // pinned under the actions, so it stays in view while they scroll
+            DialogButtonLegend(dialogHints(confirm = tr("Select"), cancel = tr("Close")))
         }
     }
 }
