@@ -45,6 +45,7 @@ import dev.dfd.fractal.common.settings.HotkeyAction
 import dev.dfd.fractal.common.settings.HotkeyCombo
 import dev.dfd.fractal.common.ui.components.ScreenContent
 import dev.dfd.fractal.common.ui.localization.tr
+import dev.dfd.fractal.emulation.input.displayName
 import kotlinx.coroutines.delay
 
 @Composable
@@ -59,6 +60,11 @@ fun HotkeySettingsScreen(
         appBarText = tr("Hotkey settings"),
         navigateBack = navigateBack,
     ) {
+        Text(
+            text = tr("Tap an action and hold the controller buttons of its combo together. Long press an action to clear it. To get the same actions as buttons on the touch screen, add a shortcut while editing the on-screen controls."),
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
         HotkeyAction.entries.forEach { action ->
             val combo = hotkeys[action]
 
@@ -207,11 +213,7 @@ private fun HotkeyBindingDialog(
     }
 }
 
-private fun hotkeyActionToString(hotkeyAction: HotkeyAction) = when (hotkeyAction) {
-    HotkeyAction.QUIT -> tr("Quit")
-    HotkeyAction.TOGGLE_MENU -> tr("Toggle menu")
-    HotkeyAction.SHOW_EMULATED_USB_DEVICES_DIALOG -> tr("Show Emulated USB Devices dialog")
-}
+private fun hotkeyActionToString(hotkeyAction: HotkeyAction) = hotkeyAction.displayName()
 
 @Composable
 private fun KeyChip(key: Int) {
