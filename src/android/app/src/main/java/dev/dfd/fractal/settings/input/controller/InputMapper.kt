@@ -123,12 +123,14 @@ object InputMapper {
         )
     }
 
-    fun mapAllInputs(deviceId: Int, controllerIndex: Int) {
+    /** Maps every input of controller [controllerIndex] it can find on the device; returns how many it mapped. */
+    fun mapAllInputs(deviceId: Int, controllerIndex: Int): Int {
         if (NativeInput.isControllerDisabled(controllerIndex)) {
-            return
+            return 0
         }
         val controllerType = NativeInput.getControllerType(controllerIndex)
-        val device = InputDevice.getDevice(deviceId) ?: return
+        val device = InputDevice.getDevice(deviceId) ?: return 0
+        var mappedCount = 0
 
         val inputs = mutableMapOf<InputMapping, Boolean>().apply {
             val buttonKeyCodes =
@@ -155,6 +157,7 @@ object InputMapper {
                 continue
             }
             inputs[mapping] = false
+            mappedCount++
 
             val buttonId = button.nativeKeyCode
 
@@ -179,6 +182,7 @@ object InputMapper {
                 )
             }
         }
+        return mappedCount
     }
 
     private fun getButtonMappings(button: NativeInputButton): Array<InputMapping> {
@@ -316,6 +320,12 @@ object InputMapper {
             VPadButtons.STICKR,
             ProControllerButtons.STICKR,
                 -> arrayOf(ButtonInputMapping.BUTTON_THUMBR)
+
+            VPadButtons.HOME,
+            ProControllerButtons.HOME,
+            ClassicControllerButtons.HOME,
+            WiimoteButtons.HOME,
+                -> arrayOf(ButtonInputMapping.BUTTON_MODE)
 
             else -> arrayOf()
         }

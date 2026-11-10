@@ -59,12 +59,14 @@ class ControllersViewModel(val controllerIndex: Int) : ViewModel() {
     private fun getControllerMapping(buttonId: Int) =
         buttonId to NativeInput.getControllerMapping(controllerIndex, buttonId)
 
-    fun setControllerType(controllerType: Int) {
+    /** Returns whether the type changed. */
+    fun setControllerType(controllerType: Int): Boolean {
         if (!isControllerTypeAllowed(controllerType) || _controllerType.value == controllerType)
-            return
+            return false
         _controllerType.value = controllerType
         NativeInput.setControllerType(controllerIndex, controllerType)
         refreshControllerData()
+        return true
     }
 
     fun mapKeyEvent(keyEvent: KeyEvent, buttonId: Int) {
@@ -101,6 +103,13 @@ class ControllersViewModel(val controllerIndex: Int) : ViewModel() {
 
         val buttons = getNativeButtonsForControllerType(controllerType.value)
         buttons.forEach { _controls.value += getControllerMapping(it.nativeKeyCode) }
+    }
+
+    /** Redoes the automatic mapping with the connected gamepad; returns its name, null when none is connected. */
+    fun resetToAutomaticMapping(): String? {
+        val device = AutoControllerMapping.pickDeviceForReset(controllerIndex) ?: return null
+        mapAllInputs(device.id)
+        return device.name
     }
 
     fun tryMapMotionEvent(motionEvent: MotionEvent, buttonId: Int): Boolean {

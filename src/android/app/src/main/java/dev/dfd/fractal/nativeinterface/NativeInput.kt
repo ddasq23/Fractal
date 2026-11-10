@@ -306,4 +306,16 @@ object NativeInput {
 
     @JvmStatic
     external fun saveInputs()
+
+    /** Writes only the profile of controller [index] (controllerProfiles/controller<index>.xml). */
+    @JvmStatic
+    external fun saveInput(index: Int)
+
+    /** Descriptors of the physical controllers that drive at least one input of controller [index]. */
+    @JvmStatic
+    external fun getMappedControllerDescriptors(index: Int): Array<String>
+
+    /** The running game's profile chose the controller profile of [index]; it is not ours to change. */
+    @JvmStatic
+    external fun isControllerSetByGameProfile(index: Int): Boolean
 }

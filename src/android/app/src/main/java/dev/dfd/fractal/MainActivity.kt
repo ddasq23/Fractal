@@ -60,11 +60,14 @@ import dev.dfd.fractal.graphicpacks.graphicPacksNavigation
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
 import dev.dfd.fractal.nativeinterface.NativeSettings
 import dev.dfd.fractal.settings.SettingsRoute
+import dev.dfd.fractal.settings.input.controller.AutoControllerMappingListener
 import dev.dfd.fractal.settings.settingsNavigation
 import dev.dfd.fractal.titlemanager.TitleManagerRoute
 import dev.dfd.fractal.titlemanager.titleManagerNavigation
 
 class MainActivity : AppCompatActivity() {
+    private val autoControllerMapping = AutoControllerMappingListener(this)
+
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
         GamepadInputSource.emitMotion(event)
 
@@ -116,7 +119,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        autoControllerMapping.unregister()
         NativeSettings.saveSettings()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        autoControllerMapping.register()
     }
 }
 

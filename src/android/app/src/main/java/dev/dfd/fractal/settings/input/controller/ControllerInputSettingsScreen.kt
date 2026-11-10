@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -83,8 +84,13 @@ fun ControllerInputSettingsScreen(
             set(ControllersViewModel.CONTROLLER_INDEX_KEY, controllerIndex)
         }),
 ) {
+    val context = LocalContext.current
+
     DisposableEffect(Unit) {
+        // hand-made mappings: no automatic mapping may land on top of them while this screen is open
+        AutoControllerMapping.beginManualEditing()
         onDispose {
+            AutoControllerMapping.endManualEditing()
             viewModel.save()
         }
     }
@@ -134,7 +140,11 @@ fun ControllerInputSettingsScreen(
                 EmulatedControllerType.WIIMOTE
             ),
             choiceToString = { controllerTypeToString(it) },
-            onChoiceChanged = viewModel::setControllerType
+            onChoiceChanged = { type ->
+                if (viewModel.setControllerType(type)) {
+                    AutoControllerMapping.onControllerTypeChosen(context, controllerIndex, type)
+                }
+            }
         )
 
         if (controllerType == EmulatedControllerType.DISABLED) {
@@ -155,6 +165,21 @@ fun ControllerInputSettingsScreen(
             }) {
                 Text(tr("Controller settings"))
             }
+        }
+
+        Button(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            onClick = {
+                viewModel.refreshAvailableControllers()
+                val name = viewModel.resetToAutomaticMapping()
+                snackbarHostState.showMessage(
+                    coroutineScope,
+                    if (name != null) tr("Controller mapped automatically: {0}", name)
+                    else tr("No controllers available"),
+                )
+            },
+        ) {
+            Text(tr("Reset to automatic mapping"))
         }
 
 

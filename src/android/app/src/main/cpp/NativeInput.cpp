@@ -516,3 +516,28 @@ Java_dev_dfd_fractal_nativeinterface_NativeInput_saveInputs([[maybe_unused]] JNI
 {
 	InputManager::instance().save();
 }
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_saveInput([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+{
+	try
+	{
+		InputManager::instance().save(index);
+	}
+	catch (const std::exception& ex)
+	{
+		cemuLog_log(LogType::Force, "can't save controller profile {}: {}", index, ex.what());
+	}
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getMappedControllerDescriptors(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+{
+	return JNIUtils::CreateStringObjectArray(env, EmulatedControllerManager::GetController(index).GetMappedAndroidDescriptors());
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_isControllerSetByGameProfile([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+{
+	return InputManager::instance().is_gameprofile_set(index);
+}

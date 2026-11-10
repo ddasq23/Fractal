@@ -25,6 +25,11 @@ EmulatedControllerManager& EmulatedControllerManager::GetController(size_t index
 	{
 		controller = std::unique_ptr<EmulatedControllerManager>(new EmulatedControllerManager(index));
 	}
+	else
+	{
+		// the slot may have been replaced behind our back (game profile, profile reload)
+		controller->m_emulatedController = InputManager::instance().get_controller(index);
+	}
 
 	return *controller;
 }
@@ -86,13 +91,8 @@ std::optional<std::string> EmulatedControllerManager::GetMapping(uint64 mapping)
 	return fmt::format("{}: {}", controller->display_name(), mappingName);
 }
 
-std::map<uint64, std::string> EmulatedControllerManager::GetMappings() const
+static std::pair<uint64, uint64> GetMappingRange(EmulatedController::Type type)
 {
-	if (!m_emulatedController)
-		return {};
-
-	std::map<uint64, std::string> mappings;
-	EmulatedController::Type type = m_emulatedController->type();
 	uint64 mapping = 0;
 	uint64 maxMapping = 0;
 
@@ -117,6 +117,17 @@ std::map<uint64, std::string> EmulatedControllerManager::GetMappings() const
 		maxMapping = WiimoteController::ButtonId::kButtonId_Max;
 	}
 
+	return {mapping, maxMapping};
+}
+
+std::map<uint64, std::string> EmulatedControllerManager::GetMappings() const
+{
+	if (!m_emulatedController)
+		return {};
+
+	std::map<uint64, std::string> mappings;
+	auto [mapping, maxMapping] = GetMappingRange(m_emulatedController->type());
+
 	for (; mapping < maxMapping; mapping++)
 	{
 		if (auto mappingName = GetMapping(mapping))
@@ -126,6 +137,25 @@ std::map<uint64, std::string> EmulatedControllerManager::GetMappings() const
 	}
 
 	return mappings;
+}
+
+std::vector<std::string> EmulatedControllerManager::GetMappedAndroidDescriptors() const
+{
+	std::vector<std::string> descriptors;
+	if (!m_emulatedController)
+		return descriptors;
+
+	auto [mapping, maxMapping] = GetMappingRange(m_emulatedController->type());
+	for (; mapping < maxMapping; mapping++)
+	{
+		auto controller = m_emulatedController->get_mapping_controller(mapping);
+		if (!controller || controller->api() != InputAPI::Android)
+			continue;
+		if (std::find(descriptors.begin(), descriptors.end(), controller->uuid()) == descriptors.end())
+			descriptors.push_back(controller->uuid());
+	}
+
+	return descriptors;
 }
 
 void EmulatedControllerManager::SetDisabled()

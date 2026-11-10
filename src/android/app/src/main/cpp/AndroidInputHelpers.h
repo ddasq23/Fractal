@@ -29,6 +29,9 @@ class EmulatedControllerManager
 
 	std::map<uint64, std::string> GetMappings() const;
 
+	// descriptors of the physical (Android) controllers that drive at least one mapping
+	std::vector<std::string> GetMappedAndroidDescriptors() const;
+
 	void SetDisabled();
 
 	EmulatedControllerPtr GetControllerPtr() const;
