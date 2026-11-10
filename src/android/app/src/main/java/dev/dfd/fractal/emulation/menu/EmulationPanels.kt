@@ -104,7 +104,8 @@ private fun FullScreenPanel(
     DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
     Dialog(
         onDismissRequest = onClose,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        // edge to edge, so the game doesn't show behind the navigation bar; the screens pad their own insets
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {

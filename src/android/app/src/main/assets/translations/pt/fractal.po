@@ -2386,7 +2386,7 @@ msgid "Runs: {0}"
 msgstr "Executa: {0}"
 
 msgid "Screenshot"
-msgstr "Captura de tela"
+msgstr "Captura"
 
 msgid "Screenshot saved to Pictures/Fractal"
 msgstr "Captura salva em Pictures/Fractal"
