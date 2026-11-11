@@ -336,6 +336,17 @@ public:
 	// surface copy
 	void surfaceCopy_copySurfaceWithFormatConversion(LatteTexture* sourceTexture, sint32 srcMip, sint32 srcSlice, LatteTexture* destinationTexture, sint32 dstMip, sint32 dstSlice, sint32 width, sint32 height) override;
 	void surfaceCopy_notifyTextureRelease(LatteTextureVk* hostTexture);
+	void texture_clearDepthSliceViaRenderPass(LatteTextureVk* vkTexture, VkImageSubresourceLayers& subresource, VkImageAspectFlags aspectMask, float depthValue, uint32 stencilValue);
+	struct DepthClearFramebuffer
+	{
+		uint32 mip;
+		uint32 slice;
+		uint64 renderPassKey;
+		VKRObjectFramebuffer* framebuffer;
+		VKRObjectTextureView* view;
+	};
+	std::unordered_map<uint64, VKRObjectRenderPass*> m_depthClearRenderPasses;
+	std::unordered_map<LatteTextureVk*, std::vector<DepthClearFramebuffer>> m_depthClearFramebuffers;
 
 	private:
 	void surfaceCopy_viaDrawcall(LatteTextureVk* srcTextureVk, sint32 texSrcMip, sint32 texSrcSlice, LatteTextureVk* dstTextureVk, sint32 texDstMip, sint32 texDstSlice, sint32 effectiveCopyWidth, sint32 effectiveCopyHeight);

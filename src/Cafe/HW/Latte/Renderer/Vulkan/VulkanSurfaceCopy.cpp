@@ -828,6 +828,15 @@ void VulkanRenderer::surfaceCopy_copySurfaceWithFormatConversion(LatteTexture* s
 // it is guaranteed that the texture is not in use and all associated resources (descriptor sets, framebuffers) can be destroyed safely
 void VulkanRenderer::surfaceCopy_notifyTextureRelease(LatteTextureVk* hostTexture)
 {
+	if (auto itrDepthClear = m_depthClearFramebuffers.find(hostTexture); itrDepthClear != m_depthClearFramebuffers.end())
+	{
+		for (auto& entry : itrDepthClear->second)
+		{
+			ReleaseDestructibleObject(entry.framebuffer);
+			ReleaseDestructibleObject(entry.view);
+		}
+		m_depthClearFramebuffers.erase(itrDepthClear);
+	}
 	for (auto& itr : m_copySurfacePipelineCache)
 	{
 		auto& pipelineInfo = itr.second;
@@ -874,4 +883,16 @@ void VulkanRenderer::surfaceCopy_cleanup()
 	}
 	m_copySurfacePipelineCache = {};
 
+	for (auto& itr : m_depthClearFramebuffers)
+	{
+		for (auto& entry : itr.second)
+		{
+			ReleaseDestructibleObject(entry.framebuffer);
+			ReleaseDestructibleObject(entry.view);
+		}
+	}
+	m_depthClearFramebuffers.clear();
+	for (auto& itr : m_depthClearRenderPasses)
+		ReleaseDestructibleObject(itr.second);
+	m_depthClearRenderPasses.clear();
 }

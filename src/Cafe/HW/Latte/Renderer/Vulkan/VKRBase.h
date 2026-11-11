@@ -191,7 +191,8 @@ public:
 
 public:
 	// depthStoreNone: depth/stencil use VK_ATTACHMENT_STORE_OP_NONE (compatible with the variant that stores them)
-	VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint32 colorAttachmentCount = Latte::GPU_LIMITS::NUM_COLOR_ATTACHMENTS, bool depthStoreNone = false);
+	// depthClearAspects: depth/stencil aspects that use VK_ATTACHMENT_LOAD_OP_CLEAR (render passes that only clear)
+	VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint32 colorAttachmentCount = Latte::GPU_LIMITS::NUM_COLOR_ATTACHMENTS, bool depthStoreNone = false, VkImageAspectFlags depthClearAspects = 0);
 	~VKRObjectRenderPass() override;
 	VkRenderPass m_renderPass{ VK_NULL_HANDLE };
 	VkFormat m_colorAttachmentFormat[Latte::GPU_LIMITS::NUM_COLOR_ATTACHMENTS];

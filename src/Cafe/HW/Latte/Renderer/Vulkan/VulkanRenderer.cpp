@@ -4386,6 +4386,16 @@ void VulkanRenderer::texture_clearDepthSlice(LatteTexture* hostTexture, uint32 s
 	subresourceRange.mipLevel = mipIndex;
 	subresourceRange.baseArrayLayer = sliceIndex;
 	subresourceRange.layerCount = 1;
+	// clear with a render pass (load op CLEAR) instead of vkCmdClearDepthStencilImage: on Adreno 610 (Qualcomm driver) a
+	// 1080p D24S8 vkCmdClearDepthStencilImage takes ~3.5 ms of GPU time in any layout, the render pass clear is close to free.
+	// Shovel Knight clears two 1080p depth buffers twice per frame: 68% of the GPU time on the Mi A3.
+	// perf/tuning.txt depth_clear_rp=0 goes back to vkCmdClearDepthStencilImage
+	static const bool s_clearViaRenderPass = PerfLog::Tunable("depth_clear_rp", 1) != 0;
+	if (s_clearViaRenderPass && aspectMask != 0 && !vkTexture->Is3DTexture())
+	{
+		texture_clearDepthSliceViaRenderPass(vkTexture, subresourceRange, aspectMask, depthValue, stencilValue);
+		return;
+	}
 	const VkImageLayout clearLayout = VK_IMAGE_LAYOUT_GENERAL;
 	barrier_image<ANY_TRANSFER | IMAGE_READ | IMAGE_WRITE, ANY_TRANSFER>(vkTexture, subresourceRange, clearLayout);
 
@@ -4406,6 +4416,78 @@ void VulkanRenderer::texture_clearDepthSlice(LatteTexture* hostTexture, uint32 s
 	PassProfileEndPass();
 
 	barrier_image<ANY_TRANSFER, ANY_TRANSFER | IMAGE_READ | IMAGE_WRITE>(vkTexture, subresourceRange, vkTexture->GetDefaultLayout());
+}
+
+void VulkanRenderer::texture_clearDepthSliceViaRenderPass(LatteTextureVk* vkTexture, VkImageSubresourceLayers& subresource, VkImageAspectFlags aspectMask, float depthValue, uint32 stencilValue)
+{
+	const VkFormat format = vkTexture->GetFormat();
+	const VkImageAspectFlags imageAspect = vkTexture->GetImageAspect();
+	const bool hasStencil = (imageAspect & VK_IMAGE_ASPECT_STENCIL_BIT) != 0;
+	const uint64 renderPassKey = (uint64)format | ((uint64)aspectMask << 32) | ((uint64)hasStencil << 40);
+	VKRObjectRenderPass*& renderPass = m_depthClearRenderPasses[renderPassKey];
+	if (!renderPass)
+	{
+		VKRObjectRenderPass::AttachmentInfo_t attachmentInfo{};
+		attachmentInfo.depthAttachment.isPresent = true;
+		attachmentInfo.depthAttachment.format = format;
+		attachmentInfo.depthAttachment.hasStencil = hasStencil;
+		renderPass = new VKRObjectRenderPass(attachmentInfo, 0, false, aspectMask);
+	}
+
+	sint32 width, height;
+	vkTexture->GetEffectiveSize(width, height, subresource.mipLevel);
+
+	VKRObjectFramebuffer* framebuffer = nullptr;
+	auto& framebuffers = m_depthClearFramebuffers[vkTexture];
+	for (auto& entry : framebuffers)
+	{
+		if (entry.mip == subresource.mipLevel && entry.slice == subresource.baseArrayLayer && entry.renderPassKey == renderPassKey)
+		{
+			framebuffer = entry.framebuffer;
+			break;
+		}
+	}
+	if (!framebuffer)
+	{
+		VkImageViewCreateInfo viewInfo{};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.image = vkTexture->GetImageObj()->m_image;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.format = format;
+		viewInfo.subresourceRange.aspectMask = imageAspect;
+		viewInfo.subresourceRange.baseMipLevel = subresource.mipLevel;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = subresource.baseArrayLayer;
+		viewInfo.subresourceRange.layerCount = 1;
+		VkImageView imageView;
+		if (vkCreateImageView(m_logicalDevice, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
+			UnrecoverableError("Failed to create image view for depth clear");
+		VKRObjectTextureView* view = new VKRObjectTextureView(vkTexture->GetImageObj(), imageView);
+		std::array<VKRObjectTextureView*, 1> attachments{ view };
+		framebuffer = new VKRObjectFramebuffer(renderPass, attachments, Vector2i(width, height));
+		framebuffers.push_back({ subresource.mipLevel, subresource.baseArrayLayer, renderPassKey, framebuffer, view });
+	}
+	framebuffer->flagForCurrentCommandBuffer();
+
+	const VkImageLayout attachmentLayout = UseAttachmentFeedbackLoop() ? VK_IMAGE_LAYOUT_ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT : VK_IMAGE_LAYOUT_GENERAL;
+	barrier_image<ANY_TRANSFER | IMAGE_READ | IMAGE_WRITE, IMAGE_WRITE>(vkTexture, subresource, attachmentLayout);
+
+	VkClearValue clearValue{};
+	clearValue.depthStencil.depth = depthValue;
+	clearValue.depthStencil.stencil = stencilValue;
+	VkRenderPassBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	beginInfo.renderPass = renderPass->m_renderPass;
+	beginInfo.framebuffer = framebuffer->m_frameBuffer;
+	beginInfo.renderArea.extent = { (uint32)width, (uint32)height };
+	beginInfo.clearValueCount = 1;
+	beginInfo.pClearValues = &clearValue;
+	PassProfileBeginNamed(fmt::format("clear_depth_rp {}x{} asp {}", width, height, (uint32)aspectMask));
+	vkCmdBeginRenderPass(m_state.currentCommandBuffer, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdEndRenderPass(m_state.currentCommandBuffer);
+	PassProfileEndPass();
+
+	barrier_image<IMAGE_WRITE, ANY_TRANSFER | IMAGE_READ | IMAGE_WRITE>(vkTexture, subresource, vkTexture->GetDefaultLayout());
 }
 
 void VulkanRenderer::texture_loadSlice(LatteTexture* hostTexture, sint32 width, sint32 height, sint32 depth, void* pixelData, sint32 sliceIndex, sint32 mipIndex, uint32 compressedImageSize)
@@ -5164,7 +5246,7 @@ void VKRObjectSampler::DestroyCache()
 	s_samplerCache.clear();
 }
 
-VKRObjectRenderPass::VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint32 colorAttachmentCount, bool depthStoreNone)
+VKRObjectRenderPass::VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint32 colorAttachmentCount, bool depthStoreNone, VkImageAspectFlags depthClearAspects)
 {
 	VulkanRenderer* vkRenderer = VulkanRenderer::GetInstance();
 	bool useAttachmentFeedbackLoop = vkRenderer->UseAttachmentFeedbackLoop();
@@ -5248,6 +5330,10 @@ VKRObjectRenderPass::VKRObjectRenderPass(AttachmentInfo_t& attachmentInfo, sint3
 			entry.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 			entry.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		}
+		if (depthClearAspects & VK_IMAGE_ASPECT_DEPTH_BIT)
+			entry.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		if ((depthClearAspects & VK_IMAGE_ASPECT_STENCIL_BIT) && attachmentInfo.depthAttachment.hasStencil)
+			entry.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		entry.initialLayout = attachmentLayout;
 		entry.finalLayout = attachmentLayout;
 		attachments_descriptions.emplace_back(entry);
