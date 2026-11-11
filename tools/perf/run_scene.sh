@@ -32,7 +32,8 @@ $A shell am force-stop $PKG
 # without an emulated GamePad the input script has nothing to press and the scene never starts
 $A shell cat "$FILES/controllerProfiles/controller0.xml" 2>/dev/null | grep -q 'Wii U GamePad' \
   || { echo "$SCENE: controller 1 is not a Wii U GamePad (controllerProfiles/controller0.xml)"; exit 1; }
-$A shell rm -rf "$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}"
+# KEEP_SAVE=1 keeps the title's save (scenes that need menus past the first boot)
+[ "${KEEP_SAVE:-0}" = 1 ] || $A shell rm -rf "$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}"
 $A shell mkdir -p "$FILES/perf"
 $A push "$FILE" "$FILES/perf/input_$TID.txt" >/dev/null
 before=$($A shell ls "$FILES/perf" | tr -d '\r' | grep "_$TID\$" | sort | tail -1)

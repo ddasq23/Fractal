@@ -126,6 +126,23 @@ void ExceptionHandler_LogGeneralInfo()
         sprintf(dumpLine, "r24=%08x r25=%08x r26=%08x r27=%08x r28=%08x r29=%08x r30=%08x r31=%08x", gprs[24], gprs[25], gprs[26], gprs[27], gprs[28], gprs[29], gprs[30], gprs[31]);
         CrashLog_WriteLine(dumpLine);
 
+        // guest code around IP and LR (disassemble offline, e.g. llvm-objdump --triple=powerpc)
+        for (MPTR center : {hCPU->instructionPointer, hCPU->spr.LR})
+        {
+            CrashLog_WriteLine("");
+            sprintf(dumpLine, "PPC code around 0x%08x:", center);
+            CrashLog_WriteLine(dumpLine);
+            const MPTR base = (center & ~3u) - 0x180;
+            for (uint32 i = 0; i < 0x200 / 32; i++)
+            {
+                const MPTR lineAddr = base + i * 32;
+                if (!memory_isAddressRangeAccessible(lineAddr, 32))
+                    continue;
+                sprintf(dumpLine, "code %08x: %08x %08x %08x %08x %08x %08x %08x %08x", lineAddr, memory_readU32(lineAddr + 0), memory_readU32(lineAddr + 4), memory_readU32(lineAddr + 8), memory_readU32(lineAddr + 12), memory_readU32(lineAddr + 16), memory_readU32(lineAddr + 20), memory_readU32(lineAddr + 24), memory_readU32(lineAddr + 28));
+                CrashLog_WriteLine(dumpLine);
+            }
+        }
+
         // stack trace
         MPTR currentStackVAddr = hCPU->gpr[1];
         CrashLog_WriteLine("");
