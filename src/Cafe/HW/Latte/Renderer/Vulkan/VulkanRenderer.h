@@ -1095,6 +1095,7 @@ public:
 	bool IsTracingToolEnabled() const { return m_featureControl.usingTracingTool; }
 	bool HasStoreOpNone() const { return m_featureControl.deviceExtensions.load_store_op_none || m_featureControl.deviceExtensions.qcom_render_pass_store_ops; }
 	bool UseAttachmentFeedbackLoop() const { return m_featureControl.deviceExtensions.attachment_feedback_loop_dynamic_state; }
+	bool IsTurnip() const { return m_isTurnip; }
 
 private:
 

@@ -1,3 +1,4 @@
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/LatteTextureVk.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/LatteTextureViewVk.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
@@ -59,7 +60,13 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	// (see VulkanRenderer::texture_isViewFormatCompatible) textures of another format are separate and synchronized by
 	// copies. Block compressed formats (BC/ETC2/ASTC) stay mutable: they get no framebuffer compression anyway
 	const bool isBlockCompressed = imageInfo.format >= VK_FORMAT_BC1_RGB_UNORM_BLOCK && imageInfo.format <= VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
-	if (isDepth == false && (static_cast<Renderer*>(m_vkr)->texture_canReinterpretFormat() || isBlockCompressed))
+	// Turnip (Mesa 26.0, Adreno 650): with UBWC on a plain 2D R8G8B8A8_UNORM image (no mips) Xenoblade Chronicles X hangs
+	// the GPU 36 s into a new game, every time. Bisected by format; array/3D and mipped images and feedback loops ruled
+	// out. Keeping that format mutable (no UBWC) costs nothing measurable (RP5 MK8 and SM3DW 1% lows tie).
+	// perf/tuning.txt turnip_rgba8_mutable=0 turns this off
+	static const bool s_turnipRgba8Mutable = PerfLog::Tunable("turnip_rgba8_mutable", 1) != 0;
+	const bool turnipKeepMutable = s_turnipRgba8Mutable && imageInfo.format == VK_FORMAT_R8G8B8A8_UNORM && m_vkr->IsTurnip();
+	if (isDepth == false && (static_cast<Renderer*>(m_vkr)->texture_canReinterpretFormat() || isBlockCompressed || turnipKeepMutable))
 		imageInfo.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
 	m_isMutableFormat = (imageInfo.flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) != 0;
 
