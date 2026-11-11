@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.dfd.fractal.common.settings.AppSettingsStore
 import dev.dfd.fractal.common.settings.GuiSettings
+import dev.dfd.fractal.common.ui.components.LocalGuiSettings
 import kotlinx.coroutines.flow.map
 
 val LocalFractalTokens = staticCompositionLocalOf<FractalTokens> {
@@ -45,11 +46,15 @@ object FractalTheme {
         @Composable @ReadOnlyComposable get() = LocalFractalTokens.current.surface
 }
 
-/** The GUI settings as state, null until the DataStore has been read. */
+/**
+ * The GUI settings as state, null until the DataStore has been read. Inside ActivityContent it
+ * starts from the settings already loaded there, so a screen coming back doesn't show its default
+ * look (the library's grid view) for a frame before the stored one.
+ */
 @Composable
 fun rememberGuiSettings(): State<GuiSettings?> {
     val flow = remember { AppSettingsStore.dataStore.data.map { it.guiSettings } }
-    return flow.collectAsState(initial = null)
+    return flow.collectAsState(initial = LocalGuiSettings.current)
 }
 
 @Composable
