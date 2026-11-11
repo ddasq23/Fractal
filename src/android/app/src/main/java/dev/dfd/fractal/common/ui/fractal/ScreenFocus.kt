@@ -10,6 +10,7 @@ import android.view.View
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -22,7 +23,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusTarget
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -64,6 +67,26 @@ class ScreenFocus internal constructor(internal val view: View, private val save
     internal fun remove(requester: FocusRequester) {
         items.remove(requester)
         if (focused == requester) focused = null
+    }
+
+    /**
+     * The screen is still reading what it shows (a list from disk): the focus on entry waits for it,
+     * so it goes straight to the right item instead of to what is there before the content arrives.
+     */
+    internal var loading = false
+
+    /**
+     * While the screen waits to focus an item (content loading), the container itself holds the
+     * focus, showing nothing. Otherwise the screen being left takes the focus with it when it goes
+     * away, and Android hands it to the first focusable of the window: the header's back button
+     * lit up for a moment before the right item.
+     */
+    internal var parked = false
+
+    internal fun park() {
+        if (parked) return
+        parked = true
+        if (!runCatching { containerRequester.requestFocus() }.getOrDefault(false)) parked = false
     }
 
     /** Item focused on entry instead of the first one, when there is nothing to restore. */
@@ -200,19 +223,35 @@ fun rememberScreenFocus(): ScreenFocus {
 /**
  * Marks the content container of [focus] and, while a gamepad is in use, puts the focus in it
  * when the screen appears (items may take a few frames to show up, so it keeps trying a little).
- * A new [contentKey] (a screen that swaps its content in place) focuses its first item again.
+ * While [loading], the focus waits for the content (for a moment at most), so it lands once, on
+ * the right item. A new [contentKey] (a screen that swaps its content in place) focuses its
+ * first item again.
  */
 @Composable
-fun Modifier.screenFocusContainer(focus: ScreenFocus, contentKey: Any? = null): Modifier {
+fun Modifier.screenFocusContainer(focus: ScreenFocus, contentKey: Any? = null, loading: Boolean = false): Modifier {
     val firstKey = remember { contentKey }
+    SideEffect { focus.loading = loading }
     LaunchedEffect(focus, contentKey) {
         if (contentKey != firstKey) focus.forgetSaved()
         focus.autoFocused = null
-        for (attempt in 0 until 40) {
-            withFrameNanos { }
-            if (!GamepadUi.active || focus.hasFocus) return@LaunchedEffect
-            leaveTouchMode(focus.view)
-            if (focus.restoreOrFocusFirst()) break
+        var waited = 0
+        var attempts = 0
+        try {
+            while (attempts < 40) {
+                withFrameNanos { }
+                if (!GamepadUi.active || focus.hasFocus) return@LaunchedEffect
+                if (focus.loading && waited++ < 120) {
+                    focus.park()
+                    continue
+                }
+                attempts++
+                leaveTouchMode(focus.view)
+                focus.parked = false
+                if (focus.restoreOrFocusFirst()) break
+                focus.park()
+            }
+        } finally {
+            focus.parked = false
         }
         // then follow content that shows up late, for a moment
         var auto = focus.autoFocused ?: return@LaunchedEffect
@@ -222,8 +261,11 @@ fun Modifier.screenFocusContainer(focus: ScreenFocus, contentKey: Any? = null): 
         }
     }
     return this
-        .onFocusChanged { focus.hasFocus = it.hasFocus }
+        // the container itself having it (parked) is not an item having it
+        .onFocusChanged { focus.hasFocus = it.hasFocus && !it.isFocused }
         .focusRequester(focus.containerRequester)
+        .focusProperties { canFocus = focus.parked }
+        .focusTarget()
         .onGloballyPositioned { focus.container = it }
 }
 

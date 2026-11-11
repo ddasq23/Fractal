@@ -36,14 +36,15 @@ import dev.dfd.fractal.common.ui.theme.FractalTheme
 /**
  * Header with back button and title, then scrollable content over the theme background.
  *
- * With a gamepad the content gets the focus on entry, the legend shows A/B, then [extraHints],
- * then L/R to jump between the [SectionTitle]s.
+ * With a gamepad the content gets the focus on entry (once it is no longer [loading]), the legend
+ * shows A/B, then [extraHints], then L/R to jump between the [SectionTitle]s.
  */
 @Composable
 fun FractalScreen(
     title: String,
     onBack: () -> Unit,
     extraHints: List<ButtonHint> = emptyList(),
+    loading: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val focus = rememberScreenFocus()
@@ -65,7 +66,7 @@ fun FractalScreen(
             Column(
                 Modifier
                     .fillMaxSize()
-                    .screenFocusContainer(focus)
+                    .screenFocusContainer(focus, loading = loading)
                     .verticalScroll(rememberScrollState())
                     .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),

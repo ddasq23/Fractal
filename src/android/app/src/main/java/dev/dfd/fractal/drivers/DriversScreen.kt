@@ -66,6 +66,7 @@ fun DriversScreen(navigateBack: () -> Unit, viewModel: DriversViewModel = viewMo
     val sources by viewModel.sources.collectAsStateWithLifecycle()
     val downloads by viewModel.downloads.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
+    val loaded by viewModel.loaded.collectAsStateWithLifecycle()
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(viewModel::importFromFile)
     }
@@ -73,6 +74,7 @@ fun DriversScreen(navigateBack: () -> Unit, viewModel: DriversViewModel = viewMo
     FractalScreen(
         title = tr("Drivers"),
         onBack = navigateBack,
+        loading = !loaded,
         extraHints = buildList {
             if (viewModel.supportsCustomDrivers) add(ButtonHint(PadButton.X, tr("Import")) {
                 importLauncher.launch(arrayOf("application/zip", "application/octet-stream"))

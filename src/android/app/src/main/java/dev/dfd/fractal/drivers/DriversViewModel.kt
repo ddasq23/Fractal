@@ -53,6 +53,10 @@ class DriversViewModel(application: Application) : AndroidViewModel(application)
     private val _installed = MutableStateFlow<List<InstalledDriver>>(emptyList())
     val installed = _installed.asStateFlow()
 
+    /** The GPU and the installed drivers have been read once. */
+    private val _loaded = MutableStateFlow(false)
+    val loaded = _loaded.asStateFlow()
+
     private val _globalDriver = MutableStateFlow(NativeSettings.getCustomDriverPath())
     val globalDriver = _globalDriver.asStateFlow()
 
@@ -72,6 +76,7 @@ class DriversViewModel(application: Application) : AndroidViewModel(application)
             _gpu.value = withContext(Dispatchers.IO) { GpuInfo.current }
             reloadInstalled()
             loadCatalog(force = false)
+            _loaded.value = true
         }
     }
 
