@@ -241,6 +241,14 @@ PipelineInfo* VulkanRenderer::draw_createGraphicsPipeline(uint32 indexCount)
 	auto& cache_map = it.first->second;
 	cache_map.emplace(pipelineHash, pipelineInfo);
 
+	// diagnostics (perf/tuning.txt log_pipelines=1): each new pipeline's shaders, to find the one a GPU hang starts with
+	static const bool s_logPipelines = PerfLog::Tunable("log_pipelines", 0) != 0;
+	if (s_logPipelines)
+		cemuLog_log(LogType::Force, "new pipeline {:016x}: vs {:016x}_{:016x} gs {:016x} ps {:016x}_{:016x} prim {} draws {}", pipelineHash,
+			vertexShader ? vertexShader->baseHash : 0, vertexShader ? vertexShader->auxHash : 0, geometryShader ? geometryShader->baseHash : 0,
+			pixelShader ? pixelShader->baseHash : 0, pixelShader ? pixelShader->auxHash : 0,
+			(uint32)LatteGPUState.contextNew.VGT_PRIMITIVE_TYPE.get_PRIMITIVE_MODE(), indexCount);
+
 	// init pipeline compiler
 	PipelineCompiler* pipelineCompiler = new PipelineCompiler();
 

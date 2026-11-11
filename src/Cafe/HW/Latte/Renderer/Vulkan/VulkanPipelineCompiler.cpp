@@ -11,6 +11,9 @@
 #include "util/helpers/Serializer.h"
 #include "Cafe/HW/Latte/Common/RegisterSerializer.h"
 #include "HW/Latte/Renderer/RendererCore.h"
+#if defined(__ANDROID__)
+#include <unistd.h>
+#endif
 
 RendererShaderVk* rectsEmulationGS_generate(LatteDecompilerShader* vertexShader, const LatteContextRegister& latteRegister)
 {
@@ -1134,6 +1137,24 @@ void PipelineCompiler::CompileThreadPool_Start()
 		numCompileThreads = 2 + (cpuCoreCount - 3); // 2 plus one additionally for every extra core above 3
 
 	numCompileThreads = std::min(numCompileThreads, 8u); // cap at 8
+
+#if defined(__ANDROID__)
+	// phone SoCs have few fast cores and the driver's compiler doesn't scale: with 7 threads every pipeline took 2-3x
+	// longer (Adreno 610: 232 ms vs 82 ms with one thread) and the bursts starved the PPC and GPU threads, while the
+	// pipelines didn't finish any sooner. Cold-cache stutter (time in frames > 100 ms) dropped 17 -> 7.5 s (Mi A3, one
+	// thread), 25 -> 20.7 s (RG Cube) and 7.8 -> 6.4 s (RP5, two threads). Under 6 GB of RAM a second thread also adds
+	// memory pressure (page faults in the render thread), so those devices use one
+	{
+		const uint64 ramBytes = (uint64)sysconf(_SC_PHYS_PAGES) * (uint64)sysconf(_SC_PAGE_SIZE);
+		numCompileThreads = ramBytes < 6ull * 1024 * 1024 * 1024 ? 1 : 2;
+	}
+#endif
+
+	// perf/tuning.txt compile_threads=N overrides the count (0 = the rule above)
+	static const int s_compileThreadsOverride = PerfLog::Tunable("compile_threads", 0);
+	if (s_compileThreadsOverride > 0)
+		numCompileThreads = (uint32)s_compileThreadsOverride;
+	cemuLog_log(LogType::Force, "Pipeline compile threads: {}", numCompileThreads);
 
 	for (uint32_t i = 0; i < numCompileThreads; i++)
 	{
