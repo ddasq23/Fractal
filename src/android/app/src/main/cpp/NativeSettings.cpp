@@ -30,13 +30,17 @@ Java_dev_dfd_fractal_nativeinterface_NativeSettings_setOverlayTextScalePercentag
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeSettings_isOverlayFPSEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
-	return GetConfig().overlay.fps;
+	// position "disabled" hides every counter: the FPS isn't shown then, whatever its own flag says
+	return GetConfig().overlay.fps && GetConfig().overlay.position != ScreenPosition::kDisabled;
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeSettings_setOverlayFPSEnabled([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean enabled)
 {
 	GetConfig().overlay.fps = enabled;
+	// new installs start with the overlay position "disabled": showing the FPS needs a place on screen
+	if (enabled && GetConfig().overlay.position == ScreenPosition::kDisabled)
+		GetConfig().overlay.position = ScreenPosition::kTopLeft;
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
