@@ -6,6 +6,11 @@
 
 package dev.dfd.fractal.games.library
 
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.WindowInsets
 import android.content.Context
 import android.content.Intent
 import android.provider.DocumentsContract
@@ -209,7 +214,8 @@ fun LibraryScreen(
         viewModel.setFilterText("")
     }
 
-    Box(Modifier.fillMaxSize()) {
+    // the status bar stays visible on phones in portrait: keep the header below it, like FractalScreen does
+    Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))) {
         val navBar: @Composable (Modifier) -> Unit = { modifier ->
             LibraryNavBar(
                 style = tokens.nav,

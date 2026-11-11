@@ -6,6 +6,11 @@
 
 package dev.dfd.fractal.welcome
 
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.WindowInsets
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -121,7 +126,13 @@ fun WelcomeScreen(navigation: WelcomeNavigation) {
     val wide = LocalConfiguration.current.screenWidthDp >= 700
     CompositionLocalProvider(LocalScreenFocus provides focus) {
     // each step starts with the focus on its first item
-    Row(Modifier.fillMaxSize().screenFocusContainer(focus, stepIndex).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Row(
+        Modifier.fillMaxSize()
+            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))
+            .screenFocusContainer(focus, stepIndex)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
         // left: brand and progress (hidden on narrow screens)
         if (wide) {
             Column(Modifier.width(190.dp).padding(top = 6.dp, start = 6.dp)) {
@@ -158,19 +169,38 @@ fun WelcomeScreen(navigation: WelcomeNavigation) {
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (stepIndex > 0) FractalIconButton(FractalIcons.Back, tr("Back"), { stepIndex-- })
-                Spacer(Modifier.weight(1f))
-                if (step != Step.DONE) {
-                    FractalButton(tr("Skip setup"), onClick = { finish() })
-                    FractalButton(tr("Skip"), onClick = { next() })
-                }
+            val nextButton: @Composable () -> Unit = {
                 FractalButton(
                     if (step == Step.DONE) tr("Go to library") else tr("Next"),
                     onClick = { next() },
                     icon = if (step == Step.DONE) FractalIcons.Check else FractalIcons.Next,
                     primary = true,
                 )
+            }
+            // phones in portrait: four buttons don't fit one row, so "Skip setup" gets a row of its own
+            val compactFooter = LocalConfiguration.current.screenWidthDp < 480
+            if (compactFooter && step != Step.DONE) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (stepIndex > 0) FractalIconButton(FractalIcons.Back, tr("Back"), { stepIndex-- })
+                    Spacer(Modifier.weight(1f))
+                    FractalButton(tr("Skip setup"), onClick = { finish() })
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Spacer(Modifier.weight(1f))
+                    FractalButton(tr("Skip"), onClick = { next() })
+                    nextButton()
+                }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (stepIndex > 0) FractalIconButton(FractalIcons.Back, tr("Back"), { stepIndex-- })
+                    Spacer(Modifier.weight(1f))
+                    if (step != Step.DONE) {
+                        FractalButton(tr("Skip setup"), onClick = { finish() })
+                        FractalButton(tr("Skip"), onClick = { next() })
+                    }
+                    nextButton()
+                }
             }
         }
     }
