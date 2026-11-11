@@ -56,6 +56,9 @@ class ScreenFocus internal constructor(internal val view: View, private val save
 
     internal fun place(requester: FocusRequester, coordinates: LayoutCoordinates) {
         items[requester] = coordinates
+        // the focused item moves after it got the focus (scrolled into view, content above it
+        // changing): remember where it ends up, or going back to this screen can't find it
+        if (requester == focused) coordinates.unclipped()?.let { saved.center = it.center }
     }
 
     internal fun remove(requester: FocusRequester) {
