@@ -3,6 +3,7 @@ package dev.dfd.fractal.games
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
@@ -35,7 +36,9 @@ private inline fun <reified T : Any> NavGraphBuilder.composableGameScreen(
     noinline content: @Composable (AnimatedContentScope.(NativeGameTitles.Game) -> Unit),
 ) {
     screen<T> {
-        val previousBackStackEntry = navController.previousBackStackEntry ?: return@screen
+        // the library's entry, kept: while going back it is no longer the previous one, and the
+        // screen went blank for a frame before the library showed
+        val previousBackStackEntry = remember { navController.previousBackStackEntry } ?: return@screen
         val game = viewModel<GameViewModel>(previousBackStackEntry).game
 
         LaunchedEffect(game) {
