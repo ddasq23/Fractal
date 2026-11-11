@@ -18,6 +18,7 @@ import dev.dfd.fractal.common.settings.OverlayControllerType
 import dev.dfd.fractal.common.settings.OverlayInputConfig
 import dev.dfd.fractal.common.settings.OverlayMacro
 import dev.dfd.fractal.common.settings.activeProfile
+import dev.dfd.fractal.common.settings.isOverlayShown
 import dev.dfd.fractal.common.settings.createProfile
 import dev.dfd.fractal.common.settings.deleteMacro
 import dev.dfd.fractal.common.settings.deleteProfile
@@ -97,7 +98,7 @@ fun InputOverlaySettingsScreen(
         OverlayToggleRow(
             title = tr("Input overlay"),
             description = tr("Enable input overlay"),
-            checked = overlaySettings.isOverlayEnabled,
+            checked = overlaySettings.isOverlayShown(),
             onCheckedChange = { viewModel.setOverlayEnabled(it) },
         )
         OverlayAppearanceOptions(overlaySettings, viewModel::update)

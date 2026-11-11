@@ -33,6 +33,11 @@ fun listGameControllers() = InputDevice.getDeviceIds()
     .mapNotNull { InputDevice.getDevice(it) }
     .filter { it.isGameController() }
 
+/** Physical gamepads and joysticks; unlike [listGameControllers], a d-pad-only key device doesn't count. */
+fun listGamepads() = InputDevice.getDeviceIds()
+    .mapNotNull { InputDevice.getDevice(it) }
+    .filter { !it.isVirtual && (it.supportsSource(InputDevice.SOURCE_GAMEPAD) || it.supportsSource(InputDevice.SOURCE_JOYSTICK)) }
+
 fun InputDevice.hasRumble(): Boolean {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         return vibratorManager.vibratorIds.isNotEmpty()

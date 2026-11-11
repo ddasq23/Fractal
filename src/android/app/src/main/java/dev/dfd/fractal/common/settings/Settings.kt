@@ -1,5 +1,6 @@
 package dev.dfd.fractal.common.settings
 
+import dev.dfd.fractal.common.android.inputdevice.listGamepads
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.MultiProcessDataStoreFactory
@@ -61,10 +62,15 @@ data class InputOverlayRect(
 const val OVERLAY_SCALE_MIN = 0.5f
 const val OVERLAY_SCALE_MAX = 2.0f
 
+/** Whether the on-screen controls show: the user's choice, or by default only when no game controller is connected. */
+fun InputOverlaySettings.isOverlayShown(): Boolean =
+    isOverlayEnabled ?: listGamepads().isEmpty()
+
 @Serializable
 data class InputOverlaySettings(
     val isVibrateOnTouchEnabled: Boolean = false,
-    val isOverlayEnabled: Boolean = false,
+    /** null until the user picks: the overlay then shows only when no game controller is connected (phones). */
+    val isOverlayEnabled: Boolean? = null,
     val controllerIndex: Int = 0,
     val alpha: Int = 64,
     /** Size multiplier applied to every input on top of its own size. */

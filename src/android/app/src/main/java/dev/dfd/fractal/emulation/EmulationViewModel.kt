@@ -19,6 +19,7 @@ import dev.dfd.fractal.common.settings.AppSettingsStore
 import dev.dfd.fractal.common.settings.InputOverlaySettings
 import dev.dfd.fractal.common.settings.OverlayControllerType
 import dev.dfd.fractal.common.settings.applyEditedRects
+import dev.dfd.fractal.common.settings.isOverlayShown
 import dev.dfd.fractal.common.settings.migrateLegacyRects
 import dev.dfd.fractal.common.settings.resetActiveLayout
 import dev.dfd.fractal.emulation.inputoverlay.OverlayEditResult
@@ -117,7 +118,7 @@ class EmulationViewModel(
     init {
         viewModelScope.launch {
             val settings = dataStore.data.first()
-            _sideMenuState.update { it.copy(isInputOverlayVisible = settings.inputOverlaySettings.isOverlayEnabled) }
+            _sideMenuState.update { it.copy(isInputOverlayVisible = settings.inputOverlaySettings.isOverlayShown()) }
         }
     }
 

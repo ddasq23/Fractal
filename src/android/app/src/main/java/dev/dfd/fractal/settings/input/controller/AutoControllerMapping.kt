@@ -120,11 +120,27 @@ object AutoControllerMapping {
         return null
     }
 
+    /**
+     * Slot 0 is a Wii U GamePad unless the user or a game profile says otherwise, also with no physical
+     * controller: the on-screen controls drive it on phones, and with no emulated controller the game gets no input.
+     */
+    private fun ensureGamePadSlot(context: Context) {
+        if (NativeInput.isControllerSetByGameProfile(0) || isSlotDisabledByUser(context, 0)) {
+            return
+        }
+        if (NativeInput.getControllerType(0) != EmulatedControllerType.DISABLED) {
+            return
+        }
+        NativeInput.setControllerType(0, EmulatedControllerType.VPAD)
+        NativeInput.saveInput(0)
+    }
+
     /** Maps every connected gamepad that drives no emulated controller yet and saves those slots. */
     fun mapConnectedControllers(context: Context): List<MappedController> {
         if (suspendCount > 0 || !isEnabled(context)) {
             return emptyList()
         }
+        ensureGamePadSlot(context)
         val devices = listAutoMappableControllers()
         if (devices.isEmpty()) {
             return emptyList()
