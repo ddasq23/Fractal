@@ -1,6 +1,10 @@
 #include "Cafe/OS/common/OSCommon.h"
 #include "coreinit_Scheduler.h"
 
+// accessed only from the TLS_WORKAROUND_NOINLINE functions below: a PPC thread's fiber can resume on another host
+// thread, and code inlined into a caller would keep using the thread pointer read before the switch. On Android the
+// library is dlopen'ed (dynamic TLS, per-thread offsets), so that stale pointer plus the new offset is a wild address:
+// Pokkén Tournament crashed in __FSUpdateQueue -> FSUnlockMutex -> __OSLockScheduler when leaving a menu
 thread_local sint32 s_schedulerLockCount = 0;
 
 #if BOOST_OS_WINDOWS
@@ -11,7 +15,7 @@ CRITICAL_SECTION s_csSchedulerLock;
 pthread_mutex_t s_ptmSchedulerLock;
 #endif
 
-void __OSLockScheduler(void* obj)
+TLS_WORKAROUND_NOINLINE void __OSLockScheduler(void* obj)
 {
 #if BOOST_OS_WINDOWS
 	EnterCriticalSection(&s_csSchedulerLock);
@@ -22,12 +26,12 @@ void __OSLockScheduler(void* obj)
 	cemu_assert_debug(s_schedulerLockCount <= 1); // >= 2 should not happen. Scheduler lock does not allow recursion
 }
 
-bool __OSHasSchedulerLock()
+TLS_WORKAROUND_NOINLINE bool __OSHasSchedulerLock()
 {
 	return s_schedulerLockCount > 0;
 }
 
-bool __OSTryLockScheduler(void* obj)
+TLS_WORKAROUND_NOINLINE bool __OSTryLockScheduler(void* obj)
 {
 	bool r;
 #if BOOST_OS_WINDOWS
@@ -43,7 +47,7 @@ bool __OSTryLockScheduler(void* obj)
 	return false;
 }
 
-void __OSUnlockScheduler(void* obj)
+TLS_WORKAROUND_NOINLINE void __OSUnlockScheduler(void* obj)
 {
 	s_schedulerLockCount--;
 	cemu_assert_debug(s_schedulerLockCount >= 0);

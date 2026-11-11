@@ -31,13 +31,14 @@ Fiber::~Fiber()
 		free(m_stackPtr);
 }
 
-Fiber* Fiber::PrepareCurrentThread(void* privateData)
+// sCurrentFiber is only touched in these functions, never inlined into callers: see s_schedulerLockCount
+TLS_WORKAROUND_NOINLINE Fiber* Fiber::PrepareCurrentThread(void* privateData)
 {
 	sCurrentFiber = new Fiber(privateData);
 	return sCurrentFiber;
 }
 
-void Fiber::Switch(Fiber& targetFiber)
+TLS_WORKAROUND_NOINLINE void Fiber::Switch(Fiber& targetFiber)
 {
 	if (&targetFiber == sCurrentFiber)
 		return;
@@ -49,7 +50,7 @@ void Fiber::Switch(Fiber& targetFiber)
 	thisFiber->m_prevFiber->m_context = transfer.fctx;
 }
 
-void* Fiber::GetFiberPrivateData()
+TLS_WORKAROUND_NOINLINE void* Fiber::GetFiberPrivateData()
 {
 	return sCurrentFiber->m_privateData;
 }
