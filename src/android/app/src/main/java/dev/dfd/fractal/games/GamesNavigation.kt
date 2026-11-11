@@ -7,8 +7,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
+import dev.dfd.fractal.common.ui.fractal.screen
 import dev.dfd.fractal.games.details.GameDetailsScreen
 import dev.dfd.fractal.games.library.LibraryNavigation
 import dev.dfd.fractal.games.library.LibraryScreen
@@ -34,15 +34,15 @@ private inline fun <reified T : Any> NavGraphBuilder.composableGameScreen(
     navController: NavController,
     noinline content: @Composable (AnimatedContentScope.(NativeGameTitles.Game) -> Unit),
 ) {
-    composable<T> {
-        val previousBackStackEntry = navController.previousBackStackEntry ?: return@composable
+    screen<T> {
+        val previousBackStackEntry = navController.previousBackStackEntry ?: return@screen
         val game = viewModel<GameViewModel>(previousBackStackEntry).game
 
         LaunchedEffect(game) {
             if (game == null) navController.popBackStack()
         }
 
-        if (game == null) return@composable
+        if (game == null) return@screen
 
 
         content(game)
@@ -63,7 +63,7 @@ fun NavGraphBuilder.gamesNavigation(
     goToWelcome: () -> Unit,
 ) {
     navigation<GameListRoute>(startDestination = GameListRoutes.GamesRoute) {
-        composable<GameListRoutes.GamesRoute> { backStackEntry ->
+        screen<GameListRoutes.GamesRoute> { backStackEntry ->
             val gameViewModel: GameViewModel = viewModel(backStackEntry)
             LibraryScreen(
                 LibraryNavigation(

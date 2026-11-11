@@ -8,7 +8,7 @@ package dev.dfd.fractal.welcome
 
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
+import dev.dfd.fractal.common.ui.fractal.screen
 import dev.dfd.fractal.games.GameListRoute
 import dev.dfd.fractal.graphicpacks.GraphicPacksRoute
 import dev.dfd.fractal.settings.CustomDriversRoute
@@ -18,7 +18,7 @@ import kotlinx.serialization.Serializable
 object WelcomeRoute
 
 fun NavGraphBuilder.welcomeNavigation(navController: NavHostController, onSetupFinished: () -> Unit) {
-    composable<WelcomeRoute> {
+    screen<WelcomeRoute> {
         WelcomeScreen(
             WelcomeNavigation(
                 finish = {

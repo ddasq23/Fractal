@@ -2,14 +2,14 @@ package dev.dfd.fractal.titlemanager
 
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
+import dev.dfd.fractal.common.ui.fractal.screen
 import kotlinx.serialization.Serializable
 
 @Serializable
 object TitleManagerRoute
 
 fun NavGraphBuilder.titleManagerNavigation(navController: NavHostController) {
-    composable<TitleManagerRoute> {
+    screen<TitleManagerRoute> {
         TitleManagerScreen({ navController.popBackStack() })
     }
 }

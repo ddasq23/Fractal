@@ -2,14 +2,14 @@ package dev.dfd.fractal.about
 
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.composable
+import dev.dfd.fractal.common.ui.fractal.screen
 import kotlinx.serialization.Serializable
 
 @Serializable
 object AboutCemuRoute
 
 fun NavGraphBuilder.aboutCemuNavigation(navController: NavHostController) {
-    composable<AboutCemuRoute> {
+    screen<AboutCemuRoute> {
         AboutCemuScreen { navController.popBackStack() }
     }
 }
