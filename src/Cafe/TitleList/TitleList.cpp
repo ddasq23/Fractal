@@ -1,4 +1,8 @@
 #include "TitleList.h"
+#if !BOOST_OS_WINDOWS
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 #include "Common/FileStream.h"
 
 #include "util/helpers/helpers.h"
@@ -139,9 +143,23 @@ void CafeTitleList::StoreCacheFile()
 	}
 	doc.save(fileOut, " ", 1, pugi::xml_encoding::encoding_utf8);
 	fileOut.flush();
+	const bool written = fileOut.good();
 	fileOut.close();
 
 	std::error_code ec;
+	if (!written)
+	{
+		fs::remove(tmpPath, ec);
+		return;
+	}
+#if !BOOST_OS_WINDOWS
+	// sync before the rename, or a reboot soon after can leave the cache full of zeros (see XMLConfig::Save)
+	if (int fd = open(tmpPath.c_str(), O_RDONLY); fd >= 0)
+	{
+		fsync(fd);
+		close(fd);
+	}
+#endif
 	fs::rename(tmpPath, sTLCacheFilePath, ec);
 }
 
