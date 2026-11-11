@@ -678,6 +678,7 @@ void VulkanRenderer::surfaceCopy_viaDrawcall(LatteTextureVk* srcTextureVk, sint3
 	barrier_image<SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE | SYNC_OP::ANY_TRANSFER, SYNC_OP::IMAGE_WRITE>(dstTextureVk, dstImageSubresource, dstTextureVk->GetDefaultLayout()); // wait for any operations on destination image to complete
 
 	
+	PassProfileBeginNamed(fmt::format("copy draw {}x{} {:04x}->{:04x}", effectiveCopyWidth, effectiveCopyHeight, (uint32)srcTextureVk->format, (uint32)dstTextureVk->format));
 	vkCmdBeginRenderPass(m_state.currentCommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	vkCmdBindPipeline(m_state.currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, copySurfacePipelineInfo->vkObjPipeline->GetPipeline());
@@ -692,6 +693,7 @@ void VulkanRenderer::surfaceCopy_viaDrawcall(LatteTextureVk* srcTextureVk, sint3
 	vkCmdDraw(m_state.currentCommandBuffer, 6, 1, 0, 0);
 
 	vkCmdEndRenderPass(m_state.currentCommandBuffer);
+	PassProfileEndPass();
 
 	barrier_image<SYNC_OP::IMAGE_READ, SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE | SYNC_OP::ANY_TRANSFER>(srcTextureVk, srcImageSubresource, srcTextureVk->GetDefaultLayout()); // wait for drawcall to complete before any other operations on the source image
 	barrier_image<SYNC_OP::IMAGE_WRITE, SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE | SYNC_OP::ANY_TRANSFER>(dstTextureVk, dstImageSubresource, dstTextureVk->GetDefaultLayout()); // wait for drawcall to complete before any other operations on the destination image
@@ -871,4 +873,5 @@ void VulkanRenderer::surfaceCopy_cleanup()
 		delete i.second;
 	}
 	m_copySurfacePipelineCache = {};
+
 }

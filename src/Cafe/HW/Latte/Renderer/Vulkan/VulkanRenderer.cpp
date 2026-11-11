@@ -2224,8 +2224,10 @@ bool VulkanRenderer::ImguiBegin(bool mainWindow)
 void VulkanRenderer::ImguiEnd()
 {
 	ImGui::Render();
+	PassProfileBeginNamed("imgui");
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_state.currentCommandBuffer);
 	vkCmdEndRenderPass(m_state.currentCommandBuffer);
+	PassProfileEndPass();
 
 	// restore viewport and scissor box
 	vkCmdSetViewport(m_state.currentCommandBuffer, 0, 1, &m_state.currentViewport);
@@ -2392,6 +2394,9 @@ void VulkanRenderer::PerfTimestampEnd()
 		vkCmdWriteTimestamp(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_perfQueryPool, (uint32)m_commandBufferIndex * 2 + 1);
 }
 
+static int s_timelineDumps = 0;
+static uint64 s_timelineOrigin = 0;
+
 void VulkanRenderer::PerfTimestampCollect(size_t commandBufferIndex)
 {
 	if (!m_perfQueryWritten[commandBufferIndex])
@@ -2404,7 +2409,16 @@ void VulkanRenderer::PerfTimestampCollect(size_t commandBufferIndex)
 	ts[1] &= m_perfTimestampMask;
 	if (ts[1] > ts[0])
 		PerfLog::GpuWork((uint64)(ts[0] * m_perfTimestampPeriodNs), (uint64)(ts[1] * m_perfTimestampPeriodNs));
+	if (s_timelineDumps > 0)
+	{
+		const uint64 a = (uint64)(ts[0] * m_perfTimestampPeriodNs), b = (uint64)(ts[1] * m_perfTimestampPeriodNs);
+		if (s_timelineOrigin == 0)
+			s_timelineOrigin = a;
+		cemuLog_log(LogType::Force, "PassTimeline CB {} {:8.3f} {:8.3f} ms", commandBufferIndex, ((sint64)a - (sint64)s_timelineOrigin) / 1e6, ((sint64)b - (sint64)s_timelineOrigin) / 1e6);
+	}
 	PassProfileCollect(commandBufferIndex);
+	if (s_timelineDumps > 0 && --s_timelineDumps == 0)
+		s_timelineOrigin = 0;
 }
 
 void VulkanRenderer::PassProfileBeginCommandBuffer()
@@ -2430,6 +2444,8 @@ void VulkanRenderer::PassProfileBeginCommandBuffer()
 	m_passProfileOpen = false;
 	vkCmdResetQueryPool(m_state.currentCommandBuffer, m_passProfileQueryPool, (uint32)m_commandBufferIndex * kPassProfileMaxPerCommandBuffer * 2, kPassProfileMaxPerCommandBuffer * 2);
 	m_passProfileEnabled = true;
+	PassProfileBeginNamed("cb start");
+	PassProfileEndPass();
 }
 
 void VulkanRenderer::PassProfileBeginPass(CachedFBOVk* fboVk)
@@ -2448,6 +2464,16 @@ void VulkanRenderer::PassProfileBeginPass(CachedFBOVk* fboVk)
 		sig += fmt::format(" d:{:x}", (uint32)fboVk->depthBuffer.texture->format);
 	if (auto* ps = LatteSHRC_GetActivePixelShader())
 		sig += fmt::format(" ps:{:016x}", ps->baseHash);
+	PassProfileBeginNamed(std::move(sig));
+}
+
+void VulkanRenderer::PassProfileBeginNamed(std::string sig)
+{
+	if (!m_passProfileEnabled)
+		return;
+	auto& list = m_passProfile[m_commandBufferIndex];
+	if (list.size() >= kPassProfileMaxPerCommandBuffer)
+		return;
 	vkCmdWriteTimestamp(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_passProfileQueryPool, (uint32)(m_commandBufferIndex * kPassProfileMaxPerCommandBuffer + list.size()) * 2);
 	list.push_back({ std::move(sig), 0 });
 	m_passProfileOpen = true;
@@ -2480,14 +2506,36 @@ void VulkanRenderer::PassProfileCollect(size_t commandBufferIndex)
 		return;
 	std::vector<uint64> ts(list.size() * 2);
 	VkResult r = vkGetQueryPoolResults(m_logicalDevice, m_passProfileQueryPool, (uint32)(commandBufferIndex * kPassProfileMaxPerCommandBuffer * 2), (uint32)ts.size(), ts.size() * sizeof(uint64), ts.data(), sizeof(uint64), VK_QUERY_RESULT_64_BIT);
+	if (r == VK_SUCCESS && s_timelineDumps > 0 && s_timelineOrigin != 0)
+	{
+		const uint64 t0 = s_timelineOrigin;
+		for (size_t i = 0; i < list.size(); i++)
+		{
+			const uint64 a = (uint64)((ts[i * 2] & m_perfTimestampMask) * m_perfTimestampPeriodNs);
+			const uint64 b = (uint64)((ts[i * 2 + 1] & m_perfTimestampMask) * m_perfTimestampPeriodNs);
+			cemuLog_log(LogType::Force, "PassTimeline {:8.3f} {:8.3f} ms  {}", ((sint64)a - (sint64)t0) / 1e6, ((sint64)b - (sint64)t0) / 1e6, list[i].signature);
+		}
+	}
 	if (r == VK_SUCCESS)
 	{
+		uint64 prevEnd = 0;
+		size_t prevIndex = 0;
 		for (size_t i = 0; i < list.size(); i++)
 		{
 			const uint64 start = (uint64)((ts[i * 2] & m_perfTimestampMask) * m_perfTimestampPeriodNs);
 			const uint64 end = (uint64)((ts[i * 2 + 1] & m_perfTimestampMask) * m_perfTimestampPeriodNs);
 			if (end < start || end - start > 1000000000ull)
 				continue;
+			// time inside the command buffer between two profiled passes (barriers, copies, uploads, stalls)
+			if (prevEnd != 0 && start > prevEnd && start - prevEnd < 100000000ull)
+			{
+				auto& gap = s_stats["gap " + list[prevIndex].signature + " => " + list[i].signature];
+				gap.ns += start - prevEnd;
+				gap.passes++;
+				s_totalNs += start - prevEnd;
+			}
+			prevEnd = end;
+			prevIndex = i;
 			if (s_lastEnd > end + 1000000000ull)
 				s_lastEnd = 0;
 			// exclusive time: tiled GPUs overlap the vertex work of a pass with the fragment work of the previous one
@@ -2509,11 +2557,12 @@ void VulkanRenderer::PassProfileCollect(size_t commandBufferIndex)
 	std::vector<std::pair<std::string, Stats>> sorted(s_stats.begin(), s_stats.end());
 	std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.second.ns > b.second.ns; });
 	cemuLog_log(LogType::Force, "PassProfile: {:.1f} ms GPU per second in {} signatures", s_totalNs / 1e6 / secs, sorted.size());
-	for (size_t i = 0; i < std::min<size_t>(sorted.size(), 12); i++)
+	for (size_t i = 0; i < std::min<size_t>(sorted.size(), 20); i++)
 		cemuLog_log(LogType::Force, "PassProfile: {:6.1f} ms/s {:5.0f} passes/s {:6.0f} draws/s  {}", sorted[i].second.ns / 1e6 / secs, sorted[i].second.passes / secs, sorted[i].second.draws / secs, sorted[i].first);
 	s_stats.clear();
 	s_totalNs = 0;
 	s_lastDump = now;
+	s_timelineDumps = 8;
 }
 
 void VulkanRenderer::WaitForNextFinishedCommandBuffer()
@@ -3719,11 +3768,17 @@ void VulkanRenderer::ClearColorImageRaw(VkImage image, uint32 sliceIndex, uint32
 	subresourceRange.baseArrayLayer = sliceIndex;
 	subresourceRange.layerCount = 1;
 
+	PassProfileBeginNamed(fmt::format("clear barrier in {}", (int)inputLayout));
 	barrier_image<SYNC_OP::ANY_TRANSFER | SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE, SYNC_OP::ANY_TRANSFER>(image, subresourceRange, inputLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	PassProfileEndPass();
 
+	PassProfileBeginNamed("clear_color_image");
 	vkCmdClearColorImage(m_state.currentCommandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color, 1, &subresourceRange);
+	PassProfileEndPass();
 
+	PassProfileBeginNamed(fmt::format("clear barrier out {}", (int)outputLayout));
     barrier_image<ANY_TRANSFER, SYNC_OP::ANY_TRANSFER | SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE>(image, subresourceRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, outputLayout);
+	PassProfileEndPass();
 }
 
 void VulkanRenderer::ClearColorImage(LatteTextureVk* vkTexture, uint32 sliceIndex, uint32 mipIndex, const VkClearColorValue& color, VkImageLayout outputLayout)
@@ -3793,7 +3848,9 @@ void VulkanRenderer::DrawBackbufferQuad(LatteTextureView* texView, RendererOutpu
 
 	auto descriptSet = backbufferBlit_createDescriptorSet(m_swapchainDescriptorSetLayout, texViewVk, useLinearTexFilter);
 	auto outputUniforms = shader->FillUniformBlockBuffer(*texView, {imageWidth, imageHeight}, padView);
+	PassProfileBeginNamed(fmt::format("output {} {}x{} -> {}x{}", padView ? "pad" : "tv", texView->baseTexture->width, texView->baseTexture->height, imageWidth, imageHeight));
 	backbufferBlit_drawToSwapchain(padView, shader, descriptSet, outputUniforms, imageX, imageY, imageWidth, imageHeight, clearBackground);
+	PassProfileEndPass();
 }
 
 void VulkanRenderer::DrawBackbufferQuadTwoPass(LatteTextureView* texView, RendererOutputShader* firstShader, RendererOutputShader* secondShader, bool useLinearTexFilter, sint32 imageX, sint32 imageY, sint32 imageWidth, sint32 imageHeight, bool padView, bool clearBackground)
@@ -3818,6 +3875,7 @@ void VulkanRenderer::DrawBackbufferQuadTwoPass(LatteTextureView* texView, Render
 	memoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
 	vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
+	PassProfileBeginNamed(fmt::format("output2 {} {}x{} -> {}x{}", padView ? "pad" : "tv", texView->baseTexture->width, texView->baseTexture->height, imageWidth, imageHeight));
 	// first pass, into the intermediate image without any gamma conversion
 	auto firstPipeline = backbufferBlit_createGraphicsPipeline(m_swapchainDescriptorSetLayout, padView, firstShader, m_outputPassRenderPass);
 	auto firstDescriptorSet = backbufferBlit_createDescriptorSet(m_swapchainDescriptorSetLayout, texViewVk, useLinearTexFilter);
@@ -3871,6 +3929,7 @@ void VulkanRenderer::DrawBackbufferQuadTwoPass(LatteTextureView* texView, Render
 	auto secondUniforms = secondShader->FillUniformBlockBuffer(*texView, {imageWidth, imageHeight}, padView);
 	secondUniforms.textureSrcResolution = {(float)target.width, (float)target.height};
 	backbufferBlit_drawToSwapchain(padView, secondShader, target.descriptorSet, secondUniforms, imageX, imageY, imageWidth, imageHeight, clearBackground);
+	PassProfileEndPass();
 }
 
 void VulkanRenderer::backbufferBlit_drawToSwapchain(bool padView, RendererOutputShader* shader, VkDescriptorSet descriptorSet, const RendererOutputShader::OutputUniformVariables& uniforms, sint32 imageX, sint32 imageY, sint32 imageWidth, sint32 imageHeight, bool clearBackground)
@@ -4327,7 +4386,8 @@ void VulkanRenderer::texture_clearDepthSlice(LatteTexture* hostTexture, uint32 s
 	subresourceRange.mipLevel = mipIndex;
 	subresourceRange.baseArrayLayer = sliceIndex;
 	subresourceRange.layerCount = 1;
-	barrier_image<ANY_TRANSFER | IMAGE_READ | IMAGE_WRITE, ANY_TRANSFER>(vkTexture, subresourceRange, VK_IMAGE_LAYOUT_GENERAL);
+	const VkImageLayout clearLayout = VK_IMAGE_LAYOUT_GENERAL;
+	barrier_image<ANY_TRANSFER | IMAGE_READ | IMAGE_WRITE, ANY_TRANSFER>(vkTexture, subresourceRange, clearLayout);
 
 	VkClearDepthStencilValue depthStencilValue{};
 	depthStencilValue.depth = depthValue;
@@ -4341,7 +4401,9 @@ void VulkanRenderer::texture_clearDepthSlice(LatteTexture* hostTexture, uint32 s
 
 	range.aspectMask = aspectMask;
 
-	vkCmdClearDepthStencilImage(m_state.currentCommandBuffer, imageObj->m_image, VK_IMAGE_LAYOUT_GENERAL, &depthStencilValue, 1, &range);
+	PassProfileBeginNamed(fmt::format("clear_depth {}x{} asp {}", vkTexture->width, vkTexture->height, (uint32)aspectMask));
+	vkCmdClearDepthStencilImage(m_state.currentCommandBuffer, imageObj->m_image, clearLayout, &depthStencilValue, 1, &range);
+	PassProfileEndPass();
 
 	barrier_image<ANY_TRANSFER, ANY_TRANSFER | IMAGE_READ | IMAGE_WRITE>(vkTexture, subresourceRange, vkTexture->GetDefaultLayout());
 }
@@ -4584,6 +4646,7 @@ void VulkanRenderer::texture_copyImageSubData(LatteTexture* src, sint32 srcMip, 
 	// both images the Adreno 650 driver fails command buffer submission (Xenoblade Chronicles X)
 	static const bool s_copyViaBuffer = PerfLog::Tunable("copy_via_buffer", 1) != 0;
 	const uint32 texelSize = VkFormatTexelSize(srcVkObj->m_format);
+	PassProfileBeginNamed(fmt::format("copy fmt {}->{} aspect {} {}x{}", (sint32)srcVkObj->m_format, (sint32)dstVkObj->m_format, (uint32)region.srcSubresource.aspectMask, region.extent.width, region.extent.height));
 	if (s_copyViaBuffer && srcVkObj->m_format != dstVkObj->m_format && !srcVk->m_isMutableFormat && !dstVk->m_isMutableFormat &&
 		texelSize != 0 && texelSize == VkFormatTexelSize(dstVkObj->m_format) &&
 		region.srcSubresource.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT && region.dstSubresource.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT)
@@ -4608,10 +4671,13 @@ void VulkanRenderer::texture_copyImageSubData(LatteTexture* src, sint32 srcMip, 
 	}
 	else
 		vkCmdCopyImage(m_state.currentCommandBuffer, srcVkObj->m_image, VK_IMAGE_LAYOUT_GENERAL, dstVkObj->m_image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+	PassProfileEndPass();
 
 	// make sure the transfer is finished before the image is read or written
+	PassProfileBeginNamed("copy barrier out");
 	barrier_image<SYNC_OP::ANY_TRANSFER, SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE | SYNC_OP::ANY_TRANSFER>(srcVk, region.srcSubresource, srcVk->GetDefaultLayout());
 	barrier_image<SYNC_OP::ANY_TRANSFER, SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE | SYNC_OP::ANY_TRANSFER>(dstVk, region.dstSubresource, dstVk->GetDefaultLayout());
+	PassProfileEndPass();
 }
 
 LatteTextureReadbackInfo* VulkanRenderer::texture_createReadback(LatteTextureView* textureView)

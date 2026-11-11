@@ -798,6 +798,10 @@ private:
 	std::array<std::vector<PassProfileEntry>, kCommandBufferPoolSize> m_passProfile;
 	void PassProfileBeginCommandBuffer();
 	void PassProfileBeginPass(class CachedFBOVk* fboVk);
+	void PassProfileBeginNamed(std::string sig);
+	bool m_passProfileBarrierMarked{false};
+	std::string m_barrierTexInfo;
+	void PassProfileBarrierEnd() { if (m_passProfileBarrierMarked) { m_passProfileBarrierMarked = false; PassProfileEndPass(); } }
 	void PassProfileEndPass();
 	void PassProfileCountDraw();
 	void PassProfileCollect(size_t commandBufferIndex);
@@ -1062,12 +1066,20 @@ private:
 		imageMemBarrier.oldLayout = oldLayout;
 		imageMemBarrier.newLayout = newLayout;
 
+		if (m_passProfileEnabled && !m_passProfileOpen)
+		{
+			PassProfileBeginNamed(fmt::format("imgbarrier {}->{} asp {} mip {}+{} layer {}+{} src {:x} dst {:x} {}", (int)oldLayout, (int)newLayout, (uint32)subresourceRange.aspectMask,
+				subresourceRange.baseMipLevel, subresourceRange.levelCount, subresourceRange.baseArrayLayer, subresourceRange.layerCount, (uint32)TSrcSyncOp, (uint32)TDstSyncOp, m_barrierTexInfo));
+			m_passProfileBarrierMarked = true;
+		}
+		m_barrierTexInfo.clear();
 		vkCmdPipelineBarrier(m_state.currentCommandBuffer,
 							 srcStages, dstStages,
 							 0,
 							 0, NULL,
 							 0, NULL,
 							 1, &imageMemBarrier);
+		PassProfileBarrierEnd();
 	}
 
 	template<uint32 TSrcSyncOp, uint32 TDstSyncOp>
@@ -1082,6 +1094,8 @@ private:
 		subresourceRange.baseMipLevel = subresourceLayers.mipLevel;
 		subresourceRange.levelCount = 1;
 
+		if (m_passProfileEnabled)
+			m_barrierTexInfo = fmt::format("tex {}x{}x{} fmt {:04x} mips {}", vkTexture->width, vkTexture->height, vkTexture->depth, (uint32)vkTexture->format, vkTexture->mipLevels);
 		barrier_image<TSrcSyncOp, TDstSyncOp>(imageVk, subresourceRange, vkTexture->GetImageLayout(subresourceRange), newLayout);
 
 		vkTexture->SetImageLayout(subresourceRange, newLayout);
