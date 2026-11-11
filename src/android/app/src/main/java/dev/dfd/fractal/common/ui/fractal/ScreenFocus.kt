@@ -94,19 +94,39 @@ class ScreenFocus internal constructor(internal val view: View, private val save
     private fun LayoutCoordinates.unclipped(): Rect? =
         if (isAttached) Rect(localToRoot(Offset.Zero), Size(size.width.toFloat(), size.height.toFloat())) else null
 
-    /** Items with their bounds, top to bottom, then left to right. */
-    private fun sortedItems(): List<Pair<FocusRequester, Rect>> = items.mapNotNull { (requester, coordinates) ->
-        coordinates.unclipped()?.let { requester to it }
-    }.sortedWith(compareBy({ it.second.top.toInt() / 8 }, { it.second.left }))
+    /**
+     * Items with their bounds, row by row from the top, each row left to right. Items whose tops
+     * are a few dp apart are one row: the focus ring and the focus scale move the focused item a
+     * little, and that must not change which item comes first (the focus went back and forth
+     * between two tiles of a row).
+     */
+    private fun sortedItems(): List<Pair<FocusRequester, Rect>> {
+        val placed = items.mapNotNull { (requester, coordinates) ->
+            coordinates.unclipped()?.let { requester to it }
+        }.sortedBy { it.second.top }
+        val tolerance = 8f * view.resources.displayMetrics.density
+        val rows = ArrayList<MutableList<Pair<FocusRequester, Rect>>>()
+        for (item in placed) {
+            val row = rows.lastOrNull()
+            if (row != null && item.second.top - row.first().second.top < tolerance) row.add(item)
+            else rows.add(mutableListOf(item))
+        }
+        return rows.flatMap { row -> row.sortedBy { it.second.left } }
+    }
 
     private fun tryFocus(candidates: List<FocusRequester>): Boolean =
         candidates.any { runCatching { it.requestFocus() }.getOrDefault(false) }
 
-    /** The item the screen opens on when there is nothing to restore. */
+    /**
+     * The item the screen opens on when there is nothing to restore. When none of the items
+     * known here is in view (the top of the screen is made of other controls), the first
+     * focusable of the content, rather than scrolling down to a known item.
+     */
     private fun firstCandidates(all: List<Pair<FocusRequester, Rect>>): List<FocusRequester> {
         val view = container?.bounds()
         val inView = if (view == null) all else all.filter { it.second.top >= view.top - 1f && it.second.top < view.bottom }
-        return listOfNotNull(preferred) + inView.map { it.first } + all.map { it.first }
+        val content = if (inView.isEmpty()) listOf(containerRequester) else emptyList()
+        return listOfNotNull(preferred) + inView.map { it.first } + content + all.map { it.first }
     }
 
     /**
