@@ -34,6 +34,16 @@ $A shell cat "$FILES/controllerProfiles/controller0.xml" 2>/dev/null | grep -q '
   || { echo "$SCENE: controller 1 is not a Wii U GamePad (controllerProfiles/controller0.xml)"; exit 1; }
 # KEEP_SAVE=1 keeps the title's save (scenes that need menus past the first boot)
 [ "${KEEP_SAVE:-0}" = 1 ] || $A shell rm -rf "$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}"
+# "# save: <name>" starts from a saved game: the folder SAVES/<name> (default ~/.cache/fractal-perf/saves, a copy of
+# mlc01/usr/save/<high>/<low> made after playing to that point) replaces the title's save before each run
+SAVE_NAME=$(sed -n 's/^# save: *//p' "$FILE")
+if [ -n "$SAVE_NAME" ]; then
+  SRC="${SAVES:-$HOME/.cache/fractal-perf/saves}/$SAVE_NAME"
+  [ -d "$SRC" ] || { echo "$SCENE: save $SRC not found"; exit 1; }
+  $A shell rm -rf "$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}"
+  $A shell mkdir -p "$FILES/mlc01/usr/save/${TID:0:8}"
+  $A push "$SRC" "$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}" >/dev/null || { echo "$SCENE: could not restore save $SAVE_NAME"; exit 1; }
+fi
 $A shell mkdir -p "$FILES/perf"
 $A push "$FILE" "$FILES/perf/input_$TID.txt" >/dev/null
 before=$($A shell ls "$FILES/perf" | tr -d '\r' | grep "_$TID\$" | sort | tail -1)

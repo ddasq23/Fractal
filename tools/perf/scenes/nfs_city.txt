@@ -1,0 +1,27 @@
+# title: Need for Speed™ Most Wanted U
+# title_id: 0005000010128800
+# save: nfs_city_10128800
+# duration: 300
+# window: 240 295
+# scene: from a save past the opening: title, Continue, free drive downtown (Traven Street) with throttle and left turns
+30 PLUS
+36 PLUS
+45 A
+51 A
+57 A
+63 A
+69 A
+140 ZR 20000
+148 LLEFT 1500
+165 ZR 20000
+173 LLEFT 1500
+190 ZR 20000
+198 LLEFT 1500
+215 ZR 20000
+223 LLEFT 1500
+240 ZR 20000
+248 LLEFT 1500
+265 ZR 20000
+273 LLEFT 1500
+290 ZR 20000
+298 LLEFT 1500

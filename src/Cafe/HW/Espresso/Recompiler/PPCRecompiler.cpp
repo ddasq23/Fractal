@@ -184,6 +184,17 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 		cemuLog_log(LogType::Force, "Attempting to recompile function outside of allowed code area");
 		return nullptr;
 	}
+	{
+		// diagnostics: perf/tuning.txt jit_skip_lo/jit_skip_hi (decimal guest addresses) leave the functions overlapping
+		// [lo, hi) to the interpreter, to tell recompiler bugs apart from emulation bugs elsewhere
+		static const uint32 s_skipLo = (uint32)PerfLog::Tunable("jit_skip_lo", 0);
+		static const uint32 s_skipHi = (uint32)PerfLog::Tunable("jit_skip_hi", 0);
+		if (s_skipHi > s_skipLo && range.startAddress < s_skipHi && (range.startAddress + range.length) > s_skipLo)
+		{
+			PerfLog::JitFailure(range.startAddress, range.length, "jit_skip");
+			return nullptr;
+		}
+	}
 	uint32 codeGenRangeStart;
 	uint32 codeGenRangeSize = 0;
 	coreinit::OSGetCodegenVirtAddrRangeInternal(codeGenRangeStart, codeGenRangeSize);

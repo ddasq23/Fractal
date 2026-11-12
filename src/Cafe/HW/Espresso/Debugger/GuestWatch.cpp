@@ -5,6 +5,7 @@
 #include "Common/ExceptionHandler/ExceptionHandler.h"
 
 #include <mutex>
+#include <set>
 #include "config/ActiveSettings.h"
 
 namespace GuestWatch
@@ -29,6 +30,8 @@ namespace GuestWatch
 	static uint64 s_seq = 0;
 	static bool s_pairs = false;
 	static bool s_logEach = false;
+	static bool s_logFirstPerPC = false; // watch_log=2: only the first write of each pc/address pair
+	static std::set<uint64> s_seenPCs;
 	static uint32 s_dupLogs = 0;
 	static uint32 s_lastDupMask = 0;
 
@@ -41,7 +44,8 @@ namespace GuestWatch
 		const sint64 ringSize = std::max<sint64>(PerfLog::Tunable("watch_ring", 4096), 64);
 		s_ring.resize((size_t)ringSize);
 		s_pairs = PerfLog::Tunable("watch_pairs", 0) != 0;
-		s_logEach = PerfLog::Tunable("watch_log", 0) != 0; // every write to the log (low volume ranges only)
+		s_logEach = PerfLog::Tunable("watch_log", 0) == 1; // every write to the log (low volume ranges only)
+		s_logFirstPerPC = PerfLog::Tunable("watch_log", 0) == 2;
 		g_lo = (uint32)lo;
 		g_hi = (uint32)(lo + size);
 		cemuLog_log(LogType::Force, "GuestWatch: watching 0x{:08x}-0x{:08x}, ring {}, pairs {}", g_lo, g_hi, ringSize, s_pairs);
@@ -107,6 +111,12 @@ namespace GuestWatch
 		e.size = (uint8)std::min<uint32>(size, 255);
 		e.kind = kind;
 		s_seq++;
+		if (s_logFirstPerPC && s_seenPCs.size() < 256 && s_seenPCs.emplace(((uint64)pc << 32) | addr).second)
+		{
+			char buf[160];
+			FormatEntry(e, buf, sizeof(buf));
+			cemuLog_log(LogType::Force, "GuestWatch first: {}", buf);
+		}
 		if (s_logEach)
 		{
 			char buf[160];

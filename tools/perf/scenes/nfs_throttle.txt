@@ -1,0 +1,34 @@
+# title: Need for Speed™ Most Wanted U
+# title_id: 0005000010128800
+# save: nfs_city_10128800
+# duration: 240
+# window: 100 235
+# scene: from the city save, throttle on and off (4 s / 3 s) to hear the engine audio
+30 PLUS
+36 PLUS
+45 A
+51 A
+57 A
+63 A
+69 A
+90 ZR 4000
+97 ZR 4000
+104 ZR 4000
+111 ZR 4000
+118 ZR 4000
+125 ZR 4000
+132 ZR 4000
+139 ZR 4000
+146 ZR 4000
+153 ZR 4000
+160 ZR 4000
+167 ZR 4000
+174 ZR 4000
+181 ZR 4000
+188 ZR 4000
+195 ZR 4000
+202 ZR 4000
+209 ZR 4000
+216 ZR 4000
+223 ZR 4000
+230 ZR 4000
