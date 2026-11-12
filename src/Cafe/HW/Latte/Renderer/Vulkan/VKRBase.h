@@ -232,4 +232,5 @@ public:
 	~VKRObjectDescriptorSet() override;
 
 	VkDescriptorSet descriptorSet{ VK_NULL_HANDLE };
+	VkDescriptorPool pool{ VK_NULL_HANDLE }; // the pool it was allocated from, null = the renderer's main pool
 };

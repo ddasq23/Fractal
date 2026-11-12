@@ -972,6 +972,9 @@ VulkanRenderer::~VulkanRenderer()
 		vkDestroySampler(m_logicalDevice, m_outputPassSampler, nullptr);
 
 	vkDestroyDescriptorPool(m_logicalDevice, m_descriptorPool, nullptr);
+	for (VkDescriptorPool pool : m_extraDescriptorPools)
+		vkDestroyDescriptorPool(m_logicalDevice, pool, nullptr);
+	m_extraDescriptorPools.clear();
 
 	for(auto& i : m_backbufferBlitPipelineCache)
 	{
@@ -3744,7 +3747,10 @@ void VulkanRenderer::SwapBuffers(bool swapTV, bool swapDRC)
 		SwapBuffer(false);
 
 	if(swapTV)
+	{
 		VulkanBenchmarkPrintResults();
+		descriptorSets_evictUnused();
+	}
 }
 
 void VulkanRenderer::ClearColorbuffer(bool padView)
@@ -4145,6 +4151,44 @@ void VulkanRenderer::outputPass_destroyTarget(OutputPassTarget& target)
 
 void VulkanRenderer::CreateDescriptorPool()
 {
+	m_descriptorPool = CreateDescriptorPoolObject();
+	if (m_descriptorPool == VK_NULL_HANDLE)
+		UnrecoverableError("Failed to create descriptor pool!");
+}
+
+bool VulkanRenderer::AllocateDrawDescriptorSet(VkDescriptorSetLayout layout, VkDescriptorSet& setOut, VkDescriptorPool& poolOut)
+{
+	VkDescriptorSetAllocateInfo allocInfo = {};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = &layout;
+	// newest pool first, it is the one most likely to have room
+	for (sint32 i = (sint32)m_extraDescriptorPools.size(); i >= 0; i--)
+	{
+		VkDescriptorPool pool = i == 0 ? m_descriptorPool : m_extraDescriptorPools[i - 1];
+		allocInfo.descriptorPool = pool;
+		if (vkAllocateDescriptorSets(m_logicalDevice, &allocInfo, &setOut) == VK_SUCCESS)
+		{
+			poolOut = pool;
+			return true;
+		}
+	}
+	// desktop drivers tend to allocate past the pool sizes, Adreno doesn't: open world games (Need for Speed Most Wanted U)
+	// keep more than 128K texture descriptors alive
+	VkDescriptorPool pool = CreateDescriptorPoolObject();
+	if (pool == VK_NULL_HANDLE)
+		return false;
+	m_extraDescriptorPools.emplace_back(pool);
+	cemuLog_log(LogType::Force, "Vulkan: descriptor pools full ({} sets alive), added pool {}", performanceMonitor.vk.numDescriptorSets.get(), m_extraDescriptorPools.size() + 1);
+	allocInfo.descriptorPool = pool;
+	if (vkAllocateDescriptorSets(m_logicalDevice, &allocInfo, &setOut) != VK_SUCCESS)
+		return false;
+	poolOut = pool;
+	return true;
+}
+
+VkDescriptorPool VulkanRenderer::CreateDescriptorPoolObject()
+{
 	std::array<VkDescriptorPoolSize, 4> poolSizes = {};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	poolSizes[0].descriptorCount = 1024 * 128;
@@ -4162,8 +4206,10 @@ void VulkanRenderer::CreateDescriptorPool()
 	poolInfo.maxSets = 1024 * 256;
 	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 
-	if (vkCreateDescriptorPool(m_logicalDevice, &poolInfo, nullptr, &m_descriptorPool) != VK_SUCCESS)
-		UnrecoverableError("Failed to create descriptor pool!");
+	VkDescriptorPool pool = VK_NULL_HANDLE;
+	if (vkCreateDescriptorPool(m_logicalDevice, &poolInfo, nullptr, &pool) != VK_SUCCESS)
+		return VK_NULL_HANDLE;
+	return pool;
 }
 
 VkDescriptorSet VulkanRenderer::backbufferBlit_createDescriptorSet(VkDescriptorSetLayout descriptor_set_layout, LatteTextureViewVk* texViewVk, bool useLinearTexFilter)
@@ -4340,8 +4386,53 @@ VkDescriptorSetInfo::~VkDescriptorSetInfo()
 	performanceMonitor.vk.numDescriptorStorageBuffers.decrement(statsNumStorageBuffers);
 
 	auto renderer = VulkanRenderer::GetInstance();
+	renderer->descriptorSets_untrack(this);
 	renderer->ReleaseDestructibleObject(m_vkObjDescriptorSet);
 	m_vkObjDescriptorSet = nullptr;
+}
+
+void VulkanRenderer::descriptorSets_track(VkDescriptorSetInfo* dsInfo)
+{
+	dsInfo->trackIndex = (uint32)m_trackedDescriptorSets.size();
+	m_trackedDescriptorSets.emplace_back(dsInfo);
+}
+
+void VulkanRenderer::descriptorSets_untrack(VkDescriptorSetInfo* dsInfo)
+{
+	const uint32 index = dsInfo->trackIndex;
+	if (index >= m_trackedDescriptorSets.size() || m_trackedDescriptorSets[index] != dsInfo)
+		return;
+	VkDescriptorSetInfo* last = m_trackedDescriptorSets.back();
+	m_trackedDescriptorSets[index] = last;
+	last->trackIndex = index;
+	m_trackedDescriptorSets.pop_back();
+	dsInfo->trackIndex = 0xFFFFFFFF;
+}
+
+// called once per frame, outside of draw sequences. Sets that no drawcall asked for in a while are freed (Vulkan frees
+// them once the command buffers that used them are done) and created again if needed
+void VulkanRenderer::descriptorSets_evictUnused()
+{
+	static const sint64 s_maxAgeFrames = PerfLog::Tunable("ds_evict_frames", 600); // 0 = off
+	static const sint64 s_minSets = PerfLog::Tunable("ds_evict_min", 8192);
+	m_descriptorSetFrame++;
+	if (s_maxAgeFrames <= 0 || (m_descriptorSetFrame % 60) != 0 || (sint64)m_trackedDescriptorSets.size() < s_minSets)
+		return;
+	const uint32 oldest = m_descriptorSetFrame > (uint32)s_maxAgeFrames ? m_descriptorSetFrame - (uint32)s_maxAgeFrames : 0;
+	std::vector<VkDescriptorSetInfo*> victims;
+	for (VkDescriptorSetInfo* dsInfo : m_trackedDescriptorSets)
+	{
+		if (dsInfo->lastUsedFrame < oldest && dsInfo != m_state.activeVertexDS && dsInfo != m_state.activePixelDS && dsInfo != m_state.activeGeometryDS)
+			victims.emplace_back(dsInfo);
+	}
+	for (VkDescriptorSetInfo* dsInfo : victims)
+		delete dsInfo;
+	static uint32 s_logs = 0;
+	if (!victims.empty() && s_logs < 5)
+	{
+		s_logs++;
+		cemuLog_log(LogType::Force, "Vulkan: freed {} descriptor sets unused for {} frames, {} left", victims.size(), s_maxAgeFrames, m_trackedDescriptorSets.size());
+	}
 }
 
 void VulkanRenderer::texture_clearSlice(LatteTexture* hostTexture, sint32 sliceIndex, sint32 mipIndex)
@@ -5568,7 +5659,7 @@ VKRObjectDescriptorSet::VKRObjectDescriptorSet()
 VKRObjectDescriptorSet::~VKRObjectDescriptorSet()
 {
 	auto vkr = VulkanRenderer::GetInstance();
-	vkFreeDescriptorSets(vkr->GetLogicalDevice(), vkr->GetDescriptorPool(), 1, &descriptorSet);
+	vkFreeDescriptorSets(vkr->GetLogicalDevice(), pool != VK_NULL_HANDLE ? pool : vkr->GetDescriptorPool(), 1, &descriptorSet);
 	performanceMonitor.vk.numDescriptorSets.decrement();
 }
 

@@ -42,6 +42,9 @@ struct VkDescriptorSetInfo
 
 	// tracking for allocated descriptors
 	uint8 statsNumSamplerTextures{ 0 };
+	// eviction of sets that are no longer used (VulkanRenderer::descriptorSets_evictUnused)
+	uint32 lastUsedFrame{ 0 };
+	uint32 trackIndex{ 0xFFFFFFFF };
 	uint8 statsNumDynUniformBuffers{ 0 };
 	uint8 statsNumStorageBuffers{ 0 };
 };
@@ -296,6 +299,16 @@ public:
 	void DrawBackbufferQuad(LatteTextureView* texView, RendererOutputShader* shader, bool useLinearTexFilter, sint32 imageX, sint32 imageY, sint32 imageWidth, sint32 imageHeight, bool padView, bool clearBackground) override;
 	void DrawBackbufferQuadTwoPass(LatteTextureView* texView, RendererOutputShader* firstShader, RendererOutputShader* secondShader, bool useLinearTexFilter, sint32 imageX, sint32 imageY, sint32 imageWidth, sint32 imageHeight, bool padView, bool clearBackground) override;
 	void CreateDescriptorPool();
+	VkDescriptorPool CreateDescriptorPoolObject();
+	// descriptor sets for drawcalls; adds a pool when the current ones are full (Adreno enforces the pool sizes)
+	bool AllocateDrawDescriptorSet(VkDescriptorSetLayout layout, VkDescriptorSet& setOut, VkDescriptorPool& poolOut);
+	// drawcall descriptor sets are otherwise only freed with their texture views, and in open world games the combinations
+	// of textures and samplers keep growing (Need for Speed Most Wanted U: +30K sets per minute)
+	void descriptorSets_track(VkDescriptorSetInfo* dsInfo);
+	void descriptorSets_untrack(VkDescriptorSetInfo* dsInfo);
+	void descriptorSets_evictUnused();
+	std::vector<VkDescriptorSetInfo*> m_trackedDescriptorSets;
+	uint32 m_descriptorSetFrame = 1;
 	VkDescriptorSet backbufferBlit_createDescriptorSet(VkDescriptorSetLayout descriptor_set_layout, LatteTextureViewVk* texViewVk, bool useLinearTexFilter);
 
 	robin_hood::unordered_flat_map<uint64, robin_hood::unordered_flat_map<uint64, PipelineInfo*> > m_pipeline_info_cache; // using robin_hood::unordered_flat_map is twice as fast (1-2% overall CPU time reduction)
@@ -475,6 +488,7 @@ private:
 	VkRenderPass m_imguiRenderPass = VK_NULL_HANDLE;
 
 	VkDescriptorPool m_descriptorPool;
+	std::vector<VkDescriptorPool> m_extraDescriptorPools; // added when m_descriptorPool is full, used for drawcall descriptor sets
 
   public:
 	struct QueueFamilyIndices

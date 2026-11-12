@@ -607,7 +607,10 @@ VkDescriptorSetInfo* VulkanRenderer::draw_getOrCreateDescriptorSet(PipelineInfo*
 	auto& ds_cache = pipeline_info->GetDescriptorSetCache(shader->shaderType);
 	const auto it = ds_cache.find(stateHash);
 	if (it != ds_cache.cend())
+	{
+		it->second->lastUsedFrame = m_descriptorSetFrame;
 		return it->second;
+	}
 
 	VkDescriptorSetLayout descriptor_set_layout;
 	switch (shader->shaderType)
@@ -636,18 +639,14 @@ VkDescriptorSetInfo* VulkanRenderer::draw_getOrCreateDescriptorSet(PipelineInfo*
 	dsInfo->stateHash = stateHash;
 	dsInfo->shaderType = shader->shaderType;
 	dsInfo->pipeline_info = pipeline_info;
+	dsInfo->lastUsedFrame = m_descriptorSetFrame;
+	descriptorSets_track(dsInfo);
 
 	dsInfo->m_vkObjDescriptorSet = new VKRObjectDescriptorSet();
 	auto vkObjDS = dsInfo->m_vkObjDescriptorSet;
 
-	VkDescriptorSetAllocateInfo allocInfo = {};
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = m_descriptorPool;
-	allocInfo.descriptorSetCount = 1;
-	allocInfo.pSetLayouts = &descriptor_set_layout;
-
 	VkDescriptorSet result;
-	if (vkAllocateDescriptorSets(m_logicalDevice, &allocInfo, &result) != VK_SUCCESS)
+	if (!AllocateDrawDescriptorSet(descriptor_set_layout, result, vkObjDS->pool))
 	{
 		UnrecoverableError(fmt::format("Failed to allocate descriptor sets. Currently allocated: Descriptors={} TextureSamplers={} DynUniformBuffers={} StorageBuffers={}",
 			performanceMonitor.vk.numDescriptorSets.get(),
