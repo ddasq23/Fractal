@@ -995,6 +995,8 @@ VulkanRenderer::~VulkanRenderer()
 		memoryManager->DeleteBuffer(m_completionMarkerBuffer, m_completionMarkerMemory);
 	memoryManager->DeleteBuffer(m_textureReadbackBuffer, m_textureReadbackBufferMemory);
 	memoryManager->DeleteBuffer(m_xfbRingBuffer, m_xfbRingBufferMemory);
+	if (m_xfbReadbackBuffer != VK_NULL_HANDLE)
+		memoryManager->DeleteBuffer(m_xfbReadbackBuffer, m_xfbReadbackMemory);
 	memoryManager->DeleteBuffer(m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults);
 	memoryManager->DeleteBuffer(m_bufferCache, m_bufferCacheMemory);
 
@@ -4814,6 +4816,81 @@ void VulkanRenderer::streamout_rendererFinishDrawcall()
 	m_streamoutState.buffer[1].enabled = false;
 	m_streamoutState.buffer[2].enabled = false;
 	m_streamoutState.buffer[3].enabled = false;
+}
+
+// Records a copy of the streamout output into host visible memory. streamout_flushReadbacks() writes it to guest memory
+// before the next GPU packet the CPU can observe (memory write, timestamp, semaphore), so games that run GPGPU jobs with
+// transform feedback and read the result on the CPU (Watch Dogs) see the data the GPU produced instead of stale memory.
+// Called inside draw_execute, so it never submits: when the buffer is full the readback is skipped.
+bool VulkanRenderer::streamout_queueReadback(uint32 ringBufferOffset, MPTR physAddress, uint32 size)
+{
+	if (size == 0 || m_xfbReadbackFailed)
+		return false;
+	if (m_xfbReadbackBuffer == VK_NULL_HANDLE)
+	{
+		if (!memoryManager->CreateBuffer(XFB_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_xfbReadbackBuffer, m_xfbReadbackMemory))
+		{
+			m_xfbReadbackCoherent = false;
+			if (!memoryManager->CreateBuffer(XFB_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_xfbReadbackBuffer, m_xfbReadbackMemory))
+			{
+				cemuLog_log(LogType::Force, "Vulkan: cannot create the streamout readback buffer");
+				m_xfbReadbackFailed = true;
+				return false;
+			}
+		}
+		void* ptr = nullptr;
+		if (vkMapMemory(m_logicalDevice, m_xfbReadbackMemory, 0, VK_WHOLE_SIZE, 0, &ptr) != VK_SUCCESS || !ptr)
+		{
+			cemuLog_log(LogType::Force, "Vulkan: cannot map the streamout readback buffer");
+			m_xfbReadbackFailed = true;
+			return false;
+		}
+		m_xfbReadbackPtr = (uint8*)ptr;
+		cemuLog_log(LogType::Force, "Vulkan: streamout readback buffer {} MB, coherent {}", XFB_READBACK_SIZE / 1024 / 1024, m_xfbReadbackCoherent);
+	}
+	if (m_xfbReadbackWriteIndex + size > XFB_READBACK_SIZE)
+	{
+		cemuLog_logOnce(LogType::Force, "Vulkan: streamout readback buffer full, results of some drawcalls are not copied to guest memory");
+		return false;
+	}
+	draw_endRenderPass(PerfLog::RenderPassEnd::BufferCopy);
+	const uint32 dstOffset = m_xfbReadbackWriteIndex;
+	m_xfbReadbackWriteIndex = (m_xfbReadbackWriteIndex + size + 255) & ~255u;
+
+	barrier_bufferRange<BUFFER_SHADER_WRITE, TRANSFER_READ>(m_xfbRingBuffer, ringBufferOffset, size);
+	VkBufferCopy bufferCopy{};
+	bufferCopy.srcOffset = ringBufferOffset;
+	bufferCopy.dstOffset = dstOffset;
+	bufferCopy.size = size;
+	vkCmdCopyBuffer(m_state.currentCommandBuffer, m_xfbRingBuffer, m_xfbReadbackBuffer, 1, &bufferCopy);
+	barrier_bufferRange<TRANSFER_WRITE, HOST_READ>(m_xfbReadbackBuffer, dstOffset, size);
+
+	m_xfbReadbacks.push_back({ dstOffset, physAddress, size });
+	m_xfbReadbackCmdBufferId = GetCurrentCommandBufferId();
+	return true;
+}
+
+void VulkanRenderer::streamout_flushReadbacks()
+{
+	if (m_xfbReadbacks.empty())
+		return;
+	{
+		PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::Readback);
+		WaitCommandBufferFinished(m_xfbReadbackCmdBufferId);
+	}
+	if (!m_xfbReadbackCoherent)
+	{
+		VkMappedMemoryRange range{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+		range.memory = m_xfbReadbackMemory;
+		range.offset = 0;
+		range.size = VK_WHOLE_SIZE;
+		vkInvalidateMappedMemoryRanges(m_logicalDevice, 1, &range);
+	}
+	// the data is already in guest byte order (it mirrors the buffer cache)
+	for (const XfbReadback& r : m_xfbReadbacks)
+		memcpy(memory_getPointerFromPhysicalOffset(r.physAddress), m_xfbReadbackPtr + r.bufferOffset, r.size);
+	m_xfbReadbacks.clear();
+	m_xfbReadbackWriteIndex = 0;
 }
 
 void VulkanRenderer::buffer_bindVertexBuffers(std::span<BindBufferParam> bindings)

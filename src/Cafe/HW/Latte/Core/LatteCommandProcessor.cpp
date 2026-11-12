@@ -96,6 +96,10 @@ public:
 	{
 		g_renderer->draw_endSequence();
 		m_drawPassActive = false;
+		// diagnostics: perf/tuning.txt streamout_sync=1 copies streamout results to guest memory right after each draw sequence
+		static const bool s_streamoutSync = PerfLog::Tunable("streamout_sync", 0) != 0;
+		if (s_streamoutSync)
+			LatteStreamout_FlushReadbacks();
 	}
 
 	void MarkVertexBufferDirty(uint32 index)
@@ -286,6 +290,21 @@ void LatteCP_itIndirectBuffer(LatteCMDPtr cmd, uint32 nWords, DrawPassContext& d
 	}
 }
 
+// diagnostics: perf/tuning.txt gpuw_lo=<decimal guest address> gpuw_size=<bytes> logs every GPU packet that writes guest memory in that range
+static void LatteCP_logGpuWrite(const char* what, MPTR physAddr, uint32 size, uint64 value)
+{
+	static const uint32 s_lo = (uint32)PerfLog::Tunable("gpuw_lo", 0);
+	static const uint32 s_hi = s_lo + (uint32)PerfLog::Tunable("gpuw_size", 0);
+	static uint32 s_left = 400;
+	if (s_hi == s_lo || s_left == 0)
+		return;
+	MPTR vaddr = memory_physicalToVirtual(physAddr);
+	if (vaddr >= s_hi || vaddr + size <= s_lo)
+		return;
+	s_left--;
+	cemuLog_log(LogType::Force, "GPUWrite {} [{:08x}] size {} value {:x} drawcall {}", what, vaddr, size, value, LatteGPUState.drawCallCounter);
+}
+
 LatteCMDPtr LatteCP_itStreamoutBufferUpdate(LatteCMDPtr cmd, uint32 nWords)
 {
 	cemu_assert_debug(nWords == 5);
@@ -295,26 +314,33 @@ LatteCMDPtr LatteCP_itStreamoutBufferUpdate(LatteCMDPtr cmd, uint32 nWords)
 	uint32 physicalAddressRead = LatteReadCMD();
 	uint32 ukn3 = LatteReadCMD();
 
+	// updateControl: bit 0 = store the current offset (BUFFER_FILLED_SIZE) to physicalAddressWrite,
+	// bits 1-2 = where the new offset comes from: 0 packet data (GX2 resets to 0), 1 keep the internal offset,
+	// 2 load it from physicalAddressRead (GX2SetStreamOutContext restoring a context saved by GX2SaveStreamOutContext), 3 no change
+	const bool storeOffset = (updateControl & 1) != 0;
 	uint32 mode = (updateControl >> 1) & 3;
 	uint32 soIndex = (updateControl >> 8) & 3;
+	uint32& bufferOffsetReg = LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_OFFSET_0 + 4 * soIndex];
 
+	if (storeOffset || mode == 3) // mode 3 without the store bit is not emitted by GX2, it was treated as a store before
+	{
+		// store current offset to memory
+		LatteStreamout_FlushReadbacks();
+		MPTR virtualAddress = memory_physicalToVirtual(physicalAddressWrite);
+		memory_writeU32(virtualAddress + 0x00, bufferOffsetReg);
+		LatteCP_logGpuWrite("StrmoutUpdate", physicalAddressWrite, 4, bufferOffsetReg);
+	}
 	if (mode == 0)
 	{
 		// reset pointer
+		bufferOffsetReg = 0;
+	}
+	else if (mode == 2)
+	{
+		// continue where a saved context left off
 		MPTR virtualAddress = memory_physicalToVirtual(physicalAddressRead);
-		uint32 bufferOffset = 0;
-		LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_OFFSET_0 + 4 * soIndex] = bufferOffset;
-	}
-	else if (mode == 3)
-	{
-		// store current offset to memory
-		MPTR virtualAddress = memory_physicalToVirtual(physicalAddressWrite);
-		uint32 bufferOffset = LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_OFFSET_0 + 4 * soIndex];
-		memory_writeU32(virtualAddress + 0x00, bufferOffset);
-	}
-	else
-	{
-		cemu_assert_unimplemented();
+		bufferOffsetReg = memory_readU32(virtualAddress);
+		cemuLog_logOnce(LogType::Force, "Latte: streamout offset restored from memory (first: buffer {} offset {})", soIndex, bufferOffsetReg);
 	}
 	return cmd;
 }
@@ -468,6 +494,7 @@ LatteCMDPtr LatteCP_itWaitRegMem(LatteCMDPtr cmd, uint32 nWords)
 	uint32 word3 = LatteReadCMD();
 	uint32 word4 = LatteReadCMD();
 	uint32 word5 = LatteReadCMD();
+	LatteStreamout_FlushReadbacks(); // the CPU may be waiting for streamout results before it writes the value
 
 	uint32 compareOp = (word0) & 7;
 	uint32 physAddr = word1 & ~3;
@@ -579,7 +606,9 @@ LatteCMDPtr LatteCP_itMemWrite(LatteCMDPtr cmd, uint32 nWords)
 		cemuLog_log(LogType::Force, "GPU: Invalid itMemWrite to null pointer");
 		return cmd;
 	}
+	LatteStreamout_FlushReadbacks();
 	uint32be* memPtr = (uint32be*)memory_getPointerFromPhysicalOffset(valuePhysAddr);
+	LatteCP_logGpuWrite("MemWrite", valuePhysAddr, word1 == 0x40000 ? 4 : 8, ((uint64)word3 << 32) | word2);
 
 	if (word1 == 0x40000)
 	{
@@ -615,12 +644,14 @@ LatteCMDPtr LatteCP_itEventWriteEOP(LatteCMDPtr cmd, uint32 nWords)
 	uint32 word4 = LatteReadCMD(); // value high bits
 
 	cemu_assert_debug(word2 == 0x40000000 || word2 == 0x42000000);
+	LatteStreamout_FlushReadbacks();
 
 	if (word0 == 0x504 && (word2&0x40000000)) // todo - figure out the flags
 	{
 		stdx::atomic_ref<uint64be> atomicRef(*(uint64be*)memory_getPointerFromPhysicalOffset(word1));
 		uint64 val = ((uint64)word4 << 32) | word3;
 		atomicRef.store(val);
+		LatteCP_logGpuWrite("EOP", word1, 8, val);
 	}
 	else
 	{	cemu_assert_unimplemented();
@@ -641,6 +672,7 @@ LatteCMDPtr LatteCP_itMemSemaphore(LatteCMDPtr cmd, uint32 nWords)
 	uint32 semaphoreControl = LatteReadCMD();
 	uint8 SEM_SIGNAL = (semaphoreControl >> 29) & 7;
 
+	LatteStreamout_FlushReadbacks();
 	std::atomic<uint64le>* semaphoreData = _rawPtrToAtomic((uint64le*)memory_getPointerFromPhysicalOffset(semaphorePhysicalAddress));
 	static_assert(sizeof(std::atomic<uint64le>) == sizeof(uint64le));
 
@@ -769,6 +801,7 @@ LatteCMDPtr LatteCP_itDrawIndexAuto(LatteCMDPtr cmd, uint32 nWords, DrawPassCont
 		uint32 vsProgramCode = ((LatteGPUState.contextRegister[mmSQ_PGM_START_ES] & 0xFFFFFF) << 8);
 		uint32 vsProgramSize = LatteGPUState.contextRegister[mmSQ_PGM_START_ES + 1] << 3;
 		cemuLog_logDebug(LogType::Force, "Compute {} {:08x} {:08x} (unsupported)", count, vsProgramCode, vsProgramSize);
+		cemuLog_logOnce(LogType::Force, "Latte: compute drawcalls are not supported, skipped (first: count {} program {:08x} size {})", count, vsProgramCode, vsProgramSize);
 	}
 	else
 	{
@@ -871,6 +904,7 @@ LatteCMDPtr LatteCP_itHLEBottomOfPipeCB(LatteCMDPtr cmd, uint32 nWords)
 	uint32 timestampHigh = (uint32)LatteReadCMD();
 	uint32 timestampLow = (uint32)LatteReadCMD();
 	uint64 timestamp = ((uint64)timestampHigh << 32ULL) | (uint64)timestampLow;
+	LatteStreamout_FlushReadbacks();
 	// write timestamp
 	*(uint32*)memory_getPointerFromPhysicalOffset(timestampMPTR) = _swapEndianU32((uint32)(timestamp >> 32));
 	*(uint32*)memory_getPointerFromPhysicalOffset(timestampMPTR + 4) = _swapEndianU32((uint32)timestamp);
@@ -1434,6 +1468,7 @@ void LatteCP_processCommandBuffer(DrawPassContext& drawPassCtx)
 				{
 					LatteTextureReadback_UpdateFinishedTransfers(true);
 					LatteQuery_UpdateFinishedQueriesForceFinishAll();
+					LatteStreamout_FlushReadbacks();
 					break;
 				}
 				default:
@@ -1743,6 +1778,7 @@ void LatteCP_ProcessRingbuffer()
 				//LatteCP_skipWords<LatteCP_readU32Deprc>(nWords);
 				LatteTextureReadback_UpdateFinishedTransfers(true);
 				LatteQuery_UpdateFinishedQueriesForceFinishAll();
+				LatteStreamout_FlushReadbacks();
 				break;
 			}
 			default:

@@ -657,6 +657,8 @@ private:
 	void streamout_begin() override;
 	void bufferCache_copyStreamoutToMainBuffer(uint32 srcOffset, uint32 dstOffset, uint32 size) override;
 	void streamout_rendererFinishDrawcall() override;
+	bool streamout_queueReadback(uint32 ringBufferOffset, MPTR physAddress, uint32 size) override;
+	void streamout_flushReadbacks() override;
 
 	// occlusion queries
 	LatteQueryObject* occlusionQuery_create() override;
@@ -708,6 +710,22 @@ private:
 	// transform feedback ringbuffer
 	VkBuffer m_xfbRingBuffer = VK_NULL_HANDLE;
 	VkDeviceMemory m_xfbRingBufferMemory = VK_NULL_HANDLE;
+	// streamout results copied back to guest memory (created on first use)
+	static const inline uint32 XFB_READBACK_SIZE = 16 * 1024 * 1024;
+	struct XfbReadback
+	{
+		uint32 bufferOffset;
+		MPTR physAddress;
+		uint32 size;
+	};
+	VkBuffer m_xfbReadbackBuffer = VK_NULL_HANDLE;
+	VkDeviceMemory m_xfbReadbackMemory = VK_NULL_HANDLE;
+	uint8* m_xfbReadbackPtr = nullptr;
+	bool m_xfbReadbackCoherent = true;
+	bool m_xfbReadbackFailed = false;
+	uint32 m_xfbReadbackWriteIndex = 0;
+	uint64 m_xfbReadbackCmdBufferId = 0;
+	std::vector<XfbReadback> m_xfbReadbacks;
 
 	// buffer cache (attributes, uniforms and streamout)
 	VkBuffer m_bufferCache = VK_NULL_HANDLE;

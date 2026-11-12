@@ -162,6 +162,10 @@ public:
 	virtual void streamout_setupXfbBuffer(uint32 bufferIndex, sint32 ringBufferOffset, uint32 rangeAddr, uint32 rangeSize) = 0;
 	virtual void streamout_begin() = 0;
 	virtual void streamout_rendererFinishDrawcall() = 0;
+	// copy the result of the last streamout drawcall back to guest memory (games that read transform feedback output on the CPU)
+	virtual bool streamout_queueReadback(uint32 ringBufferOffset, MPTR physAddress, uint32 size) { return false; }
+	// wait for queued readbacks and write them to guest memory
+	virtual void streamout_flushReadbacks() {}
 
 	// core drawing logic
 	virtual void draw_beginSequence() = 0;

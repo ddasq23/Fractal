@@ -171,6 +171,15 @@ void LatteStreamout_InitCache();
 sint32 LatteStreamout_GetRingBufferSize();
 void LatteStreamout_PrepareDrawcall(uint32 count, uint32 instanceCount);
 void LatteStreamout_FinishDrawcall(bool useDirectMemoryMode);
+void LatteStreamout_EnableReadback(); // the title reads streamout results on the CPU (set by game patches)
+extern bool g_streamoutReadbackPending;
+void LatteStreamout_FlushReadbacksSlow();
+// before the GPU signals the CPU (memory writes, timestamps, semaphores) the streamout results it produced must be in guest memory
+inline void LatteStreamout_FlushReadbacks()
+{
+	if (g_streamoutReadbackPending) [[unlikely]]
+		LatteStreamout_FlushReadbacksSlow();
+}
 
 // timing
 

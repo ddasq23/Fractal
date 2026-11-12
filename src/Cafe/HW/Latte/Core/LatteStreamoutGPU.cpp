@@ -1,4 +1,5 @@
 #include "Cafe/HW/Latte/Core/LatteConst.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
 #include "Cafe/HW/Latte/Core/Latte.h"
 #include "Cafe/HW/Latte/Core/LatteDraw.h"
@@ -43,6 +44,34 @@ void LatteStreamout_InitCache()
 }
 
 bool _transformFeedbackIsActive = false;
+
+static bool s_streamoutReadbackByPatch = false;
+bool g_streamoutReadbackPending = false;
+
+void LatteStreamout_EnableReadback()
+{
+	s_streamoutReadbackByPatch = true;
+}
+
+static bool LatteStreamout_ReadbackEnabled()
+{
+	// perf/tuning.txt streamout_readback=1 forces it on, 0 off
+	static const sint64 s_tunable = PerfLog::Tunable("streamout_readback", -1);
+	static bool s_logged = false;
+	const bool enabled = s_tunable >= 0 ? s_tunable != 0 : s_streamoutReadbackByPatch;
+	if (!s_logged)
+	{
+		s_logged = true;
+		cemuLog_log(LogType::Force, "Latte: streamout results are copied back to guest memory: {}", enabled ? "yes" : "no");
+	}
+	return enabled;
+}
+
+void LatteStreamout_FlushReadbacksSlow()
+{
+	g_streamoutReadbackPending = false;
+	g_renderer->streamout_flushReadbacks();
+}
 struct
 {
 	uint32 vertexCount;
@@ -132,6 +161,14 @@ void LatteStreamout_PrepareDrawcall(uint32 count, uint32 instanceCount)
 		uint32 remainingBytesToWrite = bufferOffset > bufferSize ? 0 : (bufferSize - bufferOffset);
 		uint32 rangeSize = std::min(streamoutWriteSize, remainingBytesToWrite);
 
+		{
+			static sint64 s_prepLogLeft = PerfLog::Tunable("log_streamout", 0); // diagnostics
+			if (s_prepLogLeft > 0)
+			{
+				s_prepLogLeft--;
+				cemuLog_log(LogType::Force, "Streamout prepare: buffer {} base {:08x} size {} offset {} stride {} vertices {}x{} writeSize {} rangeSize {} drawcall {}", i, bufferBaseMPTR, bufferSize, bufferOffset, LatteGPUState.contextRegister[mmVGT_STRMOUT_VTX_STRIDE_0 + i * 4] << 2, activeStreamoutOperation.vertexCount, activeStreamoutOperation.instanceCount, streamoutWriteSize, rangeSize, LatteGPUState.drawCallCounter);
+			}
+		}
 		activeStreamoutOperation.streamoutBufferWrite[i].isActive = true;
 		activeStreamoutOperation.streamoutBufferWrite[i].ringBufferOffset = ringBufferOffset;
 		activeStreamoutOperation.streamoutBufferWrite[i].rangeAddr = rangeAddr;
@@ -154,10 +191,21 @@ void LatteStreamout_FinishDrawcall(bool useDirectMemoryMode)
 				continue;
 			if (activeStreamoutOperation.streamoutBufferWrite[i].rangeSize > 0)
 			{
+				static sint64 s_logLeft = PerfLog::Tunable("log_streamout", 0); // diagnostics: first N streamout writes
+				if (s_logLeft > 0)
+				{
+					s_logLeft--;
+					cemuLog_log(LogType::Force, "Streamout: buffer {} writes [{:08x}] size {} drawcall {}", i, activeStreamoutOperation.streamoutBufferWrite[i].rangeAddr, activeStreamoutOperation.streamoutBufferWrite[i].rangeSize, LatteGPUState.drawCallCounter);
+				}
 				if(useDirectMemoryMode)
 					g_renderer->bufferCache_copyStreamoutToMainBuffer(activeStreamoutOperation.streamoutBufferWrite[i].ringBufferOffset, activeStreamoutOperation.streamoutBufferWrite[i].rangeAddr, activeStreamoutOperation.streamoutBufferWrite[i].rangeSize);
 				else
 					LatteBufferCache_copyStreamoutDataToCache(activeStreamoutOperation.streamoutBufferWrite[i].rangeAddr, activeStreamoutOperation.streamoutBufferWrite[i].rangeSize, activeStreamoutOperation.streamoutBufferWrite[i].ringBufferOffset);
+				if (LatteStreamout_ReadbackEnabled())
+				{
+					if (g_renderer->streamout_queueReadback(activeStreamoutOperation.streamoutBufferWrite[i].ringBufferOffset, activeStreamoutOperation.streamoutBufferWrite[i].rangeAddr, activeStreamoutOperation.streamoutBufferWrite[i].rangeSize))
+						g_streamoutReadbackPending = true;
+				}
 			}
 			// advance streamout offset
 			uint32 newOffset = LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_OFFSET_0 + i * 4] + activeStreamoutOperation.streamoutBufferWrite[i].rangeSize;

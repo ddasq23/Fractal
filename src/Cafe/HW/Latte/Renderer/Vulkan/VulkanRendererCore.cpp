@@ -203,6 +203,10 @@ bool VulkanRenderer::IsAsyncPipelineAllowed(uint32 numIndices)
 	CachedFBOVk* currentFBO = m_state.activeFBO;
 	auto fboExtend = currentFBO->GetExtend();
 
+	// streamout (transform feedback) drawcalls produce data that later drawcalls or the CPU consume (GPGPU jobs in Watch Dogs), skipping one loses it
+	if (LatteGPUState.contextRegister[mmVGT_STRMOUT_EN] != 0)
+		return false;
+
 	if (fboExtend.width == 1600 && fboExtend.height == 1600)
 		return false; // Splatoon ink mechanics use 1600x1600 R8 and R8G8 framebuffers, this resolution is rare enough that we can just blacklist it globally
 
