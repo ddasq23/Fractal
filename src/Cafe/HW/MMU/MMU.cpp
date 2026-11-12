@@ -129,8 +129,29 @@ MMURange mmuRange_HIGHMEM				{ 0xFFFFF000, 0x00001000, MMU_MEM_AREA_ID::CPU_PER_
 void memory_init()
 {
 	// reserve a continous range of 4GB
+#if !BOOST_OS_WINDOWS
+	// The coreinit heaps (MEMAllocFromExpHeapEx, MEMGetAllocatableSizeForExpHeapEx, ...) align host pointers, so a guest
+	// address only gets the requested alignment if memory_base has it too. mmap only guarantees page alignment: Watch Dogs
+	// asks for a 128 KiB aligned MEM2 arena, got one aligned to 16 KiB and its bucket allocator then freed blocks into the
+	// wrong size class (random heap corruption at boot). Reserve 8GB and keep the 4GB aligned half
+	if (!memory_base)
+	{
+		uint8* reservation = (uint8*)MemMapper::ReserveMemory(nullptr, (size_t)0x200000000, MemMapper::PAGE_PERMISSION::P_RW);
+		if (reservation)
+		{
+			uint8* aligned = (uint8*)(((uintptr_t)reservation + 0xFFFFFFFFull) & ~(uintptr_t)0xFFFFFFFFull);
+			uint8* reservationEnd = reservation + 0x200000000ull;
+			if (aligned > reservation)
+				MemMapper::FreeReservation(reservation, aligned - reservation);
+			if (reservationEnd > aligned + 0x100000000ull)
+				MemMapper::FreeReservation(aligned + 0x100000000ull, reservationEnd - (aligned + 0x100000000ull));
+			memory_base = aligned;
+		}
+	}
+#endif
 	if(!memory_base)
 		memory_base = (uint8*)MemMapper::ReserveMemory(nullptr, (size_t)0x100000000, MemMapper::PAGE_PERMISSION::P_RW);
+	cemuLog_log(LogType::Force, "Guest memory base: {:p}", (void*)memory_base);
 	if( !memory_base )
 	{
 		debugBreakpoint();
