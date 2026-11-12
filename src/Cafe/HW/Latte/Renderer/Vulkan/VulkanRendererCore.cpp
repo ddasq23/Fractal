@@ -1148,7 +1148,7 @@ void VulkanRenderer::sync_inputTexturesChanged(bool withinFeedbackLoopRenderPass
 		if (!includesVertex)
 			dstStage &= ~(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT);
 		PerfLog::PipelineBarrier();
-		vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, dependencyFlags, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+		{ PassProfileBarrierBegin("core:1147"); vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, dependencyFlags, 1, &memoryBarrier, 0, nullptr, 0, nullptr); PassProfileBarrierEnd(); }
 
 		performanceMonitor.vk.numDrawBarriersPerFrame.increment();
 
@@ -1208,7 +1208,7 @@ void VulkanRenderer::sync_RenderPassLoadTextures(CachedFBOVk* fboVk)
 		const bool includesVertex = !s_fragOnly && !BarrierPrecise();
 		if (!includesVertex)
 			dstStage &= ~(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT);
-		vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+		{ PassProfileBarrierBegin("core:1207"); vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr); PassProfileBarrierEnd(); }
 		PerfLog::PipelineBarrier();
 
 		performanceMonitor.vk.numDrawBarriersPerFrame.increment();
@@ -2168,5 +2168,5 @@ void VulkanRenderer::debug_genericBarrier()
 		VK_ACCESS_MEMORY_READ_BIT |
 		VK_ACCESS_MEMORY_WRITE_BIT;
 
-	vkCmdPipelineBarrier(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+	{ PassProfileBarrierBegin("core:2167"); vkCmdPipelineBarrier(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr); PassProfileBarrierEnd(); }
 }

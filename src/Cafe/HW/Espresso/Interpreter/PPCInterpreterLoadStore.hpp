@@ -81,6 +81,7 @@ static void PPCInterpreter_STWCX(PPCInterpreter_t* hCPU, uint32 Opcode)
 		else
 		{
 			// success, new value has been written
+			GuestWatch::OnWrite(hCPU, ea, 4, hCPU->gpr[rS], 'c');
 			ppc_setCRBit(hCPU, CR_BIT_LT, 0);
 			ppc_setCRBit(hCPU, CR_BIT_GT, 0);
 			ppc_setCRBit(hCPU, CR_BIT_EQ, 1);
@@ -1164,6 +1165,7 @@ static void PPCInterpreter_DCBZ(PPCInterpreter_t* hCPU, uint32 Opcode)
 	else
 	{
 		memset((void*)memory_getPointerFromVirtualOffset(ea), 0x00, 0x20);
+		GuestWatch::OnWrite(hCPU, ea, 0x20, 0, 'z');
 	}
 
 	// debug output

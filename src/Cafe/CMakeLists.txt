@@ -39,6 +39,7 @@ add_library(CemuCafe
   HW/Common/HwReg.h
   HW/Espresso/Const.h
   HW/Espresso/Debugger/Debugger.cpp
+  HW/Espresso/Debugger/GuestWatch.cpp
   HW/Espresso/Debugger/Debugger.h
   HW/Espresso/Debugger/DebugSymbolStorage.cpp
   HW/Espresso/Debugger/DebugSymbolStorage.h

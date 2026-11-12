@@ -1,3 +1,4 @@
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/LatteTextureViewVk.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/LatteTextureVk.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
@@ -73,7 +74,9 @@ LatteTextureViewVk::LatteTextureViewVk(VkDevice device, LatteTextureVk* texture,
 	if (m_format != texture->GetFormat() && !texture->m_isMutableFormat)
 	{
 		// should not happen, VulkanRenderer::texture_isViewFormatCompatible keeps such views from being created
-		cemuLog_logDebug(LogType::Force, "view format {} on non-mutable image format {} (GX2 {:04x} on {:04x})", (sint32)m_format, (sint32)texture->GetFormat(), (uint32)format, (uint32)texture->format);
+		static const bool s_logCopies = PerfLog::Tunable("log_copies", 0) != 0;
+		if (s_logCopies)
+			cemuLog_log(LogType::Force, "view format {} on non-mutable image format {} (GX2 {:04x} on {:04x}) depth {}", (sint32)m_format, (sint32)texture->GetFormat(), (uint32)format, (uint32)texture->format, texture->isDepth);
 		m_format = texture->GetFormat();
 	}
 	m_uniqueId = VulkanRenderer::GetInstance()->GenUniqueId();

@@ -1,3 +1,4 @@
+#include "Cafe/HW/Espresso/Debugger/GuestWatch.h"
 #include "Cafe/OS/common/OSCommon.h"
 #include "Cafe/OS/libs/coreinit/coreinit.h"
 #include "Cafe/HW/Latte/Core/LatteBufferCache.h"
@@ -257,6 +258,7 @@ namespace coreinit
 		uint8* srcPtr = memory_getPointerFromVirtualOffset(hCPU->gpr[4]);
 		// copy right away, we don't emulate the DMAQueue currently
 		memcpy_qwords(destPtr, srcPtr, numBlocks * (32 / sizeof(uint64)));
+		GuestWatch::OnWriteHLE(hCPU->gpr[3], numBlocks * 32, hCPU->gpr[4], 'L');
 
 		LatteBufferCache_notifyDCFlush(hCPU->gpr[3], numBlocks * 32);
 

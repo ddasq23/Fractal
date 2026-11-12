@@ -1,3 +1,4 @@
+#include "Cafe/HW/Espresso/Debugger/GuestWatch.h"
 #include "Cafe/OS/common/OSCommon.h"
 #include "WindowSystem.h"
 #include "Cafe/GameProfile/GameProfile.h"
@@ -246,6 +247,7 @@ void InfoLog_PrintActiveSettings()
 
 	// settings to log:
 	cemuLog_log(LogType::Force, "CPU-Mode: {}{}", fmt::format("{}", ActiveSettings::GetCPUMode()).c_str(), g_current_game_profile->GetCPUMode().has_value() ? " (gameprofile)" : "");
+	GuestWatch::Init();
 	cemuLog_log(LogType::Force, "Load shared libraries: {}{}", ActiveSettings::LoadSharedLibrariesEnabled() ? "true" : "false", g_current_game_profile->ShouldLoadSharedLibraries().has_value() ? " (gameprofile)" : "");
 	cemuLog_log(LogType::Force, "Use precompiled shaders: {}{}", fmt::format("{}", ActiveSettings::GetPrecompiledShadersOption()), g_current_game_profile->GetPrecompiledShadersState().has_value() ? " (gameprofile)" : "");
 	if (g_current_game_profile->GetFullSyncAtGX2DrawDone().has_value())

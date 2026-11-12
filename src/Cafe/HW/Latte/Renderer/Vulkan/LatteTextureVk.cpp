@@ -1,3 +1,5 @@
+#include <unordered_set>
+#include <mutex>
 #include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/LatteTextureVk.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/LatteTextureViewVk.h"
@@ -60,15 +62,29 @@ LatteTextureVk::LatteTextureVk(class VulkanRenderer* vkRenderer, Latte::E_DIM di
 	// (see VulkanRenderer::texture_isViewFormatCompatible) textures of another format are separate and synchronized by
 	// copies. Block compressed formats (BC/ETC2/ASTC) stay mutable: they get no framebuffer compression anyway
 	const bool isBlockCompressed = imageInfo.format >= VK_FORMAT_BC1_RGB_UNORM_BLOCK && imageInfo.format <= VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
+	// diagnostics: perf/tuning.txt mutable_keep_lo/hi = VkFormat range that stays mutable (no framebuffer compression)
+	static const int s_keepLo = PerfLog::Tunable("mutable_keep_lo", -1);
+	static const int s_keepHi = PerfLog::Tunable("mutable_keep_hi", -1);
+	bool keepMutable = (sint32)imageInfo.format >= s_keepLo && (sint32)imageInfo.format <= s_keepHi;
 	// Turnip (Mesa 26.0, Adreno 650): with UBWC on a plain 2D R8G8B8A8_UNORM image (no mips) Xenoblade Chronicles X hangs
-	// the GPU 36 s into a new game, every time. Bisected by format; array/3D and mipped images and feedback loops ruled
+	// the GPU 36 s into a new game, every time. Bisected by format, array/3D and mip images ruled out; feedback loops ruled
 	// out. Keeping that format mutable (no UBWC) costs nothing measurable (RP5 MK8 and SM3DW 1% lows tie).
 	// perf/tuning.txt turnip_rgba8_mutable=0 turns this off
 	static const bool s_turnipRgba8Mutable = PerfLog::Tunable("turnip_rgba8_mutable", 1) != 0;
-	const bool turnipKeepMutable = s_turnipRgba8Mutable && imageInfo.format == VK_FORMAT_R8G8B8A8_UNORM && m_vkr->IsTurnip();
-	if (isDepth == false && (static_cast<Renderer*>(m_vkr)->texture_canReinterpretFormat() || isBlockCompressed || turnipKeepMutable))
+	if (s_turnipRgba8Mutable && imageInfo.format == VK_FORMAT_R8G8B8A8_UNORM && m_vkr->IsTurnip())
+		keepMutable = true;
+	if (isDepth == false && (static_cast<Renderer*>(m_vkr)->texture_canReinterpretFormat() || isBlockCompressed || keepMutable))
 		imageInfo.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
 	m_isMutableFormat = (imageInfo.flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) != 0;
+	static const bool s_logFormats = PerfLog::Tunable("log_copies", 0) != 0;
+	if (s_logFormats)
+	{
+		static std::mutex s_seenMutex;
+		static std::unordered_set<uint32> s_seenFormats;
+		std::lock_guard _l(s_seenMutex);
+		if (s_seenFormats.insert((uint32)imageInfo.format | ((uint32)m_isMutableFormat << 16) | ((uint32)isDepth << 17)).second)
+			cemuLog_log(LogType::Force, "image format {} (GX2 {:04x}) mutable {} depth {} {}x{}", (sint32)imageInfo.format, (uint32)format, m_isMutableFormat, isDepth, effectiveBaseWidth, effectiveBaseHeight);
+	}
 
 	if (isDepth)
 	{

@@ -1,3 +1,4 @@
+#include "Cafe/HW/Espresso/Debugger/GuestWatch.h"
 #include "Cafe/OS/common/OSCommon.h"
 #include "coreinit_Memory.h"
 #include "Cafe/HW/Latte/Core/LatteBufferCache.h"
@@ -71,6 +72,7 @@ namespace coreinit
 	void* coreinit_memset(void* dst, uint32 value, uint32 size)
 	{
 		memset(dst, value, size);
+		GuestWatch::OnWriteHLE(memory_getVirtualOffsetFromPointer(dst), size, value, 'S');
 		return dst;
 	}
 
@@ -85,6 +87,7 @@ namespace coreinit
 		if (size > 0)
 		{
 			memcpy(dst.GetPtr(), src.GetPtr(), size);
+			GuestWatch::OnWriteHLE(dst.GetMPTR(), size, src.GetMPTR(), 'C');
 			// always flushes the cache!
 			LatteBufferCache_notifyDCFlush(dst.GetMPTR(), size);
 		}
@@ -97,6 +100,7 @@ namespace coreinit
 		if (size > 0)
 		{
 			memmove(dst.GetPtr(), src, size);
+			GuestWatch::OnWriteHLE(dst.GetMPTR(), size, memory_getVirtualOffsetFromPointer(src), 'M');
 			// always flushes the cache!
 			LatteBufferCache_notifyDCFlush(dst.GetMPTR(), size);
 		}
@@ -108,6 +112,7 @@ namespace coreinit
 		if (size > 0)
 		{
 			memmove(dst.GetPtr(), src.GetPtr(), size);
+			GuestWatch::OnWriteHLE(dst.GetMPTR(), size, src.GetMPTR(), 'B');
 			if (flushDC)
 				LatteBufferCache_notifyDCFlush(dst.GetMPTR(), size);
 		}
@@ -117,6 +122,7 @@ namespace coreinit
 	void* OSBlockSet(MEMPTR<void> dst, uint32 value, uint32 size)
 	{
 		memset(dst.GetPtr(), value&0xFF, size);
+		GuestWatch::OnWriteHLE(dst.GetMPTR(), size, value, 'O');
 		return dst.GetPtr();
 	}
 

@@ -109,6 +109,29 @@ void handlerDumpingSignal(int sig, siginfo_t *info, void *context)
         if (dladdr((void*)pc, &dlInfo) && dlInfo.dli_fname)
             location = fmt::format("{} + 0x{:x}", dlInfo.dli_fname, pc - (uint64)dlInfo.dli_fbase);
         CrashLog_WriteLine(fmt::format("PC 0x{:016x} ({}), fault address 0x{:016x}, code {}", pc, location, (uint64)info->si_addr, info->si_code));
+#if defined(__aarch64__)
+        // host registers, and for recompiled code the instructions around the PC (they are not in any file)
+        const auto& mc = ((ucontext_t*)context)->uc_mcontext;
+        for (int i = 0; i < 31; i += 4)
+        {
+            std::string line;
+            for (int r = i; r < i + 4 && r < 31; r++)
+                line += fmt::format("x{:<2}={:016x} ", r, (uint64)mc.regs[r]);
+            CrashLog_WriteLine(line);
+        }
+        CrashLog_WriteLine(fmt::format("sp ={:016x}", (uint64)mc.sp));
+        if (!dlInfo.dli_fname && (pc & 3) == 0)
+        {
+            const uint32* code = (const uint32*)(pc - 64 * 4);
+            for (int row = 0; row < 96; row += 8)
+            {
+                std::string line = fmt::format("host {:016x}:", (uint64)(code + row));
+                for (int k = 0; k < 8; k++)
+                    line += fmt::format(" {:08x}", code[row + k]);
+                CrashLog_WriteLine(line);
+            }
+        }
+#endif
     }
     CrashLog_WriteLine(to_string(boost::stacktrace::stacktrace()));
 #else

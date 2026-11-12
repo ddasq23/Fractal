@@ -830,6 +830,7 @@ private:
 	void PassProfileBeginNamed(std::string sig);
 	bool m_passProfileBarrierMarked{false};
 	std::string m_barrierTexInfo;
+	void PassProfileBarrierBegin(const char* where) { if (!m_passProfileEnabled || m_passProfileOpen) return; PassProfileBeginNamed(std::string("barrier ") + where); m_passProfileBarrierMarked = true; }
 	void PassProfileBarrierEnd() { if (m_passProfileBarrierMarked) { m_passProfileBarrierMarked = false; PassProfileEndPass(); } }
 	void PassProfileEndPass();
 	void PassProfileCountDraw();
@@ -1009,7 +1010,7 @@ private:
 		bufMemBarrier.buffer = buffer;
 		bufMemBarrier.offset = offset;
 		bufMemBarrier.size = size;
-		vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStages, dstStages, 0, 0, nullptr, 1, &bufMemBarrier, 0, nullptr);
+		{ PassProfileBarrierBegin("h:980"); vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStages, dstStages, 0, 0, nullptr, 1, &bufMemBarrier, 0, nullptr); PassProfileBarrierEnd(); }
 	}
 
 	template<uint32 TSrcSyncOpA, uint32 TDstSyncOpA, uint32 TSrcSyncOpB, uint32 TDstSyncOpB>
@@ -1047,7 +1048,7 @@ private:
 		bufMemBarrier[1].offset = offsetB;
 		bufMemBarrier[1].size = sizeB;
 
-		vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStagesA|srcStagesB, dstStagesA|dstStagesB, 0, 0, nullptr, 2, bufMemBarrier, 0, nullptr);
+		{ PassProfileBarrierBegin("h:1018"); vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStagesA|srcStagesB, dstStagesA|dstStagesB, 0, 0, nullptr, 2, bufMemBarrier, 0, nullptr); PassProfileBarrierEnd(); }
 	}
 
 	void barrier_sequentializeTransfer()
@@ -1065,7 +1066,7 @@ private:
 		memBarrier.srcAccessMask |= (VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT);
 		memBarrier.dstAccessMask |= (VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT);
 
-		vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStages, dstStages, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
+		{ PassProfileBarrierBegin("h:1036"); vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStages, dstStages, 0, 1, &memBarrier, 0, nullptr, 0, nullptr); PassProfileBarrierEnd(); }
 	}
 
 	void barrier_sequentializeCommand()
@@ -1073,7 +1074,7 @@ private:
 		VkPipelineStageFlags srcStages = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 		VkPipelineStageFlags dstStages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
-		vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStages, dstStages, 0, 0, nullptr, 0, nullptr, 0, nullptr);
+		{ PassProfileBarrierBegin("h:1044"); vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStages, dstStages, 0, 0, nullptr, 0, nullptr, 0, nullptr); PassProfileBarrierEnd(); }
 	}
 
 	template<uint32 TSrcSyncOp, uint32 TDstSyncOp>
@@ -1102,13 +1103,12 @@ private:
 			m_passProfileBarrierMarked = true;
 		}
 		m_barrierTexInfo.clear();
-		vkCmdPipelineBarrier(m_state.currentCommandBuffer,
+		{ vkCmdPipelineBarrier(m_state.currentCommandBuffer,
 							 srcStages, dstStages,
 							 0,
 							 0, NULL,
 							 0, NULL,
-							 1, &imageMemBarrier);
-		PassProfileBarrierEnd();
+							 1, &imageMemBarrier); PassProfileBarrierEnd(); }
 	}
 
 	template<uint32 TSrcSyncOp, uint32 TDstSyncOp>

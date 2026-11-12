@@ -1,3 +1,4 @@
+#include "Cafe/HW/Espresso/Debugger/GuestWatch.h"
 #include "Common/CafeStaticVar.h"
 #include "fsa_types.h"
 #include "iosu_fsa.h"
@@ -470,6 +471,7 @@ namespace iosu
 				fsc_setFileSeek(fscFile, filePos);
 			// todo: File permissions
 			uint32 bytesSuccessfullyRead = fsc_readFile(fscFile, destPtr, bytesToRead);
+			GuestWatch::OnWriteHLE(destPtr.GetMPTR(), bytesToRead, bytesSuccessfullyRead, 'F');
 			if (transferElementSize == 0)
 				return FSA_RESULT::OK;
 

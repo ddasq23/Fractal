@@ -1,3 +1,4 @@
+#include <unordered_set>
 #include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
@@ -3846,7 +3847,7 @@ void VulkanRenderer::DrawBackbufferQuad(LatteTextureView* texView, RendererOutpu
 	VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	memoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
 	memoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-	vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+	{ PassProfileBarrierBegin("vr:3848"); vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr); PassProfileBarrierEnd(); }
 
 	auto descriptSet = backbufferBlit_createDescriptorSet(m_swapchainDescriptorSetLayout, texViewVk, useLinearTexFilter);
 	auto outputUniforms = shader->FillUniformBlockBuffer(*texView, {imageWidth, imageHeight}, padView);
@@ -3875,7 +3876,7 @@ void VulkanRenderer::DrawBackbufferQuadTwoPass(LatteTextureView* texView, Render
 	VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	memoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
 	memoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
-	vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
+	{ PassProfileBarrierBegin("vr:3877"); vkCmdPipelineBarrier(m_state.currentCommandBuffer, srcStage, dstStage, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr); PassProfileBarrierEnd(); }
 
 	PassProfileBeginNamed(fmt::format("output2 {} {}x{} -> {}x{}", padView ? "pad" : "tv", texView->baseTexture->width, texView->baseTexture->height, imageWidth, imageHeight));
 	// first pass, into the intermediate image without any gamma conversion
@@ -3925,7 +3926,7 @@ void VulkanRenderer::DrawBackbufferQuadTwoPass(LatteTextureView* texView, Render
 	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	imageBarrier.image = target.image;
 	imageBarrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-	vkCmdPipelineBarrier(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier);
+	{ PassProfileBarrierBegin("vr:3927"); vkCmdPipelineBarrier(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageBarrier); PassProfileBarrierEnd(); }
 
 	// second pass, from the intermediate image to the swapchain with the usual gamma handling
 	auto secondUniforms = secondShader->FillUniformBlockBuffer(*texView, {imageWidth, imageHeight}, padView);
@@ -4730,6 +4731,18 @@ void VulkanRenderer::texture_copyImageSubData(LatteTexture* src, sint32 srcMip, 
 	// both images the Adreno 650 driver fails command buffer submission (Xenoblade Chronicles X)
 	static const bool s_copyViaBuffer = PerfLog::Tunable("copy_via_buffer", 1) != 0;
 	const uint32 texelSize = VkFormatTexelSize(srcVkObj->m_format);
+	// diagnostics (perf/tuning.txt log_copies=1): every distinct kind of image copy, once
+	static const bool s_logCopies = PerfLog::Tunable("log_copies", 0) != 0;
+	if (s_logCopies)
+	{
+		static std::unordered_set<uint64> s_seenCopies;
+		const uint64 key = (uint64)srcVkObj->m_format | ((uint64)dstVkObj->m_format << 16) | ((uint64)srcVk->m_isMutableFormat << 32) | ((uint64)dstVk->m_isMutableFormat << 33) |
+			((uint64)region.srcSubresource.aspectMask << 36) | ((uint64)region.dstSubresource.aspectMask << 44);
+		if (s_seenCopies.insert(key).second)
+			cemuLog_log(LogType::Force, "image copy kind: fmt {} -> {} (GX2 {:04x} -> {:04x}) mutable {}/{} aspect {}/{} {}x{}x{} 3d {}/{}", (sint32)srcVkObj->m_format, (sint32)dstVkObj->m_format,
+				(uint32)srcVk->format, (uint32)dstVk->format, srcVk->m_isMutableFormat, dstVk->m_isMutableFormat, (uint32)region.srcSubresource.aspectMask, (uint32)region.dstSubresource.aspectMask,
+				region.extent.width, region.extent.height, region.extent.depth, src->Is3DTexture(), dst->Is3DTexture());
+	}
 	PassProfileBeginNamed(fmt::format("copy fmt {}->{} aspect {} {}x{}", (sint32)srcVkObj->m_format, (sint32)dstVkObj->m_format, (uint32)region.srcSubresource.aspectMask, region.extent.width, region.extent.height));
 	if (s_copyViaBuffer && srcVkObj->m_format != dstVkObj->m_format && !srcVk->m_isMutableFormat && !dstVk->m_isMutableFormat &&
 		texelSize != 0 && texelSize == VkFormatTexelSize(dstVkObj->m_format) &&
@@ -4746,7 +4759,7 @@ void VulkanRenderer::texture_copyImageSubData(LatteTexture* src, sint32 srcMip, 
 		VkMemoryBarrier memBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
 		memBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		memBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		vkCmdPipelineBarrier(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
+		{ PassProfileBarrierBegin("vr:4675"); vkCmdPipelineBarrier(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr); PassProfileBarrierEnd(); }
 		VkBufferImageCopy fromBuffer = toBuffer;
 		fromBuffer.imageSubresource = region.dstSubresource;
 		fromBuffer.imageOffset = region.dstOffset;
@@ -5062,7 +5075,7 @@ void VulkanRenderer::bufferCache_upload(uint8* buffer, sint32 size, uint32 buffe
 	region.srcOffset = uploadResv.bufferOffset;
 	region.dstOffset = bufferOffset;
 	region.size = size;
-	vkCmdCopyBuffer(m_state.currentCommandBuffer, uploadResv.vkBuffer, m_bufferCache, 1, &region);
+	{ PassProfileBarrierBegin("copybuf"); vkCmdCopyBuffer(m_state.currentCommandBuffer, uploadResv.vkBuffer, m_bufferCache, 1, &region); PassProfileBarrierEnd(); }
 
 	barrier_sequentializeTransfer();
 }
@@ -5083,7 +5096,7 @@ void VulkanRenderer::bufferCache_copy(uint32 srcOffset, uint32 dstOffset, uint32
 	bufferCopy.srcOffset = srcOffset;
 	bufferCopy.dstOffset = dstOffset;
 	bufferCopy.size = size;
-	vkCmdCopyBuffer(m_state.currentCommandBuffer, m_bufferCache, m_bufferCache, 1, &bufferCopy);
+	{ PassProfileBarrierBegin("copybuf"); vkCmdCopyBuffer(m_state.currentCommandBuffer, m_bufferCache, m_bufferCache, 1, &bufferCopy); PassProfileBarrierEnd(); }
 
 	barrier_sequentializeTransfer();
 }
@@ -5116,7 +5129,7 @@ void VulkanRenderer::bufferCache_copyStreamoutToMainBuffer(uint32 srcOffset, uin
 	bufferCopy.srcOffset = srcOffset;
 	bufferCopy.dstOffset = dstOffset;
 	bufferCopy.size = size;
-	vkCmdCopyBuffer(m_state.currentCommandBuffer, m_xfbRingBuffer, dstBuffer, 1, &bufferCopy);
+	{ PassProfileBarrierBegin("copybuf"); vkCmdCopyBuffer(m_state.currentCommandBuffer, m_xfbRingBuffer, dstBuffer, 1, &bufferCopy); PassProfileBarrierEnd(); }
 
 	barrier_sequentializeTransfer();
 }

@@ -2,6 +2,7 @@
 #include "PPCInterpreterHelper.h"
 #include "Cafe/HW/Espresso/Debugger/Debugger.h"
 #include "Cafe/HW/Espresso/Debugger/GDBStub.h"
+#include "Cafe/HW/Espresso/Debugger/GuestWatch.h"
 
 class PPCItpCafeOSUsermode
 {
@@ -22,26 +23,31 @@ public:
 		uint8* ptr = memory_getPointerFromVirtualOffset(address);
 		*(uint32*)(ptr + 4) = CPU_swapEndianU32(v1);
 		*(uint32*)(ptr + 0) = CPU_swapEndianU32(v2);
+		GuestWatch::OnWrite(hCPU, address, 8, v2, 'd');
 	}
 
 	inline static void ppcMem_writeDataU64(PPCInterpreter_t* hCPU, uint32 address, uint64 v)
 	{
 		*(uint64*)(memory_getPointerFromVirtualOffset(address)) = CPU_swapEndianU64(v);
+		GuestWatch::OnWrite(hCPU, address, 8, (uint32)(v >> 32), 'q');
 	}
 
 	inline static void ppcMem_writeDataU32(PPCInterpreter_t* hCPU, uint32 address, uint32 v)
 	{
 		*(uint32*)(memory_getPointerFromVirtualOffset(address)) = CPU_swapEndianU32(v);
+		GuestWatch::OnWrite(hCPU, address, 4, v, 'w');
 	}
 
 	inline static void ppcMem_writeDataU16(PPCInterpreter_t* hCPU, uint32 address, uint16 v)
 	{
 		*(uint16*)(memory_getPointerFromVirtualOffset(address)) = CPU_swapEndianU16(v);
+		GuestWatch::OnWrite(hCPU, address, 2, v, 'h');
 	}
 
 	inline static void ppcMem_writeDataU8(PPCInterpreter_t* hCPU, uint32 address, uint8 v)
 	{
 		*(uint8*)(memory_getPointerFromVirtualOffset(address)) = v;
+		GuestWatch::OnWrite(hCPU, address, 1, v, 'b');
 	}
 	
 	inline static double ppcMem_readDataDouble(PPCInterpreter_t* hCPU, uint32 address)
@@ -92,6 +98,7 @@ public:
 	inline static void ppcMem_writeDataFloatEx(PPCInterpreter_t* hCPU, uint32 addr, uint64 value)
 	{
 		*(uint32*)(memory_base + addr) = _swapEndianU32(ConvertToSingleNoFTZ(value));
+		GuestWatch::OnWrite(hCPU, addr, 4, 0, 'f');
 	}
 
 	inline static uint64 getTB(PPCInterpreter_t* hCPU)

@@ -5,6 +5,7 @@
 #include "Cafe/HW/Espresso/PPCState.h"
 #include "Cafe/HW/Espresso/Debugger/GDBStub.h"
 #include "ExceptionHandler.h"
+#include "Cafe/HW/Espresso/Debugger/GuestWatch.h"
 
 #if BOOST_PLAT_ANDROID
 #include <android/log.h>
@@ -142,6 +143,30 @@ void ExceptionHandler_LogGeneralInfo()
                 CrashLog_WriteLine(dumpLine);
             }
         }
+
+        // guest data the registers point to (skips code and the stack, which are dumped elsewhere)
+        std::vector<MPTR> dumpedData;
+        for (uint32 r = 0; r < 32; r++)
+        {
+            const MPTR value = gprs[r];
+            if (r == 1 || value < 0x10000000)
+                continue;
+            const MPTR base = (value & ~0x1Fu) - 0x40;
+            if (std::find(dumpedData.begin(), dumpedData.end(), base) != dumpedData.end() || !memory_isAddressRangeAccessible(base, 0x100))
+                continue;
+            dumpedData.push_back(base);
+            CrashLog_WriteLine("");
+            sprintf(dumpLine, "Data around r%u 0x%08x:", r, value);
+            CrashLog_WriteLine(dumpLine);
+            for (uint32 i = 0; i < 0x100 / 32; i++)
+            {
+                const MPTR lineAddr = base + i * 32;
+                sprintf(dumpLine, "data %08x: %08x %08x %08x %08x %08x %08x %08x %08x", lineAddr, memory_readU32(lineAddr + 0), memory_readU32(lineAddr + 4), memory_readU32(lineAddr + 8), memory_readU32(lineAddr + 12), memory_readU32(lineAddr + 16), memory_readU32(lineAddr + 20), memory_readU32(lineAddr + 24), memory_readU32(lineAddr + 28));
+                CrashLog_WriteLine(dumpLine);
+            }
+        }
+
+        GuestWatch::DumpToCrashLog();
 
         // stack trace
         MPTR currentStackVAddr = hCPU->gpr[1];
