@@ -45,13 +45,16 @@ sleep 6
 for try in 1 2 3 4 5; do
   ui=$($A exec-out uiautomator dump /dev/tty 2>/dev/null)
   read -r x1 y1 x2 y2 < <(echo "$ui" | grep -o "text=\"$TITLE\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o 'bounds=.*' | grep -o '[0-9]\+' | tr '\n' ' ')
-  [ -n "${y2:-}" ] && break
   # screen size in the current orientation = bounds of the root node ("wm size" is the natural orientation)
   read -r _ _ W H < <(echo "$ui" | grep -o 'bounds="[^"]*"' | head -1 | grep -o '[0-9]\+' | tr '\n' ' ')
+  [ -n "${y2:-}" ] && break
   $A shell input swipe $((W / 2)) $((H * 8 / 10)) $((W / 2)) $((H * 4 / 10)) 800; sleep 3
 done
 [ -n "${y2:-}" ] || { echo "$TITLE not in the library"; exit 1; }
-$A shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 ))
+# a title at the end of the list can sit under the button legend: tap the cover above it instead
+ty=$(( (y1 + y2) / 2 ))
+[ $ty -gt $(( H * 85 / 100 )) ] && ty=$(( y1 - 2 * (y2 - y1) ))
+$A shell input tap $(( (x1 + x2) / 2 )) $ty
 start=$(date +%s)
 
 # clocks and thermal state every 2 s (the RP5 caps its GPU at 400 of 905 MHz when hot, which changes every result)

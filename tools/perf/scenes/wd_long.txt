@@ -1,0 +1,17 @@
+# title: WATCH_DOGS
+# title_id: 0005000010142000
+# duration: 630
+# window: 570 625
+# scene: title (A) -> content warning (A) -> game chat (A) -> skip Ubisoft connect (X) -> A through menus into the game
+# times leave ~30 s for the boot-time precompile of the streamout pipelines
+100 A
+115 A
+130 A
+145 X
+160 X
+175 A
+195 A
+215 A
+235 A
+260 A
+290 A
