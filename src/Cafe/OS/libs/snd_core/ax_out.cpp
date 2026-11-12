@@ -3,6 +3,8 @@
 #include "audio/IAudioAPI.h"
 #include "config/CemuConfig.h"
 #include "Common/CafeStaticVar.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
+#include "config/ActiveSettings.h"
 
 namespace snd_core
 {
@@ -177,6 +179,34 @@ namespace snd_core
 		for (sint32 i = 0; i < sampleCount; ++i)
 		{
 			outputChannel[i] = _swapEndianS16(sampleData[i]);
+		}
+		// diagnostics: perf/tuning.txt audio_dump=<seconds> writes the emulated TV output (before the host audio queue) to
+		// files/audio_tv.raw, signed 16 bit little endian, 48 kHz, interleaved, channel count in the log
+		static const sint64 s_dumpSeconds = PerfLog::Tunable("audio_dump", 0);
+		if (s_dumpSeconds > 0)
+		{
+			static FILE* s_dumpFile = nullptr;
+			static uint64 s_dumpedSamples = 0;
+			static bool s_dumpOpened = false;
+			if (!s_dumpOpened)
+			{
+				s_dumpOpened = true;
+				s_dumpFile = fopen(_pathToUtf8(ActiveSettings::GetUserDataPath("audio_tv.raw")).c_str(), "wb");
+				cemuLog_log(LogType::Force, "Audio dump: {} channels per frame ({} samples), 48000 Hz, s16le, {} s", sampleCount / AX_SAMPLES_PER_3MS_48KHZ, sampleCount, s_dumpSeconds);
+			}
+			if (s_dumpFile)
+			{
+				fwrite(outputChannel, sizeof(sint16), sampleCount, s_dumpFile);
+				s_dumpedSamples += sampleCount;
+				if (s_dumpedSamples >= (uint64)s_dumpSeconds * 48000 * (sampleCount / AX_SAMPLES_PER_3MS_48KHZ))
+				{
+					fclose(s_dumpFile);
+					s_dumpFile = nullptr;
+					cemuLog_log(LogType::Force, "Audio dump: done");
+				}
+				else if ((s_dumpedSamples / sampleCount) % 333 == 0)
+					fflush(s_dumpFile);
+			}
 		}
 
 		tempAudioBlockCounter++;

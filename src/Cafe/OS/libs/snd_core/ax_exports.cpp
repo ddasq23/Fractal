@@ -435,6 +435,7 @@ namespace snd_core
 		cafeExportRegister("snd_core", AXSetVoiceEndOffset, LogType::SoundAPI);
 		cafeExportRegister("snd_core", AXSetVoiceEndOffsetEx, LogType::SoundAPI);
 		cafeExportRegister("snd_core", AXSetVoiceSamplesAddr, LogType::SoundAPI);
+		cafeExportRegister("snd_core", AXDecodeAdpcmData, LogType::SoundAPI);
 
 		cafeExportRegister("snd_core", AXIsVoiceRunning, LogType::SoundAPI);
 		cafeExportRegister("snd_core", AXGetVoiceLoopCount, LogType::SoundAPI);
@@ -646,6 +647,7 @@ namespace snd_core
 			cafeExportRegister("sndcore2", AXSetMultiVoiceState, LogType::SoundAPI);
 			cafeExportRegister("sndcore2", AXSetMultiVoiceAdpcmLoop, LogType::SoundAPI);
 			cafeExportRegister("sndcore2", AXIsMultiVoiceRunning, LogType::SoundAPI);
+			cafeExportRegister("sndcore2", AXDecodeAdpcmData, LogType::SoundAPI);
 
 			RegisterVoiceFunctions();
 		};

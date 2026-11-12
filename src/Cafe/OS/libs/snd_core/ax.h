@@ -350,21 +350,21 @@ namespace snd_core
 	struct AXDSPADPCM
 	{
 		/* +0x00 */ uint32be numSamples;
-		/* +0x04 */ uint32be ukn04;
+		/* +0x04 */ uint32be numNibbles;
 		/* +0x08 */ uint32be sampleRate;
 		/* +0x0C */ uint16be isLooped;
 		/* +0x0E */ uint16be format;
-		/* +0x10 */ uint32be ukn10;
-		/* +0x14 */ uint32be ukn14;
-		/* +0x18 */ uint32be ukn18;
+		/* +0x10 */ uint32be loopStartAddr; // nibble addresses relative to the sample data
+		/* +0x14 */ uint32be endAddr;
+		/* +0x18 */ uint32be currentAddr;
 		/* +0x1C */ uint16be coef[16];
 		/* +0x3C */ uint16be gain;
 		/* +0x3E */ uint16be scale;
 		/* +0x40 */ uint16be yn1;
 		/* +0x42 */ uint16be yn2;
-		/* +0x44 */ uint16be ukn44;
-		/* +0x46 */ uint16be ukn46;
-		/* +0x48 */ uint16be ukn48;
+		/* +0x44 */ uint16be loopScale;
+		/* +0x46 */ uint16be loopYn1;
+		/* +0x48 */ uint16be loopYn2;
 		/* +0x4A */ uint16be channelCount;
 		/* +0x4C */ uint16be ukn4C;
 		/* +0x4E */ uint8 _padding4E[0x12];
@@ -378,6 +378,7 @@ namespace snd_core
 	sint32 AXGetMultiVoiceReformatBufferSize(sint32 voiceFormat, uint32 channelCount, uint32 sizeInBytes, uint32be* sizeOutput);
 	void AXSetMultiVoiceType(AXVPBMULTI* mv, uint16 type);
 	void AXSetMultiVoiceAdpcm(AXVPBMULTI* mv, AXDSPADPCM* data);
+	sint32 AXDecodeAdpcmData(uint8* input, AXDSPADPCM* info, sint32 samples, sint16be* output);
 	void AXSetMultiVoiceSrcType(AXVPBMULTI* mv, uint32 type);
 	void AXSetMultiVoiceOffsets(AXVPBMULTI* mv, AXPBOFFSET_t* offsets);
 	void AXSetMultiVoiceVe(AXVPBMULTI* mv, AXPBVE* ve);

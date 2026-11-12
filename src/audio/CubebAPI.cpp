@@ -1,4 +1,5 @@
 #include "CubebAPI.h"
+#include <atomic>
 
 #if BOOST_OS_WINDOWS
 #include <combaseapi.h>
@@ -30,6 +31,12 @@ static void state_cb(cubeb_stream* stream, void* user, cubeb_state state)
 	}*/
 }
 
+// diagnostics: callbacks that found less queued audio than they had to play (heard as clicks), and blocks dropped
+// because the queue was full. Logged from FeedBlock, the audio callback must not block
+static std::atomic<uint32> s_underrunCallbacks{0};
+static std::atomic<uint64> s_underrunBytes{0};
+static std::atomic<uint32> s_droppedBlocks{0};
+
 long CubebAPI::data_cb(cubeb_stream* stream, void* user, const void* inputbuffer, void* outputbuffer, long nframes)
 {
 	auto* thisptr = (CubebAPI*)user;
@@ -43,6 +50,8 @@ long CubebAPI::data_cb(cubeb_stream* stream, void* user, const void* inputbuffer
 	{
 		// we got no data, just write silence
 		memset(outputbuffer, 0x00, size);
+		s_underrunCallbacks.fetch_add(1, std::memory_order_relaxed);
+		s_underrunBytes.fetch_add(size, std::memory_order_relaxed);
 	}
 	else
 	{
@@ -52,7 +61,11 @@ long CubebAPI::data_cb(cubeb_stream* stream, void* user, const void* inputbuffer
 		lock.unlock();
 		// fill rest with silence
 		if (copied != size)
+		{
 			memset((uint8*)outputbuffer + copied, 0x00, size - copied);
+			s_underrunCallbacks.fetch_add(1, std::memory_order_relaxed);
+			s_underrunBytes.fetch_add(size - copied, std::memory_order_relaxed);
+		}
 	}
 
 	return nframes;
@@ -119,10 +132,30 @@ bool CubebAPI::NeedAdditionalBlocks() const
 
 bool CubebAPI::FeedBlock(sint16* data)
 {
+	{
+		// once every ~5 s of audio: underruns since the last report
+		static uint32 s_blocks = 0;
+		static uint32 s_reports = 0;
+		if (++s_blocks >= std::max<uint32>(1, 5 * m_samplerate / std::max<uint32>(1, m_samplesPerBlock)) && s_reports < 200)
+		{
+			s_blocks = 0;
+			const uint32 underruns = s_underrunCallbacks.exchange(0);
+			const uint64 bytes = s_underrunBytes.exchange(0);
+			const uint32 dropped = s_droppedBlocks.exchange(0);
+			if (underruns || dropped)
+			{
+				s_reports++;
+				const double bytesPerMs = (double)m_samplerate * m_channels * (m_bitsPerSample / 8) / 1000.0;
+				cemuLog_log(LogType::Force, "Audio: {} underruns ({:.0f} ms of silence inserted), {} blocks dropped in the last 5 s (queue target {} blocks)",
+					underruns, bytesPerMs > 0 ? bytes / bytesPerMs : 0.0, dropped, GetAudioDelay());
+			}
+		}
+	}
 	std::unique_lock lock(m_mutex);
 	if (m_buffer.capacity() <= m_buffer.size() + m_bytesPerBlock)
 	{
 		cemuLog_logDebug(LogType::Force, "dropped direct sound block since too many buffers are queued");
+		s_droppedBlocks.fetch_add(1, std::memory_order_relaxed);
 		return false;
 	}
 

@@ -111,6 +111,69 @@ namespace snd_core
 		}
 	}
 
+	// Software decoding of DSP ADPCM into PCM16, for games that mix part of their audio themselves (Need for Speed Most
+	// Wanted U decodes its engine sound with it and plays the result through an AUX callback). It was missing, so the
+	// output buffer kept stale data that the game mixed in: a constant offset, clipping and pops while accelerating.
+	// input is the start of the ADPCM data, info a DSPADPCM header whose current address (in nibbles), predictor/scale
+	// and history say where to continue; they are updated so the next call picks up from there
+	sint32 AXDecodeAdpcmData(uint8* input, AXDSPADPCM* info, sint32 samples, sint16be* output)
+	{
+		if (samples <= 0)
+			return 0;
+		const bool looped = info->isLooped != 0;
+		const uint32 loopStart = info->loopStartAddr;
+		const uint32 endAddr = info->endAddr;
+		uint32 addr = info->currentAddr;
+		uint32 scale = info->scale;
+		sint32 hist0 = (sint16)(uint16)info->yn1;
+		sint32 hist1 = (sint16)(uint16)info->yn2;
+		sint32 i = 0;
+		for (; i < samples; i++)
+		{
+			if (addr > endAddr)
+			{
+				if (!looped || loopStart > endAddr)
+					break;
+				addr = loopStart;
+				// the predictor/scale and history at the loop start
+				scale = info->loopScale;
+				hist0 = (sint16)(uint16)info->loopYn1;
+				hist1 = (sint16)(uint16)info->loopYn2;
+			}
+			if ((addr & 0xF) == 0)
+			{
+				scale = input[addr >> 1];
+				addr += 2;
+				if (addr > endAddr)
+				{
+					i--;
+					continue;
+				}
+			}
+			const uint32 coefIndex = (scale >> 4) & 7;
+			const sint32 coefA = (sint16)(uint16)info->coef[coefIndex * 2 + 0];
+			const sint32 coefB = (sint16)(uint16)info->coef[coefIndex * 2 + 1];
+			const uint8 b = input[addr >> 1];
+			sint32 nibble = (addr & 1) ? (b & 0xF) : (b >> 4);
+			addr++;
+			if (nibble >= 8)
+				nibble -= 16;
+			sint32 v = ((nibble << (scale & 0xF)) << 11) + hist0 * coefA + hist1 * coefB;
+			v = std::clamp((v + 0x400) >> 11, -32768, 32767);
+			hist1 = hist0;
+			hist0 = v;
+			output[i] = (sint16)v;
+		}
+		const sint32 decoded = i;
+		for (; i < samples; i++)
+			output[i] = 0;
+		info->currentAddr = addr;
+		info->scale = (uint16)scale;
+		info->yn1 = (uint16)(sint16)hist0;
+		info->yn2 = (uint16)(sint16)hist1;
+		return decoded;
+	}
+
 	void AXSetMultiVoiceSrcType(AXVPBMULTI* mv, uint32 type)
 	{
 		for (uint32 i = 0; i < mv->channelCount; ++i)

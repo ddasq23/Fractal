@@ -3,6 +3,7 @@
 #include "Cafe/HW/MMU/MMU.h"
 #include "config/ActiveSettings.h"
 #include "Common/CafeStaticVar.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 
 void mic_updateOnAXFrame();
 
@@ -40,6 +41,14 @@ namespace snd_core
 		coefA = (sint32)(sint16)_swapEndianU16(internalShadowCopy->adpcmData.coef[coefIndex * 2 + 0]); \
 		coefB = (sint32)(sint16)_swapEndianU16(internalShadowCopy->adpcmData.coef[coefIndex * 2 + 1]); \
 		playbackNibbleOffset = vpbLoopOffset; \
+		/* the DSP restarts the predictor from the loop context of regular voices (AXSetVoiceAdpcmLoop only stores it for */ \
+		/* them, streams keep decoding with their history). Without it every loop of a short sample (engine sounds) */ \
+		/* starts from the history at the end of the sample: a step at each loop and an offset that builds up */ \
+		if (AX_FixesEnabled() && internalShadowCopy->voiceType == 0) \
+		{ \
+			hist0 = (sint32)_swapEndianS16(internalShadowCopy->adpcmLoop.loopYn1); \
+			hist1 = (sint32)_swapEndianS16(internalShadowCopy->adpcmLoop.loopYn2); \
+		} \
 	} \
 	else \
 	{ \
@@ -58,6 +67,13 @@ namespace snd_core
 		if ((adpcmOffset & 0xF) <= 1)
 			return adpcmOffset + 2;
 		return adpcmOffset;
+	}
+
+	// perf/tuning.txt ax_fix=0 turns off the ADPCM loop context and low pass filter state fixes (A/B comparisons)
+	static bool AX_FixesEnabled()
+	{
+		static const bool s_enabled = PerfLog::Tunable("ax_fix", 1) != 0;
+		return s_enabled;
 	}
 
 	void AX_readADPCMSamples(AXVPBInternal_t* internalShadowCopy, sint16* output, sint32 sampleCount)
@@ -737,6 +753,21 @@ namespace snd_core
 			AXVoiceMix_ApplyADSR_NoClamp(internalShadowCopy, sampleData, sampleCount);
 	}
 
+	// Host side copy of each voice's biquad history in full precision. The voice parameter block only has 16 bit fields
+	// for it, and clamping the history to 16 bits breaks filters whose zeros nearly cancel their poles: Need for Speed
+	// Most Wanted U runs engine sounds through such a pass-through filter (b 16382 -31850 15492, a 31850 -15491). Its
+	// output overshoots 32767 by a few hundred where the engine has most energy, the clamped feedback no longer matches
+	// the input history, and the poles (r 0.972) turn the mismatch into peaks of 60000-100000: a pop whenever the car
+	// accelerates. The precise history is used as long as the 16 bit fields still hold what was stored last (a game
+	// that sets the filter again via AXSetVoiceBiquad resets them)
+	struct AXBiquadHistory
+	{
+		float xn1, xn2, yn1, yn2;
+		sint16 stored[4];
+		bool valid;
+	};
+	static AXBiquadHistory s_biquadHistory[256];
+
 	void AXVoiceMix_ApplyBiquad(AXVPBInternal_t* internalShadowCopy, float* sampleData, sint32 sampleCount)
 	{
 		if (internalShadowCopy->biquad.on == AX_BIQUAD_OFF)
@@ -754,10 +785,47 @@ namespace snd_core
 		float b1 = (float)(sint16)_swapEndianS16(internalShadowCopy->biquad.b1) / 16384.0f;
 		float b2 = (float)(sint16)_swapEndianS16(internalShadowCopy->biquad.b2) / 16384.0f;
 
-		float yn1 = (float)_swapEndianS16(internalShadowCopy->biquad.yn1);
-		float yn2 = (float)_swapEndianS16(internalShadowCopy->biquad.yn2);
-		float xn1 = (float)_swapEndianS16(internalShadowCopy->biquad.xn1);
-		float xn2 = (float)_swapEndianS16(internalShadowCopy->biquad.xn2);
+		const sint16 storedXn1 = _swapEndianS16(internalShadowCopy->biquad.xn1);
+		const sint16 storedXn2 = _swapEndianS16(internalShadowCopy->biquad.xn2);
+		const sint16 storedYn1 = _swapEndianS16(internalShadowCopy->biquad.yn1);
+		const sint16 storedYn2 = _swapEndianS16(internalShadowCopy->biquad.yn2);
+		float yn1 = (float)storedYn1;
+		float yn2 = (float)storedYn2;
+		float xn1 = (float)storedXn1;
+		float xn2 = (float)storedXn2;
+
+		if (AX_FixesEnabled())
+		{
+			AXBiquadHistory& history = s_biquadHistory[(uint32)internalShadowCopy->index & 0xFF];
+			if (history.valid && history.stored[0] == storedXn1 && history.stored[1] == storedXn2 && history.stored[2] == storedYn1 && history.stored[3] == storedYn2)
+			{
+				xn1 = history.xn1;
+				xn2 = history.xn2;
+				yn1 = history.yn1;
+				yn2 = history.yn2;
+			}
+			for (sint32 i = 0; i < sampleCount; i++)
+			{
+				float inputSample = sampleData[i] / 256.0f;
+				float temp = b0 * inputSample + b1 * xn1 + b2 * xn2 + a1 * yn1 + a2 * yn2;
+				// the output is a 16 bit sample, the feedback keeps full precision
+				sampleData[i] = std::clamp(temp, -32768.0f, 32767.0f) * 256.0f;
+				yn2 = yn1;
+				xn2 = xn1;
+				yn1 = temp;
+				xn1 = inputSample;
+			}
+			const sint16 newState[4] = {
+				(sint16)std::clamp(xn1, -32768.0f, 32767.0f), (sint16)std::clamp(xn2, -32768.0f, 32767.0f),
+				(sint16)std::clamp(yn1, -32768.0f, 32767.0f), (sint16)std::clamp(yn2, -32768.0f, 32767.0f) };
+			history = { xn1, xn2, yn1, yn2, { newState[0], newState[1], newState[2], newState[3] }, true };
+			internalShadowCopy->biquad.xn1 = _swapEndianS16(newState[0]);
+			internalShadowCopy->biquad.xn2 = _swapEndianS16(newState[1]);
+			internalShadowCopy->biquad.yn1 = _swapEndianS16(newState[2]);
+			internalShadowCopy->biquad.yn2 = _swapEndianS16(newState[3]);
+			return;
+		}
+
 		if (internalShadowCopy->biquad.b1 != 0)
 		{
 			for (sint32 i = 0; i < sampleCount; i++)
@@ -802,13 +870,19 @@ namespace snd_core
 			return;
 		float a0 = (float)_swapEndianS16(internalShadowCopy->lpf.a0) / 32767.0f;
 		float b0 = (float)_swapEndianS16(internalShadowCopy->lpf.b0) / 32767.0f;
-		float prevSample = (float)_swapEndianS16((sint16)internalShadowCopy->lpf.yn1) * 256.0f / 32767.0f;
+		// yn1 holds the previous output as a 16 bit sample. It used to be stored multiplied by 32767, which doesn't fit in
+		// 16 bits: the filter state was garbage at every 3 ms frame
+		float prevSample = AX_FixesEnabled() ? (float)_swapEndianS16((sint16)internalShadowCopy->lpf.yn1) * 256.0f
+			: (float)_swapEndianS16((sint16)internalShadowCopy->lpf.yn1) * 256.0f / 32767.0f;
 		for (sint32 i = 0; i < sampleCount; i++)
 		{
 			sampleData[i] = a0 * sampleData[i] - b0 * prevSample;
 			prevSample = sampleData[i];
 		}
-		internalShadowCopy->lpf.yn1 = (uint16)_swapEndianS16((sint16)(prevSample / 256.0f * 32767.0f));
+		if (AX_FixesEnabled())
+			internalShadowCopy->lpf.yn1 = (uint16)_swapEndianS16((sint16)std::clamp(prevSample / 256.0f, -32768.0f, 32767.0f));
+		else
+			internalShadowCopy->lpf.yn1 = (uint16)_swapEndianS16((sint16)(prevSample / 256.0f * 32767.0f));
 	}
 
 	// mix audio generated from voice into main bus and aux buses
