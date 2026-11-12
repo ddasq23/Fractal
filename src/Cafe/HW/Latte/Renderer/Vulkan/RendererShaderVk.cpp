@@ -14,6 +14,26 @@
 bool s_isLoadingShadersVk{ false };
 class FileCache* s_spirvCache{nullptr};
 
+// Large shaders are also cached by the hash of their GLSL source. Some games produce shader binaries whose hash changes
+// between runs while the generated code is identical (Watch Dogs: 2.5 MB GLSL GPGPU vertex shaders that take ~12 s to
+// compile on a phone), so the regular base/aux hash key never hits. Looked up at load time and while the game runs.
+static constexpr size_t SPIRV_CONTENT_KEY_MIN_SOURCE = 64 * 1024;
+
+static void SpirvContentCacheKey(RendererShader::ShaderType type, const std::string& glsl, uint64& h1, uint64& h2)
+{
+	// two independent 64-bit FNV-1a variants, stable across runs and builds
+	uint64 a = 0xcbf29ce484222325ull ^ (uint64)type;
+	uint64 b = 0x84222325cbf29ce4ull + glsl.size();
+	for (unsigned char c : glsl)
+	{
+		a = (a ^ c) * 0x100000001b3ull;
+		b = (b + c) * 0xff51afd7ed558ccdull;
+		b ^= b >> 29;
+	}
+	h1 = a ^ 0x5350495256434f4eull; // 'SPIRVCON', keeps the key space apart from the base/aux names
+	h2 = b;
+}
+
 extern std::atomic_int g_compiled_shaders_total;
 extern std::atomic_int g_compiled_shaders_async;
 
@@ -277,6 +297,21 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 	} perfScope{this};
 	const bool compileWithDebugInfo = ((VulkanRenderer*)g_renderer.get())->IsTracingToolEnabled();
 
+	const bool useContentKey = m_isGameShader && !m_isGfxPackShader && s_spirvCache && !compileWithDebugInfo && m_glslCode.size() >= SPIRV_CONTENT_KEY_MIN_SOURCE;
+	uint64 contentH1 = 0, contentH2 = 0;
+	if (useContentKey)
+	{
+		SpirvContentCacheKey(m_type, m_glslCode, contentH1, contentH2);
+		std::vector<uint8> cacheFileData;
+		if (s_spirvCache->GetFile({ contentH1, contentH2 }, cacheFileData) && cacheFileData.size() >= 4)
+		{
+			perfScope.fromCache = true;
+			CreateVkShaderModule(std::span<uint32>((uint32*)cacheFileData.data(), cacheFileData.size() / sizeof(uint32)));
+			FinishCompilation();
+			return;
+		}
+	}
+
 	// try to retrieve SPIR-V module from cache
 	if (s_isLoadingShadersVk && (m_isGameShader && !m_isGfxPackShader) && s_spirvCache && !compileWithDebugInfo)
 	{
@@ -389,6 +424,11 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 		uint64 h1, h2;
 		GenerateShaderPrecompiledCacheFilename(m_type, m_baseHash, m_auxHash, h1, h2);
 		s_spirvCache->AddFile({ h1, h2 }, (const uint8*)spirvBuffer.data(), spirvBuffer.size() * sizeof(uint32));
+	}
+	if (useContentKey)
+	{
+		s_spirvCache->AddFile({ contentH1, contentH2 }, (const uint8*)spirvBuffer.data(), spirvBuffer.size() * sizeof(uint32));
+		cemuLog_log(LogType::Force, "Vulkan: large shader {:016x}_{:016x} ({} KB GLSL) compiled, cached by content", m_baseHash, m_auxHash, m_glslCode.size() / 1024);
 	}
 
 	CreateVkShaderModule(spirvBuffer);

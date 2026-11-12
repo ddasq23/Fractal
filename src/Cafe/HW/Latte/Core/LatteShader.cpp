@@ -1,3 +1,4 @@
+#include <unordered_set>
 #include "Cafe/HW/Latte/Core/LatteConst.h"
 #include "Cafe/HW/Latte/Core/LatteShaderAssembly.h"
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
@@ -516,7 +517,11 @@ void LatteSHRC_UpdateVSBaseHash(uint8* vertexShaderPtr, uint32 vertexShaderSize,
 	uint64 vsHash1 = 0;
 	uint64 vsHash2 = 0;
 	_calculateShaderProgramHash(vsProgramCode, vertexShaderSize, &hashCacheVS, &vsHash1, &vsHash2);
-	uint64 vsHash = vsHash1 + vsHash2 + fetchShader->key + _activePSImportTable.key + (usesGeometryShader ? 0x1111ULL : 0ULL);
+	// a vertex shader whose primitives are discarded exports no parameters (see _vsParamExportsUnused), the PS inputs don't matter
+	uint64 psImportKey = _activePSImportTable.key;
+	if (!usesGeometryShader && g_renderer->GetType() != RendererAPI::Metal && LatteGPUState.contextNew.IsRasterizerDiscarded())
+		psImportKey = 0x5D15CA4D0000ull;
+	uint64 vsHash = vsHash1 + vsHash2 + fetchShader->key + psImportKey + (usesGeometryShader ? 0x1111ULL : 0ULL);
 
 	uint32 tmp = LatteGPUState.contextNew.PA_CL_VTE_CNTL.getRawValue() ^ 0x43F;
 	vsHash += tmp;
@@ -569,6 +574,26 @@ void LatteSHRC_UpdateVSBaseHash(uint8* vertexShaderPtr, uint32 vertexShaderSize,
 #endif
 
 	_shaderBaseHash_vs = vsHash;
+
+	// diagnostics (perf/tuning.txt log_vshash=N): hash parts of the first N streamout vertex shaders, program dumped to dump/vsprog_<hash>.bin
+	static sint64 s_logVsHash = PerfLog::Tunable("log_vshash", 0);
+	if (s_logVsHash > 0 && LatteGPUState.contextRegister[mmVGT_STRMOUT_EN] != 0)
+	{
+		static std::unordered_set<uint64> s_seen;
+		if (s_seen.insert(vsHash).second)
+		{
+			s_logVsHash--;
+			cemuLog_log(LogType::Force, "VS hash {:016x}: program {:08x} size {} prog {:016x}+{:016x} fs {:016x} psImport {:016x} vte {:08x} prim {}", vsHash,
+				memory_getVirtualOffsetFromPointer(vertexShaderPtr), vertexShaderSize, vsHash1, vsHash2, fetchShader->key, _activePSImportTable.key,
+				LatteGPUState.contextNew.PA_CL_VTE_CNTL.getRawValue(), (uint32)primitiveType);
+			FileStream* fs = FileStream::createFile2(ActiveSettings::GetUserDataPath("dump/vsprog_{:016x}.bin", vsHash));
+			if (fs)
+			{
+				fs->writeData(vertexShaderPtr, vertexShaderSize);
+				delete fs;
+			}
+		}
+	}
 }
 
 void LatteSHRC_UpdateGSBaseHash(uint8* geometryShaderPtr, uint32 geometryShaderSize, uint8* geometryCopyShader, uint32 geometryCopyShaderSize)

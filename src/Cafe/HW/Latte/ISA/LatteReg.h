@@ -1707,6 +1707,14 @@ struct LatteContextRegister
 		return (uint32*)hleSpecialState;
 	}
 
+	// the pipeline discards all primitives before rasterization (Vulkan rasterizerDiscardEnable): no pixel shader runs and
+	// vertex shader parameter exports are never consumed. Used by GPGPU work done with streamout
+	bool IsRasterizerDiscarded() const
+	{
+		// GX2SetSpecialState(0, true) sets DX_RASTERIZATION_KILL but expects depth writes, see IsRasterizationEnabled()
+		return PA_CL_CLIP_CNTL.get_DX_RASTERIZATION_KILL() && PA_CL_VTE_CNTL.get_VPORT_X_OFFSET_ENA();
+	}
+
 	bool IsRasterizationEnabled() const
     {
         bool rasterizationEnabled = !PA_CL_CLIP_CNTL.get_DX_RASTERIZATION_KILL();

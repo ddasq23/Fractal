@@ -447,6 +447,14 @@ private:
 	boost::container::small_vector<GPRTemporary, 4> m_gprTemporaries;
 };
 
+// A vertex shader without geometry shader whose primitives are discarded before rasterization exports no parameters, so
+// its code does not depend on the bound pixel shader (LatteSHRC_UpdateVSBaseHash leaves the PS input table out of its hash)
+bool _vsParamExportsUnused(LatteDecompilerShaderContext* shaderContext)
+{
+	return shaderContext->shaderType == LatteConst::ShaderType::Vertex && !shaderContext->options->usesGeometryShader &&
+		shaderContext->contextRegistersNew->IsRasterizerDiscarded();
+}
+
 sint32 _getVertexShaderOutParamSemanticId(uint32* contextRegisters, sint32 index) // deprecated - move to LatteShaderPSInputTable
 {
 	uint32 vsSemanticId = (contextRegisters[mmSPI_VS_OUT_ID_0 + (index / 4)] >> (8 * (index % 4))) & 0xFF;
@@ -3196,7 +3204,7 @@ void _emitExportCode(LatteDecompilerShaderContext* shaderContext, LatteDecompile
 					cemu_assert_unimplemented();
 					break;
 				}
-				uint32 vsSemanticId = _getVertexShaderOutParamSemanticId(shaderContext->contextRegisters, paramIndex);
+				uint32 vsSemanticId = _vsParamExportsUnused(shaderContext) ? 0xFF : _getVertexShaderOutParamSemanticId(shaderContext->contextRegisters, paramIndex);
 				if (vsSemanticId != 0xFF)
 				{
 					// preserve earlier exports for masked components

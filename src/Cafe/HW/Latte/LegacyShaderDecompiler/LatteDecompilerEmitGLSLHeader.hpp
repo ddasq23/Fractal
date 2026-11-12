@@ -381,6 +381,8 @@ namespace LatteDecompiler
 		auto* src = shaderContext->shaderSource;
 		LatteShaderPSInputTable* psInputTable = LatteSHRC_GetPSInputTable();
 		auto parameterMask = shaderContext->shader->outputParameterMask;
+		if (_vsParamExportsUnused(shaderContext))
+			parameterMask = 0; // only dummy outputs
 		for (uint32 i = 0; i < 32; i++)
 		{
 			if ((parameterMask&(1 << i)) == 0)

@@ -362,7 +362,9 @@ bool PipelineCompiler::InitShaderStages(VulkanRenderer* vkRenderer, RendererShad
 	else if (m_rectEmulationGS)
 		shaderStages.emplace_back(vkRenderer->CreatePipelineShaderStageCreateInfo(VK_SHADER_STAGE_GEOMETRY_BIT, m_rectEmulationGS->GetShaderModule(), "main"));
 
-	if (vkPixelShader)
+	// no fragment stage when primitives are discarded: the driver then compiles the vertex shader on its own instead of
+	// once per bound pixel shader (Watch Dogs: 2.5 MB streamout shaders, ~10 s per pipeline on Turnip)
+	if (vkPixelShader && rasterizer.rasterizerDiscardEnable == VK_FALSE)
 		shaderStages.emplace_back(vkRenderer->CreatePipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, vkPixelShader->GetShaderModule(), "main"));
 
 	return true;
@@ -1028,6 +1030,17 @@ bool PipelineCompiler::Compile(bool forceCompile, bool isRenderThread, bool show
 
 	if (result != VK_ERROR_PIPELINE_COMPILE_REQUIRED_EXT)
 		PerfLog::PipelineCompiled(perfTimer.ElapsedUs(), isRenderThread, result != VK_SUCCESS);
+	// slow driver compiles: was the driver pipeline cache hit? (stage feedback: vs/gs/ps in creation order)
+	if (result == VK_SUCCESS && perfTimer.ElapsedUs() > 1000000)
+	{
+		const bool fb = vkRenderer->m_featureControl.deviceExtensions.pipeline_feedback && HAS_FLAG(creationFeedback.flags, VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT_EXT);
+		std::string stages;
+		for (uint32 i = 0; fb && i < pipelineInfo.stageCount; i++)
+			stages += fmt::format(" [stage {} hit {} {:.0f} ms]", i, HAS_FLAG(creationStageFeedback[i].flags, VK_PIPELINE_CREATION_FEEDBACK_APPLICATION_PIPELINE_CACHE_HIT_BIT_EXT), creationStageFeedback[i].duration / 1e6);
+		cemuLog_log(LogType::Force, "Vulkan: slow pipeline {:.0f} ms, stages {}, robust {}, discard {}, feedback {} cache hit {} driver {:.0f} ms{}", perfTimer.ElapsedUs() / 1000.0,
+			pipelineInfo.stageCount, m_requestRobustBufferAccess, rasterizer.rasterizerDiscardEnable, fb,
+			fb && HAS_FLAG(creationFeedback.flags, VK_PIPELINE_CREATION_FEEDBACK_APPLICATION_PIPELINE_CACHE_HIT_BIT_EXT), fb ? creationFeedback.duration / 1e6 : 0.0, stages);
+	}
 	if (result == VK_ERROR_PIPELINE_COMPILE_REQUIRED_EXT)
 	{
 		return false;
