@@ -153,7 +153,7 @@ void LatteStreamout_PrepareDrawcall(uint32 count, uint32 instanceCount)
 		}
 		uint32 bufferBaseMPTR = LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_BASE_0 + i * 4] << 8;
 		uint32 bufferSize = LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_SIZE_0 + i * 4] << 2;
-		uint32 bufferOffset = LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_OFFSET_0 + i * 4];
+		uint32 bufferOffset = LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_OFFSET_0 + i * 4] << 2; // the register counts DWORDs
 		uint32 streamoutWriteSize = LatteStreamout_getBufferWriteRangeSize(i);
 		uint32 rangeAddr = bufferBaseMPTR + bufferOffset;
 		sint32 ringBufferOffset = LatteStreamout_allocateGPURingbufferMem(streamoutWriteSize); // allocate memory for the entire streamout write
@@ -208,7 +208,7 @@ void LatteStreamout_FinishDrawcall(bool useDirectMemoryMode)
 				}
 			}
 			// advance streamout offset
-			uint32 newOffset = LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_OFFSET_0 + i * 4] + activeStreamoutOperation.streamoutBufferWrite[i].rangeSize;
+			uint32 newOffset = LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_OFFSET_0 + i * 4] + (activeStreamoutOperation.streamoutBufferWrite[i].rangeSize >> 2);
 			LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_OFFSET_0 + i * 4] = newOffset;
 		}
 		g_renderer->streamout_rendererFinishDrawcall();

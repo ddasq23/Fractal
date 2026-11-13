@@ -864,6 +864,8 @@ private:
 	bool m_submitOnIdle{}; // submit current buffer if Latte command processor goes into idle state (no more commands or waiting for externally signaled condition)
 
 	// drawcall handling
+	bool draw_streamoutWantsDeindex(Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE indexType) const;
+	void draw_deindexVertexBuffersForStreamout(const void* hostIndices, Renderer::INDEX_TYPE hostIndexType, uint32 indexCount, uint32 baseVertex);
 	void draw_execute_first(uint32 baseVertex, uint32 baseInstance, uint32 instanceCount, uint32 count, MPTR indexDataMPTR, Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE indexType, const LatteDrawcallContext& drawcallContext);
 	void draw_execute_continued(uint32 baseVertex, uint32 baseInstance, uint32 instanceCount, uint32 count, MPTR indexDataMPTR, Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE indexType, const LatteDrawcallContext& drawcallContext);
 
@@ -886,6 +888,8 @@ private:
 			uint32 ringBufferOffset;
 		}buffer[LATTE_NUM_STREAMOUT_BUFFER];
 		sint32 verticesPerInstance;
+		uint32 baseVertex; // gl_VertexIndex and gl_InstanceIndex include these, the streamout position must not
+		uint32 baseInstance;
 	}m_streamoutState{};
 
 	struct

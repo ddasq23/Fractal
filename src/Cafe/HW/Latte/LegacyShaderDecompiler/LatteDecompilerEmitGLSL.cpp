@@ -12,6 +12,7 @@
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "config/ActiveSettings.h"
 #include "util/helpers/StringBuf.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 
 #include <bitset>
 #include <boost/container/small_vector.hpp>
@@ -3149,6 +3150,25 @@ void _emitExportGPRReadCode(LatteDecompilerShaderContext* shaderContext, LatteDe
 		cemu_assert_unimplemented();
 }
 
+// diagnostics: perf/tuning.txt ps_sanitize=1 replaces NaN/Inf in pixel shader color outputs with 0, =2 also clamps them to
+// the half float range. ps_sanitize_lo/ps_sanitize_hi limit it to shaders whose base hash top 16 bits are in that range
+// (decimal), to bisect for the shader that produces the values
+static void _emitPixelColorSanitizeDiag(LatteDecompilerShaderContext* shaderContext, uint32 colorIndex)
+{
+	static const sint64 s_mode = PerfLog::Tunable("ps_sanitize", 0);
+	static const sint64 s_lo = PerfLog::Tunable("ps_sanitize_lo", 0);
+	static const sint64 s_hi = PerfLog::Tunable("ps_sanitize_hi", 0xFFFF);
+	if (s_mode == 0)
+		return;
+	const sint64 prefix = (sint64)(shaderContext->shaderBaseHash >> 48);
+	if (prefix < s_lo || prefix > s_hi)
+		return;
+	auto* src = shaderContext->shaderSource;
+	src->addFmt("passPixelColor{0} = mix(passPixelColor{0}, vec4(0.0), equal(floatBitsToUint(passPixelColor{0}) & uvec4(0x7f800000u), uvec4(0x7f800000u)));" _CRLF, colorIndex);
+	if (s_mode >= 2)
+		src->addFmt("passPixelColor{0} = clamp(passPixelColor{0}, vec4(-65504.0), vec4(65504.0));" _CRLF, colorIndex);
+}
+
 void _emitExportCode(LatteDecompilerShaderContext* shaderContext, LatteDecompilerCFInstruction* cfInstruction)
 {
 	StringBuf* src = shaderContext->shaderSource;
@@ -3287,6 +3307,7 @@ void _emitExportCode(LatteDecompilerShaderContext* shaderContext, LatteDecompile
 				src->addFmt("passPixelColor{} = ", pixelColorOutputIndex);
 				_emitExportGPRReadCode(shaderContext, cfInstruction, LATTE_DECOMPILER_DTYPE_FLOAT, i);
 				src->add(";" _CRLF);
+				_emitPixelColorSanitizeDiag(shaderContext, pixelColorOutputIndex);
 
 				if( cfInstruction->exportArrayBase+i >= 8 )
 					cemu_assert_unimplemented();
@@ -3645,7 +3666,17 @@ void LatteDecompiler_emitClauseCode(LatteDecompilerShaderContext* shaderContext,
 		// if pixel is disabled, then skip loop
 		src->add("{" _CRLF);
 		src->addFmt("bool loopActive = {};" _CRLF, _getActiveMaskCVarName(shaderContext, cfInstruction->activeStackDepth + 1));
-		if (ActiveSettings::ShaderPreventInfiniteLoopsEnabled())
+		if (g_renderer->GetType() == RendererAPI::Vulkan)
+		{
+			// the hardware runs the loop for the trip count of its loop constant; shaders compiled from HLSL for-loops
+			// have no LOOP_BREAK at all and would never leave a plain while
+			src->addFmt("int loopCounter{} = 0;" _CRLF, (sint32)cfInstruction->cfAddr);
+			src->addFmt("while( {} == true && loopCounter{} < uf_loopCount[{}].{} )" _CRLF, _getActiveMaskCVarName(shaderContext, cfInstruction->activeStackDepth + 1), (sint32)cfInstruction->cfAddr,
+				cfInstruction->loopConstIndex / 4, "xyzw"[cfInstruction->loopConstIndex & 3]);
+			src->add("{" _CRLF);
+			src->addFmt("loopCounter{}++;" _CRLF, (sint32)cfInstruction->cfAddr);
+		}
+		else if (ActiveSettings::ShaderPreventInfiniteLoopsEnabled())
 		{
 			// with iteration limit to prevent infinite loops
 			src->addFmt("int loopCounter{} = 0;" _CRLF, (sint32)cfInstruction->cfAddr);

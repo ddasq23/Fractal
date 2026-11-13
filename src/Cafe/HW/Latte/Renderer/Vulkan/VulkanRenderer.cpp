@@ -703,6 +703,13 @@ VulkanRenderer::VulkanRenderer() : Renderer(RendererAPI::Vulkan)
 	deviceFeatures.depthClamp = m_featureControl.deviceFeatures.depth_clamp;
 	deviceFeatures.depthBiasClamp = VK_TRUE;
 
+	// perf/tuning.txt robust_device=1: robust buffer access for every pipeline and vertex input, like on drivers
+	// without VK_EXT_pipeline_robustness (diagnostics: Adreno vs Mali)
+	if (m_featureControl.deviceExtensions.pipeline_robustness && PerfLog::Tunable("robust_device", 0) != 0)
+	{
+		m_featureControl.deviceExtensions.pipeline_robustness = false;
+		cemuLog_log(LogType::Force, "Vulkan: robust_device, per-pipeline robustness off");
+	}
 	if (m_featureControl.deviceExtensions.pipeline_robustness)
 	{
 		deviceFeatures.robustBufferAccess = VK_FALSE;
@@ -2131,6 +2138,13 @@ void VulkanRenderer::QueryAvailableFormats()
 	m_supportedFormatInfo.fmt_bc3 = isFormatOptimal(VK_FORMAT_BC3_UNORM_BLOCK) && isFormatOptimal(VK_FORMAT_BC3_SRGB_BLOCK);
 	m_supportedFormatInfo.fmt_bc4 = isFormatOptimal(VK_FORMAT_BC4_UNORM_BLOCK) && isFormatOptimal(VK_FORMAT_BC4_SNORM_BLOCK);
 	m_supportedFormatInfo.fmt_bc5 = isFormatOptimal(VK_FORMAT_BC5_UNORM_BLOCK) && isFormatOptimal(VK_FORMAT_BC5_SNORM_BLOCK);
+	// perf/tuning.txt bc_decode=1 decodes BC textures on the CPU like on GPUs without BCn (diagnostics: Adreno vs Mali)
+	if (PerfLog::Tunable("bc_decode", 0) != 0)
+	{
+		m_supportedFormatInfo.fmt_bc1 = m_supportedFormatInfo.fmt_bc2 = m_supportedFormatInfo.fmt_bc3 = false;
+		m_supportedFormatInfo.fmt_bc4 = m_supportedFormatInfo.fmt_bc5 = false;
+		cemuLog_log(LogType::Force, "Vulkan: BC textures decoded on the CPU (bc_decode)");
+	}
 	VkFormatProperties fmtProp{};
 	vkGetPhysicalDeviceFormatProperties(m_physicalDevice, VK_FORMAT_D24_UNORM_S8_UINT, &fmtProp);
 	// D24S8

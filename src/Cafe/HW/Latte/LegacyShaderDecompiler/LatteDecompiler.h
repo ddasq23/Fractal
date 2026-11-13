@@ -204,6 +204,7 @@ struct LatteDecompilerShader
 		float ufCurrentValueAlphaTestRef;
 		float ufCurrentValueFragCoordScale[2];
 		sint32 loc_verticesPerInstance;
+		sint32 loc_loopCount; // uf_loopCount, -1 if the shader has no loops
 		sint32 loc_streamoutBufferBase[LATTE_NUM_STREAMOUT_BUFFER];
 		uint32 uniformRangeSize; // entire size of uniform variable block
 	}uniform{ 0 };
@@ -233,6 +234,7 @@ struct LatteDecompilerOutputUniformOffsets
 	sint32 offset_windowSpaceToClipSpaceTransform;
 	sint32 offset_texScale[LATTE_NUM_MAX_TEX_UNITS];
 	sint32 offset_verticesPerInstance{-1};
+	sint32 offset_loopCount{-1};
 	sint32 offset_streamoutBufferBase[LATTE_NUM_STREAMOUT_BUFFER]{ -1, -1, -1, -1 };
 	sint32 offset_endOfBlock; // stores size of uniform variable block
 

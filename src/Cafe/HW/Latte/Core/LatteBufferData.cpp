@@ -190,7 +190,9 @@ bool LatteBufferCache_syncGPUUniformBuffers(LatteDecompilerShader* shader, const
 			continue;
 		hasChange = true;
 		MPTR physicalAddr = LatteGPUState.contextRegister[uniformBufferRegOffset + i * 7 + 0];
-		uint32 uniformSize = LatteGPUState.contextRegister[uniformBufferRegOffset + i * 7 + 1] + 1;
+		// the register holds size-1, 0xFFFFFFFF (whole address space) would wrap to 0
+		const uint32 uniformSizeM1 = LatteGPUState.contextRegister[uniformBufferRegOffset + i * 7 + 1];
+		uint32 uniformSize = uniformSizeM1 == 0xFFFFFFFF ? 0xFFFFFFFF : uniformSizeM1 + 1;
 		if (physicalAddr == MPTR_NULL) [[unlikely]]
 		{
 			g_renderer->buffer_bindUniformBuffer(shaderType, i, 0, 0);

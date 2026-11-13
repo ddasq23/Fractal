@@ -7,6 +7,7 @@
 
 #include "Cafe/HW/Latte/Core/LattePerformanceMonitor.h"
 #include "Cafe/HW/Latte/Core/LatteShader.h"
+#include "Cafe/HW/Latte/Core/LattePM4.h"
 #include "Cafe/HW/Latte/Core/FetchShader.h"
 #include "Cafe/HW/Latte/Core/LatteIndices.h"
 #include "Cafe/OS/libs/gx2/GX2.h"
@@ -466,9 +467,23 @@ void VulkanRenderer::uniformData_updateUniformVars(uint32 shaderStageIndex, Latt
 		{
 			if (shader->uniform.loc_streamoutBufferBase[b] >= 0)
 			{
-				*(uint32*)GET_UNIFORM_DATA_PTR(shader->uniform.loc_streamoutBufferBase[b]) = m_streamoutState.buffer[b].ringBufferOffset;
+				// the shader writes vertex n at base + (gl_VertexIndex + count * gl_InstanceIndex) * stride; the GPU writes the
+				// vertices of a draw one after another from the buffer offset, so take out the draw's first vertex/instance
+				const uint32 stride = LatteGPUState.contextRegister[mmVGT_STRMOUT_VTX_STRIDE_0 + b * 4] << 2;
+				const uint32 skipped = m_streamoutState.baseVertex + m_streamoutState.baseInstance * (uint32)m_streamoutState.verticesPerInstance;
+				*(uint32*)GET_UNIFORM_DATA_PTR(shader->uniform.loc_streamoutBufferBase[b]) = m_streamoutState.buffer[b].ringBufferOffset - skipped * stride;
 			}
 		}
+	}
+	if (shader->uniform.loc_loopCount >= 0)
+	{
+		// loop constants: 32 per stage, pixel, vertex, geometry
+		extern bool g_latteLoopConstSeen;
+		const uint32 stageBase = shader->shaderType == LatteConst::ShaderType::Pixel ? 0 : shader->shaderType == LatteConst::ShaderType::Vertex ? 32 : 64;
+		const uint32* loopConst = LatteGPUState.contextRegister + LATTE_REG_BASE_LOOP_CONST + stageBase;
+		sint32* counts = (sint32*)GET_UNIFORM_DATA_PTR(shader->uniform.loc_loopCount);
+		for (uint32 i = 0; i < 32; i++)
+			counts[i] = g_latteLoopConstSeen ? (sint32)(loopConst[i] & 0xFFF) : 0x7FFFFFFF;
 	}
 	dynamicOffsetInfo.uniformVarBufferOffset[shaderStageIndex] = uniformData_uploadUniformDataBufferGetOffset({(uint8*)uniformBuf, shader->uniform.uniformRangeSize});
 }
@@ -854,8 +869,8 @@ VkDescriptorSetInfo* VulkanRenderer::draw_getOrCreateDescriptorSet(PipelineInfo*
 			{
 				static std::atomic<int> s_diagCount{0};
 				if (s_diagCount.fetch_add(1) < 24)
-					cemuLog_log(LogType::Force, "diag_ps: unit {} tex {}x{} GX2 {:04x} Vk {} mips {} view mip {}+{} mutable {} | min {} mag {} mipmode {} aniso {} lod {:.2f}..{:.2f} bias {:.2f}",
-						relative_textureUnit, baseTexture->width, baseTexture->height, (uint32)baseTexture->format, (sint32)baseTexture->GetFormat(), baseTexture->mipLevels,
+					cemuLog_log(LogType::Force, "diag_ps: unit {} addr {:08x} tex {}x{} GX2 {:04x} Vk {} mips {} view mip {}+{} mutable {} | min {} mag {} mipmode {} aniso {} lod {:.2f}..{:.2f} bias {:.2f}",
+						relative_textureUnit, baseTexture->physAddress, baseTexture->width, baseTexture->height, (uint32)baseTexture->format, (sint32)baseTexture->GetFormat(), baseTexture->mipLevels,
 						textureView->firstMip, textureView->numMip, baseTexture->m_isMutableFormat, (sint32)samplerInfo.minFilter, (sint32)samplerInfo.magFilter, (sint32)samplerInfo.mipmapMode,
 						samplerInfo.anisotropyEnable ? samplerInfo.maxAnisotropy : 0.0f, samplerInfo.minLod, samplerInfo.maxLod, samplerInfo.mipLodBias);
 			}
@@ -1607,8 +1622,24 @@ void VulkanRenderer::MarkSampledTexturesUsed()
 				static_cast<LatteTextureVk*>(view->baseTexture)->MarkUsedInCurrentCommandBuffer();
 }
 
+// diag_frame=N: every draw of frame N with its shaders and render target
+static void DiagFrameDraws()
+{
+	static const sint64 s_frame = PerfLog::Tunable("diag_frame", 0);
+	if (s_frame == 0 || LatteGPUState.frameCounter != (uint32)s_frame)
+		return;
+	const uint32* regs = LatteGPUState.contextRegister;
+	LatteDecompilerShader* vs = LatteSHRC_GetActiveVertexShader();
+	LatteDecompilerShader* ps = LatteSHRC_GetActivePixelShader();
+	cemuLog_log(LogType::Force, "diag_frame f{} vs {:016x} ps {:016x} cb0 {:08x} info {:08x} mask {:08x} blend0 {:08x} colorCtrl {:08x} depth {:08x} prim {}",
+		LatteGPUState.frameCounter, vs ? vs->baseHash : 0, ps ? ps->baseHash : 0, regs[mmCB_COLOR0_BASE], regs[mmCB_COLOR0_INFO],
+		regs[Latte::REGADDR::CB_TARGET_MASK], regs[Latte::REGADDR::CB_BLEND0_CONTROL], regs[Latte::REGADDR::CB_COLOR_CONTROL], regs[Latte::REGADDR::DB_DEPTH_CONTROL],
+		(uint32)LatteGPUState.contextNew.VGT_PRIMITIVE_TYPE.get_PRIMITIVE_MODE());
+}
+
 static bool DiagSkipDraw()
 {
+	DiagFrameDraws();
 	static const sint64 s_skip[4] = { PerfLog::Tunable("skip_ps1", 0), PerfLog::Tunable("skip_ps2", 0), PerfLog::Tunable("skip_ps3", 0), PerfLog::Tunable("skip_ps4", 0) };
 	if (s_skip[0] == 0)
 		return false;
@@ -1619,6 +1650,61 @@ static bool DiagSkipDraw()
 		if (h != 0 && (sint64)ps->baseHash == h)
 			return true;
 	return false;
+}
+
+extern bool _transformFeedbackIsActive;
+
+// Streamout writes the vertices of a draw one after another in the order the GPU processes them, for an indexed draw that is
+// index buffer order. The generated shaders place vertex n at gl_VertexIndex, which for an indexed draw is the index value,
+// so the outputs would end up at the slots of the referenced vertices instead (Watch Dogs builds an index list of the
+// scene nodes to test and reads the results back in list order). For these draws the vertex data is gathered in index
+// order into a temporary buffer and drawn without indices
+bool VulkanRenderer::draw_streamoutWantsDeindex(Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE indexType) const
+{
+	static const bool s_enabled = PerfLog::Tunable("so_deindex", 1) != 0; // perf/tuning.txt
+	if (!s_enabled || !_transformFeedbackIsActive || m_useHostMemoryForCache)
+		return false;
+	if (indexType == Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE::AUTO)
+		return false;
+	if (LatteSHRC_GetActiveGeometryShader())
+		return false;
+	const LattePrimitiveMode primitiveMode = static_cast<LattePrimitiveMode>(LatteGPUState.contextRegister[mmVGT_PRIMITIVE_TYPE]);
+	// list primitives only, their index data is used as is (no restart, no quad expansion)
+	return primitiveMode == LattePrimitiveMode::POINTS || primitiveMode == LattePrimitiveMode::LINES || primitiveMode == LattePrimitiveMode::TRIANGLES;
+}
+
+void VulkanRenderer::draw_deindexVertexBuffersForStreamout(const void* hostIndices, Renderer::INDEX_TYPE hostIndexType, uint32 indexCount, uint32 baseVertex)
+{
+	LatteFetchShader* fetchShader = LatteSHRC_GetActiveFetchShader();
+	const uint32* bufferRegStartPtr = LatteGPUState.contextRegister + mmSQ_VTX_ATTRIBUTE_BLOCK_START;
+	for (auto& bufferGroup : fetchShader->bufferGroups)
+	{
+		if (!bufferGroup.hasVtxIndexAccess)
+			continue; // per instance data stays bound as is
+		const uint32 bufferIndex = bufferGroup.attributeBufferIndex;
+		const uint32* bufferRegs = bufferRegStartPtr + bufferIndex * 7;
+		const MPTR bufferAddress = bufferRegs[0];
+		const uint32 bufferSize = bufferRegs[1] + 1;
+		const uint32 stride = (bufferRegs[2] >> 11) & 0xFFFF;
+		if (bufferAddress == MPTR_NULL || stride == 0)
+			continue;
+		const uint32 outSize = std::max<uint32>(indexCount * stride, 4);
+		auto alloc = memoryManager->getMetalStrideWorkaroundAllocator().AllocateBufferMemory(outSize, 128);
+		const uint8* src = memory_getPointerFromPhysicalOffset(bufferAddress);
+		for (uint32 k = 0; k < indexCount; k++)
+		{
+			const uint32 idx = (hostIndexType == INDEX_TYPE::U16 ? (uint32)((const uint16*)hostIndices)[k] : ((const uint32*)hostIndices)[k]) + baseVertex;
+			uint8* dst = alloc.memPtr + (size_t)k * stride;
+			if ((uint64)idx * stride + stride <= bufferSize)
+				memcpy(dst, src + (size_t)idx * stride, stride);
+			else
+				memset(dst, 0, stride);
+		}
+		buffer_bindVertexStrideWorkaroundBuffer(alloc.vkBuffer, alloc.bufferOffset, bufferIndex, outSize);
+	}
+	// make the next drawcall bind the regular vertex buffers again
+	extern bool g_bufferCacheNodeMoved;
+	g_bufferCacheNodeMoved = true;
 }
 
 void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, uint32 instanceCount, uint32 count, MPTR indexDataMPTR, Latte::LATTE_VGT_DMA_INDEX_TYPE::E_INDEX_TYPE indexType, const LatteDrawcallContext& drawcallContext)
@@ -1642,7 +1728,12 @@ void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, 
 
 	// prepare streamout
 	m_streamoutState.verticesPerInstance = count;
+	m_streamoutState.baseVertex = baseVertex;
+	m_streamoutState.baseInstance = baseInstance;
 	LatteStreamout_PrepareDrawcall(count, instanceCount);
+	const bool streamoutDeindex = draw_streamoutWantsDeindex(indexType);
+	if (streamoutDeindex)
+		m_streamoutState.baseVertex = 0; // drawn without indices from vertex 0, see draw_deindexVertexBuffersForStreamout
 
 	// update uniform vars
 	LatteDecompilerShader* vertexShader = LatteSHRC_GetActiveVertexShader();
@@ -1707,6 +1798,8 @@ void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, 
 		// synchronize vertex and uniform cache and update buffer bindings
 		uint8 stageUniformModifiedMask = 0;
 		LatteBufferCache_Sync(indexMax + baseVertex, baseInstance, instanceCount, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, stageUniformModifiedMask);
+		if (streamoutDeindex && hostIndexType != INDEX_TYPE::NONE)
+			draw_deindexVertexBuffersForStreamout(indexAllocation.mem, hostIndexType, hostIndexCount, baseVertex);
 	}
 
 	PipelineInfo* pipeline_info = draw_getOrCreateGraphicsPipeline(count);
@@ -1785,7 +1878,9 @@ void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, 
 	MarkSampledTexturesUsed();
 	if (!DiagSkipDraw())
 	{
-		if (hostIndexType != INDEX_TYPE::NONE)
+		if (streamoutDeindex && hostIndexType != INDEX_TYPE::NONE)
+			vkCmdDraw(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseInstance);
+		else if (hostIndexType != INDEX_TYPE::NONE)
 			vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
 		else
 			vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
@@ -1815,6 +1910,8 @@ void VulkanRenderer::draw_execute_continued(uint32 baseVertex, uint32 baseInstan
 
 	// prepare streamout
 	m_streamoutState.verticesPerInstance = count;
+	m_streamoutState.baseVertex = baseVertex;
+	m_streamoutState.baseInstance = baseInstance;
 	LatteStreamout_PrepareDrawcall(count, instanceCount);
 
 	// update uniform vars

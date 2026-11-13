@@ -96,6 +96,8 @@ struct LatteDecompilerCFInstruction
 	// for exports and mem write
 	uint32 exportArrayBase{};
 	uint32 exportSourceGPR{};
+	// for loop start
+	uint32 loopConstIndex{};
 	// misc
 	uint32 cfCond{};
 	uint32 popCount{};

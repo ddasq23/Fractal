@@ -301,6 +301,26 @@ namespace GX2
 				fetchShaderPtr->divisors[1]);
 	}
 
+	// Loop variables of a shader: the trip count of each LOOP_START in its program (SQ_LOOP_CONST, 32 per stage:
+	// pixel 0, vertex 32, geometry 64). A shader compiled from a for-loop has no LOOP_BREAK and relies on this count.
+	void GX2SubmitShaderLoopVars(uint32 stageBase, uint32 loopVarCount, MPTR loopVars)
+	{
+		if (loopVarCount == 0 || loopVars == MPTR_NULL)
+			return;
+		loopVarCount = std::min<uint32>(loopVarCount, 32);
+		const uint32be* entries = (const uint32be*)memory_getPointerFromVirtualOffset(loopVars);
+		GX2ReserveCmdSpace(3 * loopVarCount);
+		for (uint32 i = 0; i < loopVarCount; i++)
+		{
+			const uint32 offset = entries[i * 2 + 0];
+			const uint32 value = entries[i * 2 + 1];
+			const uint32 index = offset & 0x7FFF;
+			if (index >= 32)
+				continue;
+			gx2WriteGather_submit(pm4HeaderType3(IT_SET_LOOP_CONST, 2), stageBase + index, value);
+		}
+	}
+
 	void GX2SetVertexShader(GX2VertexShader* vertexShader)
 	{
 		uint32 numOutputIds = vertexShader->regs.vsOutIdTableSize;
@@ -432,14 +452,24 @@ namespace GX2
 				gx2WriteGather_submitU32AsLEArray(vsSemanticTable, vsSemanticTableSize);
 			}
 		}
+		GX2SubmitShaderLoopVars(32, _swapEndianU32(vertexShader->loopVarCount), _swapEndianU32(vertexShader->loopVars));
 	}
 
 	void _GX2SubmitUniformReg(uint32 offsetRegBase, uint32 aluRegisterOffset, uint32be* dataWords, uint32 sizeInU32s)
 	{
-		if(aluRegisterOffset&0x8000)
+		if(aluRegisterOffset&0xFFFF8000)
 		{
-			cemuLog_logDebugOnce(LogType::Force, "_GX2SubmitUniformReg(): Unhandled loop const special case or invalid offset");
-			return;
+			// Integer constant (HLSL i#) used as a loop variable: the loop index is in the upper 16 bits (Injustice: 0x18010,
+			// 0x28360, 0x38364, 0x480b8), the first word is the trip count. GX2 loads it into SQ_LOOP_CONST and also stores the
+			// words as ordinary ALU constants at the offset without the flag
+			const uint32 loopIndex = (aluRegisterOffset >> 16) & 0x1F;
+			if (loopIndex != 0 && sizeInU32s > 0)
+			{
+				const uint32 stageBase = offsetRegBase == 0x400 ? 32 : 0;
+				GX2ReserveCmdSpace(3);
+				gx2WriteGather_submit(pm4HeaderType3(IT_SET_LOOP_CONST, 2), stageBase + loopIndex, ((uint32)dataWords[0] & 0xFFF) | (1u << 24));
+			}
+			aluRegisterOffset &= 0x7FFF;
 		}
 		if((aluRegisterOffset+sizeInU32s) > 0x400)
 		{

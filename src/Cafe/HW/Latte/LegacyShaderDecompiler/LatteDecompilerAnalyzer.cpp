@@ -551,6 +551,8 @@ namespace LatteDecompiler
 	void _initHasUniformVarBlock(LatteDecompilerShaderContext* decompilerContext)
 	{
 		decompilerContext->hasUniformVarBlock = false;
+		if (decompilerContext->analyzer.hasLoops && g_renderer->GetType() == RendererAPI::Vulkan)
+			decompilerContext->hasUniformVarBlock = true; // uf_loopCount
 		if (decompilerContext->shader->uniformMode == LATTE_DECOMPILER_UNIFORM_MODE_REMAPPED)
 			decompilerContext->hasUniformVarBlock = true;
 		else if (decompilerContext->shader->uniformMode == LATTE_DECOMPILER_UNIFORM_MODE_FULL_CFILE)

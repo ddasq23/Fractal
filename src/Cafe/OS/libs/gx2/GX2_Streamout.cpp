@@ -76,7 +76,7 @@ namespace GX2
 			gx2WriteGather_submitU32AsBE((0 << 1) | (bufferIndex << 8));
 			gx2WriteGather_submitU32AsBE(MPTR_NULL);
 			gx2WriteGather_submitU32AsBE(0);
-			gx2WriteGather_submitU32AsBE(memory_virtualToPhysical(streamOutBuffer->ctxPtr.GetMPTR()));
+			gx2WriteGather_submitU32AsBE(0); // offset taken from the packet: start of the buffer
 			gx2WriteGather_submitU32AsBE(0);
 		}
 		else

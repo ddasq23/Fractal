@@ -69,6 +69,19 @@ public:
 		return valueNode->ptr;
 	}
 
+	// tree bounds stored for the value at rangeBegin (0,0 if none)
+	std::pair<TRangeType, TRangeType> GetStoredRange(TRangeType rangeBegin, TNodeObject*& ptr)
+	{
+		ptr = nullptr;
+		if (IsEmpty())
+			return {0, 0};
+		const ValueNode* valueNode = FindFloorValueNode(rangeBegin);
+		if (valueNode == nullptr)
+			return {0, 0};
+		ptr = valueNode->ptr;
+		return {valueNode->rangeBegin, valueNode->rangeEnd};
+	}
+
 	void GetOverlappingRanges(TRangeType rangeBegin, TRangeType rangeEnd, std::vector<TNodeObject*>& results)
 	{
 		results.clear();
@@ -1598,6 +1611,10 @@ void LatteBufferCache_removeSingleNodeFromTree(BufferCacheNode* node)
 
 BufferCacheNode* LatteBufferCache_reserveRange(MPTR physAddress, uint32 size)
 {
+	// an empty range would be added to the tree as a zero sized node, which breaks lookups and removal of its neighbours
+	// (uniform buffers whose size register is 0xFFFFFFFF end up here with size 0)
+	if (size == 0) [[unlikely]]
+		size = 1;
 	MPTR rangeStart = physAddress - (physAddress % CACHE_PAGE_SIZE);
 	MPTR rangeEnd = (physAddress + size + CACHE_PAGE_SIZE_M1) & ~CACHE_PAGE_SIZE_M1;
 
@@ -1834,6 +1851,19 @@ void LatteBufferCache_incrementalCleanup()
 	// evict range if above threshold
 	if (range->GetFrameAge() >= evictionFrameAge)
 	{
+		// the tree must hold exactly this range, RemoveRange asserts otherwise
+		BufferCacheNode* treeNode;
+		const auto stored = g_gpuBufferCache.GetStoredRange(range->GetRangeBegin(), treeNode);
+		if (treeNode != range || stored.first != range->GetRangeBegin() || stored.second != range->GetRangeEnd())
+		{
+			static uint32 s_logged = 0;
+			if (s_logged < 16)
+			{
+				s_logged++;
+				cemuLog_log(LogType::Force, "Buffer cache: node {:08x}-{:08x} not in range tree (tree has {:08x}-{:08x}, same node {}), not evicted", range->GetRangeBegin(), range->GetRangeEnd(), stored.first, stored.second, treeNode == range);
+			}
+			return;
+		}
 		g_gpuBufferCache.RemoveRange(range->GetRangeBegin(), range->GetRangeEnd());
 		delete range;
 	}

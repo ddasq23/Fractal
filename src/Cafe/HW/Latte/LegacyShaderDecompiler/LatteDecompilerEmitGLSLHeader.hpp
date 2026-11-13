@@ -151,6 +151,15 @@ namespace LatteDecompiler
 			}
 		}
 
+		// trip counts of the loop constants (SQ_LOOP_CONST), one int per constant
+		if (decompilerContext->analyzer.hasLoops && rendererType == RendererAPI::Vulkan)
+		{
+			uniformCurrentOffset = (uniformCurrentOffset + 15)&~15;
+			shaderSrc->add("uniform ivec4 uf_loopCount[8];" _CRLF);
+			uniformOffsets.offset_loopCount = uniformCurrentOffset;
+			uniformCurrentOffset += 16 * 8;
+		}
+
 		uniformOffsets.offset_endOfBlock = uniformCurrentOffset;
 		if (rendererType == RendererAPI::Vulkan)
 		{

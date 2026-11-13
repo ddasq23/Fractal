@@ -113,6 +113,7 @@ bool LatteDecompiler_ParseCFInstruction(LatteDecompilerShaderContext* shaderCont
 			// set cond and popCount
 			cfInstruction.cfCond = (cfWord1 >> 8) & 3;
 			cfInstruction.popCount = (cfWord1 >> 0) & 7;
+			cfInstruction.loopConstIndex = (cfWord1 >> 3) & 0x1F; // CF_CONST: which loop constant holds the trip count
 			// set TEX clause related values
 			cfInstruction.addr = addr; // index of first instruction in 64bit words
 			cfInstruction.count = count; // number of instructions (each instruction is 128bit)

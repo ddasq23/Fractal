@@ -757,6 +757,7 @@ static void InitUniformLayoutFromDecompiler(
     }
 
     shader->uniform.loc_verticesPerInstance = offsets.offset_verticesPerInstance;
+    shader->uniform.loc_loopCount = offsets.offset_loopCount;
 
     // Streamout buffers
     for (sint32 t = 0; t < LATTE_NUM_STREAMOUT_BUFFER; t++)

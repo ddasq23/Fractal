@@ -315,35 +315,40 @@ LatteCMDPtr LatteCP_itStreamoutBufferUpdate(LatteCMDPtr cmd, uint32 nWords)
 	uint32 ukn3 = LatteReadCMD();
 
 	// updateControl: bit 0 = store the current offset (BUFFER_FILLED_SIZE) to physicalAddressWrite,
-	// bits 1-2 = where the new offset comes from: 0 packet data (GX2 resets to 0), 1 keep the internal offset,
-	// 2 load it from physicalAddressRead (GX2SetStreamOutContext restoring a context saved by GX2SaveStreamOutContext), 3 no change
+	// bits 1-2 = where the new offset comes from: 0 the fourth word of the packet (GX2 resets with 0, Injustice sends the
+	// position of each mesh in a shared buffer), 1 keep the internal offset, 2 load it from the address in the fourth word
+	// (GX2SetStreamOutContext restoring a context saved by GX2SaveStreamOutContext), 3 no change.
+	// The packet offset and VGT_STRMOUT_BUFFER_OFFSET count DWORDs; the filled size stored to and loaded from memory
+	// counts bytes (titles read it on the CPU to know how much the GPU wrote)
 	const bool storeOffset = (updateControl & 1) != 0;
 	uint32 mode = (updateControl >> 1) & 3;
 	uint32 soIndex = (updateControl >> 8) & 3;
 	uint32& bufferOffsetReg = LatteGPUState.contextRegister[mmVGT_STRMOUT_BUFFER_OFFSET_0 + 4 * soIndex];
-
 	if (storeOffset || mode == 3) // mode 3 without the store bit is not emitted by GX2, it was treated as a store before
 	{
 		// store current offset to memory
 		LatteStreamout_FlushReadbacks();
 		MPTR virtualAddress = memory_physicalToVirtual(physicalAddressWrite);
-		memory_writeU32(virtualAddress + 0x00, bufferOffsetReg);
-		LatteCP_logGpuWrite("StrmoutUpdate", physicalAddressWrite, 4, bufferOffsetReg);
+		memory_writeU32(virtualAddress + 0x00, bufferOffsetReg << 2);
+		LatteCP_logGpuWrite("StrmoutUpdate", physicalAddressWrite, 4, bufferOffsetReg << 2);
 	}
 	if (mode == 0)
 	{
-		// reset pointer
-		bufferOffsetReg = 0;
+		// offset from the packet
+		bufferOffsetReg = physicalAddressRead;
 	}
 	else if (mode == 2)
 	{
 		// continue where a saved context left off
 		MPTR virtualAddress = memory_physicalToVirtual(physicalAddressRead);
-		bufferOffsetReg = memory_readU32(virtualAddress);
+		bufferOffsetReg = memory_readU32(virtualAddress) >> 2;
 		cemuLog_logOnce(LogType::Force, "Latte: streamout offset restored from memory (first: buffer {} offset {})", soIndex, bufferOffsetReg);
 	}
 	return cmd;
 }
+
+// set once the title sends loop constants (SQ_LOOP_CONST: trip count in bits 0-11); until then loops stay unbounded
+bool g_latteLoopConstSeen = false;
 
 template<uint32 registerBaseMode>
 void LatteCP_itSetRegistersGeneric_handleSpecialRanges(uint32 registerStartIndex, uint32 registerEndIndex)
@@ -1285,7 +1290,8 @@ void LatteCP_processCommandBuffer(DrawPassContext& drawPassCtx)
 				break;
 				case IT_SET_LOOP_CONST:
 				{
-					// todo
+					LatteCP_itSetRegistersGeneric<LATTE_REG_BASE_LOOP_CONST>(cmdData, nWords);
+					g_latteLoopConstSeen = true;
 				}
 				break;
 				case IT_SURFACE_SYNC:
@@ -1692,7 +1698,8 @@ void LatteCP_ProcessRingbuffer()
 			}
 			case IT_SET_LOOP_CONST:
 			{
-				// todo
+				LatteCP_itSetRegistersGeneric<LATTE_REG_BASE_LOOP_CONST>(cmd, nWords);
+				g_latteLoopConstSeen = true;
 				break;
 			}
 			case IT_SET_PREDICATION:

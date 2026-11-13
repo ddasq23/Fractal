@@ -296,8 +296,10 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 		~PerfScope() { PerfLog::ShaderCompiled(timer.ElapsedUs(), fromCache, shader->m_shader_module == nullptr); }
 	} perfScope{this};
 	const bool compileWithDebugInfo = ((VulkanRenderer*)g_renderer.get())->IsTracingToolEnabled();
+	// diagnostics that change the generated code (ps_sanitize) must not read or fill the SPIR-V cache
+	static const bool s_diagCodeEdits = PerfLog::Tunable("ps_sanitize", 0) != 0;
 
-	const bool useContentKey = m_isGameShader && !m_isGfxPackShader && s_spirvCache && !compileWithDebugInfo && m_glslCode.size() >= SPIRV_CONTENT_KEY_MIN_SOURCE;
+	const bool useContentKey = m_isGameShader && !m_isGfxPackShader && s_spirvCache && !compileWithDebugInfo && !s_diagCodeEdits && m_glslCode.size() >= SPIRV_CONTENT_KEY_MIN_SOURCE;
 	uint64 contentH1 = 0, contentH2 = 0;
 	if (useContentKey)
 	{
@@ -313,11 +315,13 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 	}
 
 	// try to retrieve SPIR-V module from cache
-	if (s_isLoadingShadersVk && (m_isGameShader && !m_isGfxPackShader) && s_spirvCache && !compileWithDebugInfo)
+	if (s_isLoadingShadersVk && (m_isGameShader && !m_isGfxPackShader) && s_spirvCache && !compileWithDebugInfo && !s_diagCodeEdits)
 	{
 		cemu_assert_debug(m_baseHash != 0);
 		uint64 h1, h2;
 		GenerateShaderPrecompiledCacheFilename(m_type, m_baseHash, m_auxHash, h1, h2);
+		if (m_glslCode.find("uf_loopCount") != std::string::npos)
+			h2 ^= 0x4C4F4F5031ull; // entries from before loop counts existed must not be reused
 		std::vector<uint8> cacheFileData;
 		if (s_spirvCache->GetFile({ h1, h2 }, cacheFileData))
 		{
@@ -419,10 +423,12 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 	//forceLogRemoveMe_printf("Shader GLSL-to-SPIRV compilation took %lfms Size %08x", timeDur, spirvBuffer.size()*4);
 
 	// store in cache, unless it got compiled with debug info or is a modified shader from a gfx pack
-	if (s_spirvCache && m_isGameShader && m_isGfxPackShader == false && !compileWithDebugInfo)
+	if (s_spirvCache && m_isGameShader && m_isGfxPackShader == false && !compileWithDebugInfo && !s_diagCodeEdits)
 	{
 		uint64 h1, h2;
 		GenerateShaderPrecompiledCacheFilename(m_type, m_baseHash, m_auxHash, h1, h2);
+		if (m_glslCode.find("uf_loopCount") != std::string::npos)
+			h2 ^= 0x4C4F4F5031ull;
 		s_spirvCache->AddFile({ h1, h2 }, (const uint8*)spirvBuffer.data(), spirvBuffer.size() * sizeof(uint32));
 	}
 	if (useContentKey)

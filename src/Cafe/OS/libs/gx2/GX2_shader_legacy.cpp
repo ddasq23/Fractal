@@ -75,6 +75,8 @@ void gx2Export_GX2SetPixelShader(PPCInterpreter_t* hCPU)
 		mmSPI_INPUT_Z-0xA000,
 		_swapEndianU32(pixelShader->regs[40]));
 
+	GX2::GX2SubmitShaderLoopVars(0, _swapEndianU32(pixelShader->loopVarCount), _swapEndianU32(pixelShader->loopVars));
+
 	osLib_returnFromFunction(hCPU, 0);
 }
 

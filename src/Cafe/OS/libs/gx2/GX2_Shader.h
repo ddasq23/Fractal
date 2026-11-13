@@ -28,6 +28,8 @@ static_assert(sizeof(betype<GX2FetchShader::FetchShaderType>) == 4);
 
 namespace GX2
 {
+	void GX2SubmitShaderLoopVars(uint32 stageBase, uint32 loopVarCount, MPTR loopVars);
+
 	enum class GX2_SHADER_MODE : uint32
 	{
 		UNIFORM_REGISTER = 0,
@@ -68,8 +70,8 @@ struct GX2VertexShader
 	/* +0x0E8 */ MPTR uniformVarInfo;
 	/* +0x0EC */ uint32 uknEC;
 	/* +0x0F0 */ MPTR uknF0;
-	/* +0x0F4 */ uint32 uknF4;
-	/* +0x0F8 */ MPTR uknF8; // each entry has 8 byte?
+	/* +0x0F4 */ uint32 loopVarCount;
+	/* +0x0F8 */ MPTR loopVars; // 8 bytes each: offset, value
 	/* +0x0FC */ uint32	samplerCount;
 	/* +0x100 */ MPTR samplerInfo;
 	/* +0x104 */ uint32 attribCount;
@@ -115,8 +117,8 @@ typedef struct _GX2PixelShader
 	/* +0xBC */ MPTR uniformVarInfo;
 	/* +0xC0 */ uint32 uknC0;
 	/* +0xC4 */ MPTR uknC4;
-	/* +0xC8 */ uint32 uknC8;
-	/* +0xCC */ MPTR uknCC;
+	/* +0xC8 */ uint32 loopVarCount;
+	/* +0xCC */ MPTR loopVars; // 8 bytes each: offset, value
 	/* +0xD0 */ uint32 samplerCount;
 	/* +0xD4 */ MPTR samplerInfo;
 	/* +0xD8 */ GX2RBuffer rBuffer;
