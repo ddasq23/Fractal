@@ -11,7 +11,9 @@
 #
 # Scenes live in tools/perf/scenes/<scene>.txt: a header with "# title:", "# title_id:" and
 # "# duration:", then the input script (see LattePerfLog.h). Before each run the game's save is
-# deleted (only the emulated save inside the app's own folder), so every run starts the same way.
+# deleted (only the emulated save inside the app's own folder), so every run starts the same way;
+# it is pulled to ~/.cache/fractal-perf/save_backups/<title id>/<time> first (SAVE_BACKUPS overrides).
+# KEEP_SAVE=1 leaves it in place.
 # The "Record performance log" setting must be on and controller 1 must be a Wii U GamePad.
 # PKG selects the app (default dev.dfd.fractal).
 set -u
@@ -32,14 +34,26 @@ $A shell am force-stop $PKG
 # without an emulated GamePad the input script has nothing to press and the scene never starts
 $A shell cat "$FILES/controllerProfiles/controller0.xml" 2>/dev/null | grep -q 'Wii U GamePad' \
   || { echo "$SCENE: controller 1 is not a Wii U GamePad (controllerProfiles/controller0.xml)"; exit 1; }
+# every save that is about to be removed or replaced is copied to the PC first (it may be the player's own progress)
+backup_save() {
+  local dir="$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}"
+  $A shell ls "$dir" >/dev/null 2>&1 || return 0
+  local dst="${SAVE_BACKUPS:-$HOME/.cache/fractal-perf/save_backups}/$TID/$(date +%Y%m%d-%H%M%S)"
+  mkdir -p "$dst"
+  $A pull "$dir" "$dst" >/dev/null 2>&1 || { echo "$SCENE: could not back up the save, not deleting it"; exit 1; }
+}
 # KEEP_SAVE=1 keeps the title's save (scenes that need menus past the first boot)
-[ "${KEEP_SAVE:-0}" = 1 ] || $A shell rm -rf "$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}"
+if [ "${KEEP_SAVE:-0}" != 1 ]; then
+  backup_save
+  $A shell rm -rf "$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}"
+fi
 # "# save: <name>" starts from a saved game: the folder SAVES/<name> (default ~/.cache/fractal-perf/saves, a copy of
 # mlc01/usr/save/<high>/<low> made after playing to that point) replaces the title's save before each run
 SAVE_NAME=$(sed -n 's/^# save: *//p' "$FILE")
 if [ -n "$SAVE_NAME" ]; then
   SRC="${SAVES:-$HOME/.cache/fractal-perf/saves}/$SAVE_NAME"
   [ -d "$SRC" ] || { echo "$SCENE: save $SRC not found"; exit 1; }
+  [ "${KEEP_SAVE:-0}" = 1 ] && backup_save
   $A shell rm -rf "$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}"
   $A shell mkdir -p "$FILES/mlc01/usr/save/${TID:0:8}"
   $A push "$SRC" "$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}" >/dev/null || { echo "$SCENE: could not restore save $SAVE_NAME"; exit 1; }

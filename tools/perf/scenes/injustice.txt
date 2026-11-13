@@ -1,0 +1,36 @@
+# title: Injustice: Gods Among Us
+# title_id: 0005000010111700
+# duration: 300
+# window: 210 290
+# scene: first look from a new save: boot, then A/START every few seconds through notices, menus and cutscenes into the game
+40 A
+46 A
+52 A
+58 A
+64 A
+70 A
+75 PLUS
+76 A
+82 A
+88 A
+94 A
+100 A
+106 A
+112 A
+115 PLUS
+118 A
+124 A
+130 A
+136 A
+142 A
+148 A
+154 A
+155 PLUS
+160 A
+166 A
+172 A
+178 A
+184 A
+190 A
+195 PLUS
+196 A

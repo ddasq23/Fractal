@@ -1,0 +1,35 @@
+# title: Assassin's Creed® IV Black Flag
+# title_id: 0005000010138b00
+# duration: 600
+# window: 480 590
+# scene: ac4_isle with slack for the interpreter: PLUS/A alternate until 330 s, then the character stands still
+60 PLUS
+70 A
+80 A
+90 PLUS
+100 A
+110 A
+120 PLUS
+130 A
+140 A
+150 PLUS
+160 A
+170 A
+180 PLUS
+190 A
+200 A
+210 PLUS
+220 A
+230 A
+240 PLUS
+250 A
+260 A
+270 PLUS
+280 A
+290 A
+300 PLUS
+310 A
+320 A
+330 PLUS
+340 A
+350 A

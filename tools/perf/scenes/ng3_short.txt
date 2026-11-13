@@ -1,0 +1,26 @@
+# title: NINJA GAIDEN 3: Razor's Edge
+# title_id: 0005000010110a00
+# duration: 150
+# window: 100 140
+# scene: first look from a new save: boot, then A/START every few seconds through notices, menus and cutscenes into the game
+40 A
+46 A
+52 A
+58 A
+64 A
+70 A
+75 PLUS
+76 A
+82 A
+88 A
+94 A
+100 A
+106 A
+112 A
+115 PLUS
+118 A
+124 A
+130 A
+136 A
+142 A
+148 A

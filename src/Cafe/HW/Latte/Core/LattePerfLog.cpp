@@ -331,7 +331,9 @@ namespace PerfLog
 		f << "cpus: " << CpuCount() << "\n";
 		f << "gpu: " << gpu << "\n";
 		f << "driver: " << driver << "\n";
+#if BOOST_PLAT_ANDROID
 		f << "custom_driver: " << (config.custom_driver_path.GetValue().empty() ? "none" : config.custom_driver_path.GetValue()) << "\n";
+#endif
 		f << "async_compile: " << (config.async_compile.GetValue() ? 1 : 0) << "\n";
 		f << "vsync: " << config.vsync.GetValue() << "\n";
 		f << "accurate_barriers: " << (config.vk_accurate_barriers.GetValue() ? 1 : 0) << "\n";

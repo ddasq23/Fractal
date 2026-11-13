@@ -1,0 +1,31 @@
+# title: Assassin's Creed® IV Black Flag
+# title_id: 0005000010138b00
+# duration: 240
+# window: 180 230
+# scene: continue from the user's save (island): A every 6 s through boot notices, title and main menu
+30 A
+36 A
+42 A
+48 A
+54 A
+60 A
+66 A
+72 A
+78 A
+84 A
+90 A
+96 A
+102 A
+108 A
+114 A
+120 A
+126 A
+132 A
+138 A
+144 A
+150 A
+156 A
+162 A
+168 A
+174 A
+180 A

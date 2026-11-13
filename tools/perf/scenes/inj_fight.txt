@@ -1,0 +1,26 @@
+# title: Injustice: Gods Among Us
+# title_id: 0005000010111700
+# duration: 175
+# window: 150 205
+# scene: Single Player, NO to the tutorial, Single Fight, A through character and arena select into the fight
+40 A
+46 A
+54 B
+60 RIGHT
+62 RIGHT
+64 RIGHT
+67 A
+73 A
+78 A
+83 A
+88 A
+93 A
+98 A
+103 A
+108 A
+113 A
+118 A
+123 A
+128 A
+133 A
+138 A

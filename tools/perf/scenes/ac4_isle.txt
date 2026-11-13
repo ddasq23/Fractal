@@ -1,0 +1,13 @@
+# title: Assassin's Creed® IV Black Flag
+# title_id: 0005000010138b00
+# duration: 300
+# window: 200 290
+# scene: continue from the player's save: PLUS at the title, A through the menu, then the character stands still
+60 PLUS
+70 PLUS
+80 A
+88 A
+96 A
+104 A
+112 A
+120 A
