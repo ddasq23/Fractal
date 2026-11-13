@@ -9,6 +9,8 @@
 #include "Cafe/OS/libs/coreinit/coreinit_FS.h"
 #include "Cafe/OS/libs/coreinit/coreinit_Time.h"
 #include "Cafe/OS/libs/vpad/vpad.h"
+#include "input/InputManager.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "OS/libs/coreinit/coreinit_DynLoad.h"
 
 namespace nn
@@ -473,6 +475,48 @@ namespace erreula
 				hasRightButtonPressed = ImGui::Button(button2.c_str(), { width2, 0 });
 				break;
 			}
+			}
+			// controller: A picks the left (or only) button, B the right one. ImGui gamepad navigation never focuses these
+			// buttons, so on handhelds without a mouse the dialog could not be closed and the game stayed stuck behind it
+			{
+				static bool s_prevA = true, s_prevB = true;
+				bool aDown = false, bDown = false;
+				auto& inputManager = InputManager::instance();
+				for (size_t i = 0; i < InputManager::kMaxController; ++i)
+				{
+					const auto controller = inputManager.get_controller(i);
+					if (!controller)
+						continue;
+					aDown |= controller->is_a_down();
+					bDown |= controller->is_b_down();
+				}
+				// presses from a perf scene script reach the GamePad without a controller
+				const auto& script = PerfLog::InputScript();
+				if (!script.empty())
+				{
+					const double now = PerfLog::SessionSeconds();
+					for (const auto& press : script)
+					{
+						if (now < press.startS || now >= press.endS)
+							continue;
+						aDown |= press.button == "A";
+						bDown |= press.button == "B";
+					}
+				}
+				if (g_errEula.errEulaInstance->GetState() == ErrEulaState::Visible)
+				{
+					if (aDown && !s_prevA)
+						hasLeftButtonPressed = true;
+					if (bDown && !s_prevB && appearArg.errorType == ErrorDialogType::TextTwoButton)
+						hasRightButtonPressed = true;
+					s_prevA = aDown;
+					s_prevB = bDown;
+				}
+				else
+				{
+					// a press that is still held while the dialog fades in must not close it
+					s_prevA = s_prevB = true;
+				}
 			}
 			if (!g_errEula.errEulaInstance->IsDecideSelectButtonError())
 			{
