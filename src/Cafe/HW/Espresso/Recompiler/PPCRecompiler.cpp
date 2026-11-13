@@ -478,13 +478,46 @@ void PPCRecompiler_recompileAtAddress(uint32 address)
 		cemu_assert_debug(false);
 	}
 
-	// todo - use info from previously compiled ranges to determine full size of this function (and merge all the entryAddresses)
+	// Functions that chain into each other through tail calls are tracked as one function of hundreds of ranges.
+	// The IML passes are far from linear in the number of segments (332 KB of PPC code in 473 ranges took over
+	// 30 s per translation on a Snapdragon 865, and every entry point translated all of it again), so past this
+	// size only the range that holds the address is translated and the other ranges are reached as far jumps.
+	static const uint32 s_maxFunctionBytes = (uint32)PerfLog::Tunable("jit_max_function_kb", 48) * 1024;
+	if (funcBoundaries.GetTotalSize() > s_maxFunctionBytes)
+		funcBoundaries.RestrictToRangeOf(address);
 
 	// collect all currently known entry points for this range
 	s_ppcRecompilerState.recompilerSpinlock.lock();
 	std::set<uint32> entryAddresses;
 	entryAddresses.emplace(address);
+	// Entry points of an earlier translation of this range (an address in the jump table that points
+	// into recompiled code) stay entry points, otherwise the new translation drops them and the next
+	// jump there queues yet another full recompilation.
+	for (uint32 v = range.startAddress; v < range.startAddress + range.length; v += 4)
+	{
+		PPCREC_JUMP_ENTRY e = ppcRecompilerInstanceData->ppcRecompilerDirectJumpTable[v / 4];
+		if (e != PPCRecompiler_leaveRecompilerCode_unvisited && e != PPCRecompiler_leaveRecompilerCode_visited)
+			entryAddresses.emplace(v);
+	}
 	s_ppcRecompilerState.recompilerSpinlock.unlock();
+	// MACRO_BL leaves the function and the callee returns through the jump table, so the instruction
+	// after every call is an entry point. Without this, each call site found later recompiles the whole
+	// function again, which for functions of thousands of instructions keeps the recompiler busy for minutes.
+	for (uint32 v = range.startAddress; v + 4 < range.startAddress + range.length; v += 4)
+	{
+		const uint32 opcode = memory_readU32(v);
+		const uint32 primary = opcode >> 26;
+		bool isCall = false;
+		if (primary == 18 || primary == 16) // b(l), bc(l)
+			isCall = (opcode & 1) != 0;
+		else if (primary == 19) // bclrl, bcctrl
+		{
+			const uint32 xo = (opcode >> 1) & 0x3FF;
+			isCall = (xo == 16 || xo == 528) && (opcode & 1) != 0;
+		}
+		if (isCall)
+			entryAddresses.emplace(v + 4);
+	}
 
 	std::vector<std::pair<MPTR, uint32>> functionEntryPoints;
 	PPCRecFunction_t* func = PPCRecompiler_recompileFunction(range, entryAddresses, functionEntryPoints, funcBoundaries);

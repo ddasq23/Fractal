@@ -1968,6 +1968,11 @@ bool PPCRecompiler_decodePPCInstruction(ppcImlGenContext_t* ppcImlGenContext)
 					unsupportedInstructionFound = true;
 				ppcImlGenContext->hasFPUInstruction = true;
 				break;
+			case 4: // PS nabs
+				if (PPCRecompilerImlGen_PS_NABS(ppcImlGenContext, opcode) == false)
+					unsupportedInstructionFound = true;
+				ppcImlGenContext->hasFPUInstruction = true;
+				break;
 			case 8: // PS abs
 				if (PPCRecompilerImlGen_PS_ABS(ppcImlGenContext, opcode) == false)
 					unsupportedInstructionFound = true;
@@ -2289,6 +2294,9 @@ bool PPCRecompiler_decodePPCInstruction(ppcImlGenContext_t* ppcImlGenContext)
 			break;
 		case 86:
 			// DCBF -> No-Op
+			break;
+		case 278:
+			// DCBT (cache touch hint) -> No-Op
 			break;
 		case 87: // LBZX
 			PPCRecompilerImlGen_LOAD_INDEXED(ppcImlGenContext, opcode, 8, false, true, false);

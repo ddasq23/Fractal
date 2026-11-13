@@ -390,6 +390,28 @@ struct AArch64GenContext_t : CodeGenerator
 
 	// cold code emitted after the main code
 	std::vector<std::function<void()>> m_coldCode;
+	size_t m_coldCodeFirstUse = 0; // code offset of the first branch into the pending cold code
+
+	void addColdCode(std::function<void()>&& code)
+	{
+		if (m_coldCode.empty())
+			m_coldCodeFirstUse = getSize();
+		m_coldCode.emplace_back(std::move(code));
+	}
+
+	// cold code is entered by b.cond (+/-1MB). Functions can generate more than that (Ninja Gaiden 3: Razor's Edge), so
+	// pending cold code is emitted between segments, behind a branch, before the first branch into it gets out of reach
+	void flushColdCodeIfFar()
+	{
+		if (m_coldCode.empty() || getSize() - m_coldCodeFirstUse < 0x40000)
+			return;
+		Label skipColdCode;
+		b(skipColdCode);
+		for (auto& code : m_coldCode)
+			code();
+		m_coldCode.clear();
+		L(skipColdCode);
+	}
 
 	std::map<IMLSegment*, size_t> segmentStarts;
 	void storeSegmentStart(IMLSegment* imlSegment)
@@ -1533,7 +1555,7 @@ bool AArch64GenContext_t::fpr_store(IMLInstruction* imlInstruction, bool indexed
 			ubfx(TEMP_GPR2.XReg, TEMP_GPR2.XReg, 29, 30);
 			orr(TEMP_GPR2.WReg, TEMP_GPR2.WReg, TEMP_GPR1.WReg, ShMod::LSL, 30);
 			L(done);
-			m_coldCode.emplace_back([this, denormal, done, dataDReg]() mutable
+			addColdCode([this, denormal, done, dataDReg]() mutable
 			{
 				// scale denormals before extracting the mantissa
 				L(denormal);
@@ -1770,8 +1792,26 @@ void AArch64GenContext_t::call_imm(IMLInstruction* imlInstruction)
 }
 
 static bool PPCRecompiler_generateAArch64CodeWithJumpSlots(struct PPCRecFunction_t* PPCRecFunction, struct ppcImlGenContext_t* ppcImlGenContext, size_t jumpSlots, bool& jumpsOutOfReach);
+static bool PPCRecompiler_generateAArch64CodeInner(struct PPCRecFunction_t* PPCRecFunction, struct ppcImlGenContext_t* ppcImlGenContext);
 
+// xbyak throws on operands it can't encode (an immediate or offset out of range). Losing one function to the interpreter
+// is better than the uncaught exception aborting the process (Ninja Gaiden 3: Razor's Edge, right after boot)
 bool PPCRecompiler_generateAArch64Code(struct PPCRecFunction_t* PPCRecFunction, struct ppcImlGenContext_t* ppcImlGenContext)
+{
+	try
+	{
+		return PPCRecompiler_generateAArch64CodeInner(PPCRecFunction, ppcImlGenContext);
+	}
+	catch (const std::exception& e)
+	{
+		static std::atomic<uint32> s_logged = 0;
+		if (s_logged.fetch_add(1) < 20)
+			cemuLog_log(LogType::Force, "Recompiler: AArch64 code generation for {:08x} failed ({}), function stays interpreted", PPCRecFunction->ppcAddress, e.what());
+		return false;
+	}
+}
+
+static bool PPCRecompiler_generateAArch64CodeInner(struct PPCRecFunction_t* PPCRecFunction, struct ppcImlGenContext_t* ppcImlGenContext)
 {
 	static const bool s_singleSlotJumps = PerfLog::Tunable("jit_short_jumps", 1) != 0;
 	bool jumpsOutOfReach = false;
@@ -1798,6 +1838,7 @@ static bool PPCRecompiler_generateAArch64CodeWithJumpSlots(struct PPCRecFunction
 	{
 		if (codeGenerationFailed)
 			break;
+		aarch64GenContext.flushColdCodeIfFar();
 		segIt->x64Offset = aarch64GenContext.getSize();
 
 		aarch64GenContext.storeSegmentStart(segIt);

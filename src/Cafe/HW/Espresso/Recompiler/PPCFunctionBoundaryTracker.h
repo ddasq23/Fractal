@@ -58,6 +58,31 @@ public:
 		return r;
 	}
 
+	uint32 GetTotalSize() const
+	{
+		uint32 total = 0;
+		for (auto& it : map_ranges)
+			total += it->length;
+		return total;
+	}
+
+	// drops every range except the one containing the address; branches into the dropped ranges then leave
+	// the function through the jump table, like any other branch to code outside of it
+	void RestrictToRangeOf(uint32 address)
+	{
+		for (auto it = map_ranges.begin(); it != map_ranges.end();)
+		{
+			PPCRange_t* r = *it;
+			if (address >= r->startAddress && address < r->getEndAddress())
+			{
+				++it;
+				continue;
+			}
+			delete r;
+			it = map_ranges.erase(it);
+		}
+	}
+
 	bool ContainsAddress(uint32 addr) const
 	{
 		for (auto& it : map_ranges)
