@@ -347,6 +347,21 @@ GraphicPack2::GraphicPack2(fs::path rulesPath, IniParser& rules)
 	}
 	m_virtualPath = *option_path;
 
+	// Fractal: community packs that fix emulation bugs we verified on our test devices are on by default, like packs
+	// with "default = true". Users can still turn them off, that choice is saved. Only exact, tested packs belong here:
+	// the Workaround categories also hold GPU vendor specific fixes, cheats and fixes with side effects
+	static const char* s_recommendedPacks[] = {
+		"Need for Speed Most Wanted U/Workaround/Bloom Fix", // white blown out foliage at night
+	};
+	for (const char* recommended : s_recommendedPacks)
+	{
+		if (boost::iequals(m_virtualPath, recommended))
+		{
+			m_default_enabled = true;
+			m_enabled = true;
+		}
+	}
+
 	auto option_gp_name = rules.FindOption("name");
 	if (option_gp_name)
 		m_name = *option_gp_name;

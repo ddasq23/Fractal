@@ -43,6 +43,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -81,9 +83,19 @@ import dev.dfd.fractal.settings.appearance.LibraryViewPicker
 import dev.dfd.fractal.settings.appearance.ThemePicker
 import dev.dfd.fractal.settings.appearance.WallpaperPicker
 import dev.dfd.fractal.settings.appearance.updateGuiSettings
+import dev.dfd.fractal.drivers.DriversContent
+import dev.dfd.fractal.drivers.DriversViewModel
 import dev.dfd.fractal.settings.gamespath.GamesPathsViewModel
 import dev.dfd.fractal.settings.general.GeneralSettingsViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.runtime.LaunchedEffect
+import dev.dfd.fractal.graphicpacks.GraphicPacksDownloadStatus
+import dev.dfd.fractal.graphicpacks.GraphicPacksDownloader
 
 private enum class Step { LANGUAGE, APPEARANCE, GAMES, KEYS, GRAPHIC_PACKS, DRIVER, DONE }
 
@@ -163,7 +175,7 @@ fun WelcomeScreen(navigation: WelcomeNavigation) {
                         Step.GAMES -> GamesStep()
                         Step.KEYS -> KeysStep()
                         Step.GRAPHIC_PACKS -> GraphicPacksStep(navigation.goToGraphicPacks)
-                        Step.DRIVER -> DriverStep(navigation.goToCustomDrivers)
+                        Step.DRIVER -> DriverStep()
                         Step.DONE -> DoneStep()
                     }
                 }
@@ -344,24 +356,71 @@ private fun KeysStep() {
     Body(tr("You can open the Fractal folder from the library options (Start)."))
 }
 
+/** The setup's graphic packs download keeps going when the user moves on to the next step or leaves the setup. */
+private object SetupPacksDownload {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    val status = MutableStateFlow<GraphicPacksDownloadStatus?>(null)
+    val installedVersion = MutableStateFlow<String?>(null)
+}
+
 @Composable
 private fun GraphicPacksStep(goToGraphicPacks: () -> Unit) {
+    val context = LocalContext.current
+    val versionFile = remember { context.getExternalFilesDir(null)?.resolve("graphicPacks/downloadedGraphicPacks/version.txt") }
+    LaunchedEffect(Unit) {
+        SetupPacksDownload.installedVersion.value = versionFile?.takeIf { it.exists() }?.readText()?.trim()
+    }
+    val installedVersion by SetupPacksDownload.installedVersion.collectAsState()
+    val status by SetupPacksDownload.status.collectAsState()
+    val busy = status == GraphicPacksDownloadStatus.CHECKING_VERSION || status == GraphicPacksDownloadStatus.DOWNLOADING || status == GraphicPacksDownloadStatus.EXTRACTING
+
     Body(
-        tr("Graphic packs change resolution, fix issues and add enhancements per game. They are optional; you can download the community collection from the graphic packs screen.")
+        tr("Graphic packs are strongly recommended. Many Wii U games need a community fix from them to look or run right, and Fractal turns on the fixes it has tested by itself when you start the game. They also change the resolution and frame rate per game.")
+    )
+    InfoPanel {
+        InfoLine(tr("Graphic packs"), installedVersion ?: tr("not downloaded"))
+        status?.let { InfoLine(tr("Download"), graphicPacksStatusText(it)) }
+    }
+    FractalButton(
+        if (installedVersion == null) tr("Download graphic packs (recommended)") else tr("Check for updates"),
+        onClick = {
+            if (busy) return@FractalButton
+            val root = context.getExternalFilesDir(null)
+            if (root == null) {
+                SetupPacksDownload.status.value = GraphicPacksDownloadStatus.ERROR
+                return@FractalButton
+            }
+            SetupPacksDownload.scope.launch {
+                GraphicPacksDownloader().download(root)
+                    .catch { SetupPacksDownload.status.value = GraphicPacksDownloadStatus.ERROR }
+                    .collect {
+                        SetupPacksDownload.status.value = it
+                        if (it == GraphicPacksDownloadStatus.FINISHED_DOWNLOADING)
+                            SetupPacksDownload.installedVersion.value = versionFile?.takeIf { f -> f.exists() }?.readText()?.trim()
+                    }
+            }
+        },
+        icon = FractalIcons.Download,
     )
     FractalButton(tr("Open graphic packs"), onClick = goToGraphicPacks, icon = FractalIcons.Layers)
 }
 
 @Composable
-private fun DriverStep(goToCustomDrivers: () -> Unit) {
+private fun graphicPacksStatusText(status: GraphicPacksDownloadStatus): String = when (status) {
+    GraphicPacksDownloadStatus.CHECKING_VERSION -> tr("checking the latest version...")
+    GraphicPacksDownloadStatus.DOWNLOADING -> tr("downloading...")
+    GraphicPacksDownloadStatus.EXTRACTING -> tr("installing...")
+    GraphicPacksDownloadStatus.FINISHED_DOWNLOADING -> tr("done")
+    GraphicPacksDownloadStatus.NO_UPDATES_AVAILABLE -> tr("already up to date")
+    GraphicPacksDownloadStatus.ERROR -> tr("failed, check the internet connection and try again")
+}
+
+@Composable
+private fun ColumnScope.DriverStep(viewModel: DriversViewModel = viewModel()) {
     Body(
-        tr("The system driver works on every device. A recommended driver per GPU will be suggested here once testing is done.")
+        tr("The system driver works on every device. On Adreno, a Turnip driver often runs games faster or fixes graphics: pick a developer and download one below. You can change it later in Settings > Drivers.")
     )
-    InfoPanel {
-        InfoLine(tr("Current"), tr("System driver"))
-        InfoLine(tr("Recommendation"), tr("coming after device tests"))
-    }
-    FractalButton(tr("Custom drivers"), onClick = goToCustomDrivers, icon = FractalIcons.Chip)
+    DriversContent(viewModel)
 }
 
 @Composable

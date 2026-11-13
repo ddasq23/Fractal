@@ -10,6 +10,8 @@ import android.text.format.DateUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,18 +56,15 @@ import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.common.ui.theme.FractalTheme
 import dev.dfd.fractal.common.ui.theme.fractalSurface
 
-/** Releases shown per repository: the most recent ones, and up to [RELEASES_PER_SOURCE] when expanded. */
-private const val RECENT_RELEASES = 2
-private const val RELEASES_PER_SOURCE = 8
+/** Releases listed before "show all" for the selected developer. */
+private const val RECENT_RELEASES = 12
+
+/** Developer selected first: MrPurple666's Turnip for Adreno 6xx/7xx, otherwise the first source. */
+private const val PREFERRED_SOURCE = "MrPurple666/purple-turnip"
 
 @Composable
 fun DriversScreen(navigateBack: () -> Unit, viewModel: DriversViewModel = viewModel()) {
     val gpu by viewModel.gpu.collectAsStateWithLifecycle()
-    val installed by viewModel.installed.collectAsStateWithLifecycle()
-    val global by viewModel.globalDriver.collectAsStateWithLifecycle()
-    val sources by viewModel.sources.collectAsStateWithLifecycle()
-    val downloads by viewModel.downloads.collectAsStateWithLifecycle()
-    val message by viewModel.message.collectAsStateWithLifecycle()
     val loaded by viewModel.loaded.collectAsStateWithLifecycle()
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(viewModel::importFromFile)
@@ -82,55 +81,87 @@ fun DriversScreen(navigateBack: () -> Unit, viewModel: DriversViewModel = viewMo
             if (viewModel.visibleSources(gpu).isNotEmpty()) add(ButtonHint(PadButton.Y, tr("Refresh")) { viewModel.refresh() })
         },
     ) {
-        GpuCard(gpu, viewModel.supportsCustomDrivers)
-        message?.let { Banner(it) }
+        DriversContent(viewModel)
+    }
+}
 
-        SectionTitle(tr("Installed"))
+/** GPU, installed drivers and the download catalog; shared by the Drivers screen and the setup's driver step. */
+@Composable
+fun ColumnScope.DriversContent(viewModel: DriversViewModel) {
+    val gpu by viewModel.gpu.collectAsStateWithLifecycle()
+    val installed by viewModel.installed.collectAsStateWithLifecycle()
+    val global by viewModel.globalDriver.collectAsStateWithLifecycle()
+    val sources by viewModel.sources.collectAsStateWithLifecycle()
+    val downloads by viewModel.downloads.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::importFromFile)
+    }
+
+    GpuCard(gpu, viewModel.supportsCustomDrivers)
+    message?.let { Banner(it) }
+
+    SectionTitle(tr("Installed"))
+    DriverRow(
+        title = tr("System driver"),
+        detail = tr("The driver that came with the device"),
+        inUse = global == null,
+        onUse = { viewModel.select(null) },
+    )
+    installed.forEach { item ->
+        val meta = item.driver.metadata
         DriverRow(
-            title = tr("System driver"),
-            detail = tr("The driver that came with the device"),
-            inUse = global == null,
-            onUse = { viewModel.select(null) },
+            title = meta.name,
+            detail = listOfNotNull(
+                meta.driverVersion.takeIf { it.isNotBlank() },
+                item.source?.let { "${it.owner}/${it.repo} · ${it.tag}" } ?: tr("Imported from file"),
+            ).joinToString("  ·  "),
+            inUse = global == item.driver.path,
+            onUse = { viewModel.select(item.driver.path) },
+            onDelete = { viewModel.delete(item) },
         )
-        installed.forEach { item ->
-            val meta = item.driver.metadata
-            DriverRow(
-                title = meta.name,
-                detail = listOfNotNull(
-                    meta.driverVersion.takeIf { it.isNotBlank() },
-                    item.source?.let { "${it.owner}/${it.repo} · ${it.tag}" } ?: tr("Imported from file"),
-                ).joinToString("  ·  "),
-                inUse = global == item.driver.path,
-                onUse = { viewModel.select(item.driver.path) },
-                onDelete = { viewModel.delete(item) },
-            )
-        }
-        FractalButton(
-            tr("Import from file"),
-            onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) },
-            icon = FractalIcons.FolderAdd,
-            enabled = viewModel.supportsCustomDrivers,
-        )
+    }
+    FractalButton(
+        tr("Import from file"),
+        onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) },
+        icon = FractalIcons.FolderAdd,
+        enabled = viewModel.supportsCustomDrivers,
+    )
 
-        val visible = viewModel.visibleSources(gpu)
-        if (visible.isNotEmpty()) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { SectionTitle(tr("Available")) }
-                FractalButton(tr("Refresh"), onClick = { viewModel.refresh() }, icon = FractalIcons.Refresh)
-            }
+    val visible = viewModel.visibleSources(gpu)
+    if (visible.isNotEmpty()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { SectionTitle(tr("Available")) }
+            FractalButton(tr("Refresh"), onClick = { viewModel.refresh() }, icon = FractalIcons.Refresh)
+        }
+        var selectedKey by rememberSaveable { mutableStateOf<String?>(null) }
+        val selected = visible.firstOrNull { it.key == selectedKey }
+            ?: visible.firstOrNull { it.key == PREFERRED_SOURCE }
+            ?: visible.first()
+        // one tab per developer, the selected one's builds below
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             visible.forEach { source ->
-                SourceSection(
-                    source = source,
-                    state = sources[source.key] ?: SourceState(loading = true),
-                    gpu = gpu!!,
-                    installed = installed,
-                    downloads = downloads,
-                    onInstall = viewModel::install,
-                    onUse = { viewModel.select(it) },
-                    globalDriver = global,
+                val count = sources[source.key]?.releases?.count { r -> r.assets.any { source.accepts(it.name, gpu!!) } }
+                FractalButton(
+                    if (count != null && count > 0) "${source.owner} ($count)" else source.owner,
+                    onClick = { selectedKey = source.key },
+                    primary = source == selected,
                 )
             }
         }
+        SourceSection(
+            source = selected,
+            state = sources[selected.key] ?: SourceState(loading = true),
+            gpu = gpu!!,
+            installed = installed,
+            downloads = downloads,
+            onInstall = viewModel::install,
+            onUse = { viewModel.select(it) },
+            globalDriver = global,
+        )
     }
 }
 
@@ -239,7 +270,6 @@ private fun SourceSection(
     val compatible = remember(state.releases, gpu) {
         state.releases
             .mapNotNull { r -> r.assets.filter { source.accepts(it.name, gpu) }.takeIf { it.isNotEmpty() }?.let { r to it } }
-            .take(RELEASES_PER_SOURCE)
     }
     val entries = if (showOlder) compatible else compatible.take(RECENT_RELEASES)
     Panel {
@@ -296,7 +326,7 @@ private fun SourceSection(
         }
         if (compatible.size > RECENT_RELEASES) {
             FractalButton(
-                if (showOlder) tr("Show fewer versions") else tr("Older versions ({0})", compatible.size - RECENT_RELEASES),
+                if (showOlder) tr("Show fewer versions") else tr("Show all versions ({0})", compatible.size),
                 onClick = { showOlder = !showOlder },
             )
         }

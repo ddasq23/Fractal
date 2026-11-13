@@ -83,8 +83,31 @@ private fun maliUnknown(gpu: Gpu) = gpu.model == null
 
 private fun zipAsset(name: String, gpu: Gpu) = isZip(name)
 
+/**
+ * MrPurple666: Turnip tuned for emulation on Adreno 6xx/7xx (T-series). Builds named after one GPU
+ * ("A610", "A750") or one generation ("A6xx", "A7xx") only show up there.
+ */
+private fun purpleFor(name: String, gpu: Gpu): Boolean {
+    val n = name.lowercase()
+    if (!isZip(n) || "turnip" !in n) return false
+    val generation = gpu.adrenoGeneration
+    return when {
+        "a610" in n -> gpu.model == 610
+        "a750" in n -> gpu.model == 750
+        "a7xx" in n -> generation == 7
+        "a6xx" in n -> generation == 6
+        else -> generation == null || generation in 6..7
+    }
+}
+private fun adreno6or7(gpu: Gpu) = (gpu.adrenoGeneration ?: 6) in 6..7
+
 val DriverSources = listOf(
     // Adreno: Turnip (Mesa)
+    DriverSource(
+        "MrPurple666", "purple-turnip", GpuVendor.ADRENO,
+        trNoop("Turnip tuned for emulation on Adreno 6xx and 7xx (T-series)"), ::purpleFor,
+        supports = ::adreno6or7,
+    ),
     DriverSource(
         "StevenMXZ", "Adreno-Tools-Drivers", GpuVendor.ADRENO,
         trNoop("Turnip built from Mesa main"), ::turnipFor,
@@ -170,7 +193,7 @@ class DriverCatalog(private val cacheDir: File) {
 
     /** Fetches the release list from the GitHub API and stores it in the cache. */
     suspend fun fetch(source: DriverSource): Listing = withContext(Dispatchers.IO) {
-        val connection = (URL("https://api.github.com/repos/${source.owner}/${source.repo}/releases?per_page=30")
+        val connection = (URL("https://api.github.com/repos/${source.owner}/${source.repo}/releases?per_page=100")
             .openConnection() as HttpURLConnection).apply {
             setRequestProperty("Accept", "application/vnd.github+json")
             setRequestProperty("User-Agent", USER_AGENT)

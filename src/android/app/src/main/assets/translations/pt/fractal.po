@@ -2494,3 +2494,42 @@ msgstr "Configurar"
 
 msgid "View"
 msgstr "Visualização"
+
+msgid "Graphic packs are strongly recommended. Many Wii U games need a community fix from them to look or run right, and Fractal turns on the fixes it has tested by itself when you start the game. They also change the resolution and frame rate per game."
+msgstr "Os graphic packs são muito recomendados. Muitos jogos de Wii U precisam de uma correção da comunidade que vem neles para aparecer ou rodar direito, e o Fractal ativa sozinho as correções que já testou quando você inicia o jogo. Eles também mudam a resolução e a taxa de quadros de cada jogo."
+
+msgid "not downloaded"
+msgstr "não baixados"
+
+msgid "Download graphic packs (recommended)"
+msgstr "Baixar graphic packs (recomendado)"
+
+msgid "Check for updates"
+msgstr "Procurar atualizações"
+
+msgid "checking the latest version..."
+msgstr "verificando a versão mais recente..."
+
+msgid "downloading..."
+msgstr "baixando..."
+
+msgid "installing..."
+msgstr "instalando..."
+
+msgid "done"
+msgstr "pronto"
+
+msgid "already up to date"
+msgstr "já está atualizado"
+
+msgid "failed, check the internet connection and try again"
+msgstr "falhou, confira a conexão com a internet e tente de novo"
+
+msgid "Turnip tuned for emulation on Adreno 6xx and 7xx (T-series)"
+msgstr "Turnip ajustado para emulação nas Adreno 6xx e 7xx (série T)"
+
+msgid "Show all versions ({0})"
+msgstr "Mostrar todas as versões ({0})"
+
+msgid "The system driver works on every device. On Adreno, a Turnip driver often runs games faster or fixes graphics: pick a developer and download one below. You can change it later in Settings > Drivers."
+msgstr "O driver do sistema funciona em qualquer aparelho. Nas Adreno, um driver Turnip costuma rodar os jogos mais rápido ou corrigir gráficos: escolha um desenvolvedor e baixe um abaixo. Dá para trocar depois em Configurações > Drivers."
