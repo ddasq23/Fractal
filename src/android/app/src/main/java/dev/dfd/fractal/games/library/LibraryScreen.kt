@@ -98,6 +98,8 @@ import dev.dfd.fractal.nativeinterface.NativeActiveSettings
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
 import dev.dfd.fractal.provider.DocumentsProvider
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import java.io.File
 
 /** Where the library can send the user. */
@@ -323,11 +325,17 @@ fun LibraryScreen(
                 optionsOpen = false
                 if (!tryOpenDataFolder(context)) snackbar.showMessage(scope, tr("Failed to open Fractal folder"))
             }
-            SheetAction(tr("Share log file"), FractalIcons.Share) {
+            SheetAction(tr("Share debug report"), FractalIcons.Share) {
                 optionsOpen = false
-                when {
-                    !logFileExists() -> snackbar.showMessage(scope, tr("Log file doesn't exist"))
-                    !tryShareLogFile(context) -> snackbar.showMessage(scope, tr("Failed to open log file"))
+                val userData = File(NativeActiveSettings.getUserDataPath())
+                if (!DebugReport.hasContent(userData)) {
+                    snackbar.showMessage(scope, tr("No log or game session to report yet"))
+                } else {
+                    scope.launch {
+                        val report = withContext(Dispatchers.IO) { runCatching { DebugReport.build(userData) }.getOrNull() }
+                        if (report == null || !tryShareDebugReport(context))
+                            snackbar.showMessage(scope, tr("Failed to create the debug report"))
+                    }
                 }
             }
             SheetAction(tr("Welcome setup"), FractalIcons.Next) { optionsOpen = false; navigation.goToWelcome() }
@@ -533,19 +541,14 @@ fun SheetAction(text: String, icon: ImageVector, onClick: () -> Unit) {
 
 // region helpers kept from the original game list screen
 
-private const val LOG_FILE_NAME = "log.txt"
-
-private fun logFileExists(): Boolean =
-    File(NativeActiveSettings.getUserDataPath()).resolve(LOG_FILE_NAME).isFile
-
-private fun tryShareLogFile(context: Context): Boolean = try {
+private fun tryShareDebugReport(context: Context): Boolean = try {
     val fileUri = DocumentsContract.buildDocumentUri(
         DocumentsProvider.AUTHORITY,
-        DocumentsProvider.ROOT_ID + "/$LOG_FILE_NAME"
+        DocumentsProvider.ROOT_ID + "/${DebugReport.FILE_NAME}"
     )
     val documentFile = DocumentFile.fromSingleUri(context, fileUri)!!
     val intent = Intent(Intent.ACTION_SEND)
-        .setDataAndType(documentFile.uri, "text/plain")
+        .setDataAndType(documentFile.uri, "application/zip")
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         .putExtra(Intent.EXTRA_STREAM, documentFile.uri)
     context.startActivity(Intent.createChooser(intent, null))

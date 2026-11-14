@@ -64,8 +64,8 @@ fun OverlaySettingsScreen(navigateBack: () -> Unit) {
             NotificationSettings()
         Header(tr("Performance log"))
         Toggle(
-            label = tr("Record performance log"),
-            description = tr("Saves FPS, frametimes, shader and pipeline compilation and CPU use per thread to CSV files, one folder per game session, in Android/data/{0}/files/perf", BuildConfig.APPLICATION_ID),
+            label = tr("Record full performance log"),
+            description = tr("Every game session already keeps a light log (FPS, frametimes, problems found) for the debug report. This adds GPU timings and recompiler data, which cost a little performance. Folders in Android/data/{0}/files/perf", BuildConfig.APPLICATION_ID),
             initialCheckedState = NativeSettings::getPerformanceLog,
             onCheckedChanged = NativeSettings::setPerformanceLog,
         )

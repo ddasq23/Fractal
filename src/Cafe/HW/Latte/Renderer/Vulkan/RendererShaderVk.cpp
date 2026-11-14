@@ -285,6 +285,15 @@ void RendererShaderVk::FinishCompilation()
 	m_glslCode.shrink_to_fit();
 }
 
+// a shader that does not compile: an event for the bug report, and its GLSL in the session folder to reproduce it
+void RendererShaderVk::ReportCompileFailure(const char* stage, const char* infoLog)
+{
+	std::string firstLine(infoLog ? infoLog : "");
+	firstLine = firstLine.substr(0, firstLine.find('\n'));
+	PerfLog::Event(fmt::format("shader_failed {:016x}_{:016x}", m_baseHash, m_auxHash), fmt::format("{}: {}", stage, firstLine));
+	PerfLog::SessionFile(fmt::format("shader_failed_{:016x}_{:016x}.glsl", m_baseHash, m_auxHash), m_glslCode);
+}
+
 void RendererShaderVk::CompileInternal(bool isRenderThread)
 {
 	// performance log: time from here to the end of the compile, whichever path it takes
@@ -363,6 +372,7 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 	if (!Shader.preprocess(&Resources, 450, ENoProfile, false, false, messagesPreprocess, &PreprocessedGLSL, Includer))
 	{
 		cemuLog_log(LogType::Force, fmt::format("GLSL Preprocessing Failed For {:016x}_{:016x}: \"{}\"", m_baseHash, m_auxHash, Shader.getInfoLog()));
+		ReportCompileFailure("GLSL Preprocessing", Shader.getInfoLog());
 		FinishCompilation();
 		return;
 	}
@@ -373,6 +383,7 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 	if (!Shader.parse(&Resources, 100, false, messagesParseLink))
 	{
 		cemuLog_log(LogType::Force, fmt::format("GLSL parsing failed for {:016x}_{:016x}: \"{}\"", m_baseHash, m_auxHash, Shader.getInfoLog()));
+		ReportCompileFailure("GLSL parsing", Shader.getInfoLog());
 		cemuLog_logDebug(LogType::Force, "GLSL source:\n{}", m_glslCode);
 		cemu_assert_debug(false);
 		FinishCompilation();
@@ -385,6 +396,7 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 	if (!Program.link(messagesParseLink))
 	{
 		cemuLog_log(LogType::Force, fmt::format("GLSL linking failed for {:016x}_{:016x}: \"{}\"", m_baseHash, m_auxHash, Program.getInfoLog()));
+		ReportCompileFailure("GLSL linking", Program.getInfoLog());
 		cemu_assert_debug(false);
 		FinishCompilation();
 		return;
@@ -393,6 +405,7 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 	if (!Program.mapIO())
 	{
 		cemuLog_log(LogType::Force, fmt::format("GLSL linking failed for {:016x}_{:016x}: \"{}\"", m_baseHash, m_auxHash, Program.getInfoLog()));
+		ReportCompileFailure("GLSL linking", Program.getInfoLog());
 		FinishCompilation();
 		return;
 	}

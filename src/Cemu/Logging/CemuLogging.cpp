@@ -165,6 +165,13 @@ void cemuLog_createLogFile(bool triggeredByCrash)
 		return;
 
 	const auto path = cemuLog_GetLogFilePath();
+	// keep the previous session's log (log_previous.txt): after a crash or a freeze the player usually opens the app
+	// again before sending the log, which would otherwise overwrite it. Empty logs are not worth keeping
+	{
+		std::error_code ec;
+		if (fs::exists(path, ec) && fs::file_size(path, ec) > 0 && !ec)
+			fs::rename(path, path.parent_path() / "log_previous.txt", ec);
+	}
 	LogContext.file_stream.open(path, std::ios::out);
 	if (LogContext.file_stream.fail())
 	{

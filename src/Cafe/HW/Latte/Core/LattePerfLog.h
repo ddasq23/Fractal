@@ -12,13 +12,22 @@
 //                shaders and pipelines compiled and the time spent on them, CPU and RAM
 //   threads.csv  CPU use of each thread, one row per thread per second
 //   frames.csv   every frame: time since the session started and frametime
+//   events.txt   problems found while playing, each kind once with the time it first happened and the count at
+//                the end (failed pipelines and shaders, freezes, workarounds that kicked in): for bug reports
 // Files are flushed every second, so a killed app keeps everything up to the last second.
-// Enabled by the "PerformanceLog" setting; off by default.
+// Always on for every game session ("light": nothing that costs measurable time). The "PerformanceLog" setting
+// turns on the full log: GPU timestamps, the recompiler map (jitmap.txt) and buffer upload diagnostics.
+// Only the newest sessions are kept (perf/ holds at most kMaxSessions session folders).
 namespace PerfLog
 {
 	void SessionStart();
 	void SessionEnd();
 	bool IsActive();
+	bool IsFull(); // the "PerformanceLog" setting: also the diagnostics that cost some time
+	// a problem worth a bug report: logged to log.txt and events.txt the first time "key" is seen, counted afterwards
+	void Event(std::string_view key, std::string_view text);
+	// writes a file into the session folder (e.g. the GLSL of a shader that failed to compile); nothing without a session
+	void SessionFile(std::string_view name, std::string_view content);
 
 	// once per emulated frame
 	void FramePresented();

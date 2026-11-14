@@ -204,6 +204,24 @@ void ExceptionHandler_LogGeneralInfo()
     ExceptionHandler_LogThreadList(false);
 }
 
+static thread_local char t_threadNote[256];
+
+void ExceptionHandler_SetThreadNote(const char* note)
+{
+    if (!note)
+    {
+        t_threadNote[0] = '\0';
+        return;
+    }
+    strncpy(t_threadNote, note, sizeof(t_threadNote) - 1);
+    t_threadNote[sizeof(t_threadNote) - 1] = '\0';
+}
+
+const char* ExceptionHandler_GetThreadNote()
+{
+    return t_threadNote;
+}
+
 // the emulated threads: state, where each stopped (IP/LR and the OS call), optionally the stack of every waiting thread.
 // Also used without a crash, for games that freeze (perf log tunable hang_dump_s)
 void ExceptionHandler_LogThreadList(bool withStacks)

@@ -1569,10 +1569,8 @@ bool VulkanRenderer::draw_selfDependencyCopy(CachedFBOVk* fboVk, uint8 sampledCo
 			tex->m_selfDepCopy->isHostOnlyCopy = true;
 			tex->m_selfDepCopy->AllocateOnHost();
 			tex->m_selfDepCopy->isDataDefined = true;
-			static std::atomic<int> s_logged{0};
-			if (s_logged.fetch_add(1) < 16)
-				cemuLog_log(LogType::Force, "Vulkan: draw samples the attachment it renders to (shader {:016x}, texture {:08x} {}x{} GX2 {:04x}), sampling a copy",
-					pixelShader->baseHash, tex->physAddress, tex->width, tex->height, (uint32)tex->format);
+			PerfLog::Event(fmt::format("selfdep_copy {:016x}", pixelShader->baseHash),
+				fmt::format("draw samples the attachment it renders to (texture {:08x} {}x{} GX2 {:04x}), sampling a copy", tex->physAddress, tex->width, tex->height, (uint32)tex->format));
 		}
 		LatteTextureVk* copy = tex->m_selfDepCopy;
 		LatteTextureViewVk* copyView = nullptr;

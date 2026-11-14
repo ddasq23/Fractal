@@ -8,6 +8,7 @@
 #include "Cafe/OS/libs/gx2/GX2.h"
 #include "config/ActiveSettings.h"
 #include "util/helpers/helpers.h"
+#include "Common/ExceptionHandler/ExceptionHandler.h"
 #include "util/helpers/Serializer.h"
 #include "Cafe/HW/Latte/Common/RegisterSerializer.h"
 #include "HW/Latte/Renderer/RendererCore.h"
@@ -1018,6 +1019,10 @@ bool PipelineCompiler::Compile(bool forceCompile, bool isRenderThread, bool show
 	VkResult result;
 	uint8 retryCount = 0;
 	PerfLogTimer perfTimer;
+	// a driver that crashes inside its shader compiler leaves only its own frames in the backtrace: name the shaders
+	ExceptionHandler_SetThreadNote(fmt::format("vkCreateGraphicsPipelines vs {:016x} gs {:016x} ps {:016x}",
+		m_vkVertexShader ? m_vkVertexShader->GetBaseHash() : 0, m_vkGeometryShader ? m_vkGeometryShader->GetBaseHash() : 0,
+		m_vkPixelShader ? m_vkPixelShader->GetBaseHash() : 0).c_str());
 	while (retryCount < 3)
 	{
 		std::shared_lock lock(vkRenderer->m_pipeline_cache_save_mutex);
@@ -1027,6 +1032,7 @@ bool PipelineCompiler::Compile(bool forceCompile, bool isRenderThread, bool show
 			break;
 		retryCount++;
 	}
+	ExceptionHandler_SetThreadNote(nullptr);
 
 	if (result != VK_ERROR_PIPELINE_COMPILE_REQUIRED_EXT)
 		PerfLog::PipelineCompiled(perfTimer.ElapsedUs(), isRenderThread, result != VK_SUCCESS);
@@ -1054,6 +1060,9 @@ bool PipelineCompiler::Compile(bool forceCompile, bool isRenderThread, bool show
 		cemuLog_log(LogType::Force, "Failed to create graphics pipeline. Error {} | vs {:016x} gs {:016x} ps {:016x} rectGS {} discard {} stages {} robust {}", (sint32)result,
 			m_vkVertexShader ? m_vkVertexShader->GetBaseHash() : 0, m_vkGeometryShader ? m_vkGeometryShader->GetBaseHash() : 0, m_vkPixelShader ? m_vkPixelShader->GetBaseHash() : 0,
 			m_rectEmulationGS != nullptr, rasterizer.rasterizerDiscardEnable, pipelineInfo.stageCount, m_requestRobustBufferAccess);
+		PerfLog::Event(fmt::format("pipeline_failed {:016x}_{:016x}", m_vkVertexShader ? m_vkVertexShader->GetBaseHash() : 0, m_vkPixelShader ? m_vkPixelShader->GetBaseHash() : 0),
+			fmt::format("vkCreateGraphicsPipelines error {} (vs {:016x} gs {:016x} ps {:016x}): those draws are skipped", (sint32)result,
+				m_vkVertexShader ? m_vkVertexShader->GetBaseHash() : 0, m_vkGeometryShader ? m_vkGeometryShader->GetBaseHash() : 0, m_vkPixelShader ? m_vkPixelShader->GetBaseHash() : 0));
 		cemu_assert_debug(false);
 		return true; // true indicates that caller should no longer attempt to compile this pipeline again
 	}

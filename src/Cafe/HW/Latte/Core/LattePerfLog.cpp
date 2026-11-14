@@ -78,6 +78,14 @@ namespace PerfLog
 	static uint64 s_gpuLastEndNs = 0; // only touched by the render thread
 
 	static std::atomic<bool> s_active{false};
+	static std::atomic<bool> s_full{false};
+	static constexpr size_t kMaxSessions = 20;
+
+	static std::mutex s_eventMutex;
+	static std::ofstream s_events;
+	static std::unordered_map<std::string, uint64> s_eventCounts;
+	static std::vector<std::string> s_eventOrder;
+	static fs::path s_sessionDir; // set before s_active
 	static Counters s_counters;
 	static Clock::time_point s_sessionStart;
 	static Clock::time_point s_lastFrame;
@@ -102,6 +110,53 @@ namespace PerfLog
 	bool IsActive()
 	{
 		return s_active.load(std::memory_order_relaxed);
+	}
+
+	bool IsFull()
+	{
+		return s_full.load(std::memory_order_relaxed);
+	}
+
+
+	void Event(std::string_view key, std::string_view text)
+	{
+		if (!IsActive())
+			return;
+		std::scoped_lock lock(s_eventMutex);
+		auto [it, isNew] = s_eventCounts.try_emplace(std::string(key), 0);
+		it->second++;
+		if (!isNew)
+			return;
+		s_eventOrder.emplace_back(key);
+		cemuLog_log(LogType::Force, "Event [{}]: {}", key, text);
+		if (s_events.is_open())
+		{
+			s_events << fmt::format("{:.1f} [{}] {}\n", SessionSeconds(), key, text);
+			s_events.flush();
+		}
+	}
+
+	void SessionFile(std::string_view name, std::string_view content)
+	{
+		if (!IsActive())
+			return;
+		std::ofstream f(s_sessionDir / fs::path(std::string(name)), std::ios::trunc | std::ios::binary);
+		f.write(content.data(), (std::streamsize)content.size());
+	}
+
+	// oldest session folders go first; files in perf/ (tuning.txt, input scripts) are never touched
+	static void PruneSessions(const fs::path& perfDir)
+	{
+		std::error_code ec;
+		std::vector<fs::path> sessions;
+		for (const auto& entry : fs::directory_iterator(perfDir, ec))
+			if (entry.is_directory(ec) && entry.path().filename().string().size() > 16 && std::isdigit((unsigned char)entry.path().filename().string()[0]))
+				sessions.emplace_back(entry.path());
+		if (sessions.size() < kMaxSessions)
+			return;
+		std::sort(sessions.begin(), sessions.end()); // names start with the date and time
+		for (size_t i = 0; i + kMaxSessions <= sessions.size(); i++)
+			fs::remove_all(sessions[i], ec);
 	}
 
 	const std::vector<ScriptedPress>& InputScript()
@@ -371,6 +426,7 @@ namespace PerfLog
 		bool infoWritten = false;
 		sint32 zeroFrameSeconds = 0;
 		bool hangDumped = false;
+		bool framesSeen = false;
 		std::vector<FrameSample> batch;
 		std::vector<float> sorted;
 
@@ -411,14 +467,16 @@ namespace PerfLog
 			std::sort(sorted.begin(), sorted.end());
 			const size_t n = sorted.size();
 			const double fps = dt > 0.0 ? (double)n / dt : 0.0;
-			// tuning hang_dump_s=N: after N seconds in a row without a frame, write the emulated threads and the stacks of the
-			// waiting ones to log.txt, once per session. For freezes on devices without root (no way to signal the app from adb)
-			if (const sint32 hangDumpS = Tunable("hang_dump_s", 0); hangDumpS > 0)
+			// after hang_dump_s (tuning, default 30) seconds in a row without a frame once frames were shown, write the emulated
+			// threads and the stacks of the waiting ones to log.txt, once per session: what a freeze waits on, from any player's log
+			if (const sint32 hangDumpS = (sint32)Tunable("hang_dump_s", 30); hangDumpS > 0)
 			{
+				framesSeen = framesSeen || n != 0;
 				zeroFrameSeconds = n ? 0 : zeroFrameSeconds + 1;
-				if (zeroFrameSeconds == hangDumpS && !hangDumped)
+				if (framesSeen && zeroFrameSeconds == hangDumpS && !hangDumped)
 				{
 					hangDumped = true;
+					Event("freeze", fmt::format("no frame for {} s, emulated threads written to log.txt", hangDumpS));
 					cemuLog_log(LogType::Force, "Perf log: no frame for {} s, emulated threads:", hangDumpS);
 					ExceptionHandler_LogThreadList(true);
 				}
@@ -498,8 +556,9 @@ namespace PerfLog
 
 	void SessionStart()
 	{
-		if (IsActive() || !GetConfig().perf_log.GetValue())
+		if (IsActive())
 			return;
+		s_full = GetConfig().perf_log.GetValue();
 		const std::time_t now = std::time(nullptr);
 		std::tm tm{};
 #if BOOST_OS_WINDOWS
@@ -511,13 +570,22 @@ namespace PerfLog
 		std::strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", &tm);
 		const fs::path dir = ActiveSettings::GetUserDataPath("perf") / fmt::format("{}_{:016x}", stamp, CafeSystem::GetForegroundTitleId());
 		std::error_code ec;
+		fs::create_directories(dir.parent_path(), ec);
+		PruneSessions(dir.parent_path());
 		fs::create_directories(dir, ec);
 		if (ec)
 		{
 			cemuLog_log(LogType::Force, "Performance log: cannot create {}: {}", _pathToUtf8(dir), ec.message());
 			return;
 		}
-		cemuLog_log(LogType::Force, "Performance log: {}", _pathToUtf8(dir));
+		cemuLog_log(LogType::Force, "Performance log ({}): {}", s_full ? "full" : "light", _pathToUtf8(dir));
+		s_sessionDir = dir;
+		{
+			std::scoped_lock lock(s_eventMutex);
+			s_eventCounts.clear();
+			s_eventOrder.clear();
+			s_events.open(dir / "events.txt", std::ios::trunc);
+		}
 		s_counters.shaders = 0;
 		s_counters.shadersFromCache = 0;
 		s_counters.shadersFailed = 0;
@@ -570,7 +638,8 @@ namespace PerfLog
 		s_inputScript = LoadInputScript(CafeSystem::GetForegroundTitleId());
 		{
 			std::scoped_lock lock(s_jitMutex);
-			s_jitMap.open(dir / "jitmap.txt", std::ios::trunc);
+			if (s_full) // a line per recompiled function, only needed to profile
+				s_jitMap.open(dir / "jitmap.txt", std::ios::trunc);
 			s_jitFail.open(dir / "jitfail.txt", std::ios::trunc);
 			// tuning jit_code=1: also keep the host code of each function, for per-instruction profiles
 			if (Tunable("jit_code", 0) != 0)
@@ -598,6 +667,18 @@ namespace PerfLog
 		s_stopCv.notify_all();
 		if (s_writer.joinable())
 			s_writer.join();
+		{
+			// how often each problem happened
+			std::scoped_lock lock(s_eventMutex);
+			if (s_events.is_open())
+			{
+				if (!s_eventOrder.empty())
+					s_events << "-- counts\n";
+				for (const auto& key : s_eventOrder)
+					s_events << fmt::format("{} {}\n", s_eventCounts[key], key);
+				s_events.close();
+			}
+		}
 		std::scoped_lock lock(s_jitMutex);
 		s_jitMap.close();
 		s_jitFail.close();
@@ -840,6 +921,7 @@ namespace PerfLog
 		if (!s_jitFail.is_open())
 			return;
 		s_jitFail << fmt::format("{:08x} {} {}\n", ppcAddress, ppcSize, stage);
+		Event("recompiler_fallback", fmt::format("function {:08x} ({} bytes) runs in the interpreter, {} (all in jitfail.txt)", ppcAddress, ppcSize, stage));
 		s_jitFail.flush();
 	}
 }

@@ -109,6 +109,8 @@ void handlerDumpingSignal(int sig, siginfo_t *info, void *context)
         if (dladdr((void*)pc, &dlInfo) && dlInfo.dli_fname)
             location = fmt::format("{} + 0x{:x}", dlInfo.dli_fname, pc - (uint64)dlInfo.dli_fbase);
         CrashLog_WriteLine(fmt::format("PC 0x{:016x} ({}), fault address 0x{:016x}, code {}", pc, location, (uint64)info->si_addr, info->si_code));
+        if (const char* note = ExceptionHandler_GetThreadNote(); note && note[0])
+            CrashLog_WriteLine(fmt::format("Crashed while: {}", note));
 #if defined(__aarch64__)
         // host registers, and for recompiled code the instructions around the PC (they are not in any file)
         const auto& mc = ((ucontext_t*)context)->uc_mcontext;

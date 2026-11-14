@@ -2049,6 +2049,7 @@ void VulkanRenderer::UnrecoverableError(const char* errMsg) const
 {
 	cemuLog_log(LogType::Force, "Unrecoverable error in Vulkan renderer");
 	cemuLog_log(LogType::Force, "Msg: {}", errMsg);
+	PerfLog::Event("vulkan_fatal", errMsg);
 	throw std::runtime_error(errMsg);
 }
 
@@ -2389,7 +2390,7 @@ void VulkanRenderer::ProcessFinishedCommandBuffers()
 void VulkanRenderer::PerfTimestampBegin()
 {
 	m_perfQueryWritten[m_commandBufferIndex] = false;
-	if (!m_perfTimestampsSupported || !PerfLog::IsActive())
+	if (!m_perfTimestampsSupported || !PerfLog::IsFull())
 		return;
 	if (m_perfQueryPool == VK_NULL_HANDLE)
 	{
@@ -5151,7 +5152,7 @@ void VulkanRenderer::bufferCache_upload(uint8* buffer, sint32 size, uint32 buffe
 		PerfLog::BufferUploadDirect();
 		return;
 	}
-	if (m_bufferCacheMapped && size > 0 && PerfLog::IsActive())
+	if (m_bufferCacheMapped && size > 0 && PerfLog::IsFull())
 	{
 		int reason = 0;
 		if (!m_bufferCacheDirectBlocked)

@@ -55,6 +55,7 @@ public:
 
 private:
 	void CompileInternal(bool isRenderThread);
+	void ReportCompileFailure(const char* stage, const char* infoLog);
 
 	void FinishCompilation();
 
