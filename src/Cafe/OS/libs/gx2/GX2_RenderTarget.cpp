@@ -10,6 +10,7 @@
 #include "Cafe/HW/Latte/Core/LattePM4.h"
 
 #include "GX2_Command.h"
+#include "GX2_Misc.h"
 
 void gx2Export_GX2InitColorBufferRegs(PPCInterpreter_t* hCPU)
 {
@@ -263,6 +264,7 @@ void gx2Export_GX2SetDRCBuffer(PPCInterpreter_t* hCPU)
 {
 	Latte::E_GX2SURFFMT format = (Latte::E_GX2SURFFMT)hCPU->gpr[6];
 	LatteGPUState.drcBufferUsesSRGB = HAS_FLAG(format, Latte::E_GX2SURFFMT::FMT_BIT_SRGB);
+	GX2::GX2RegisterScanBuffer(GX2_SCAN_TARGET_DRC_FIRST, hCPU->gpr[3], hCPU->gpr[4]);
 	osLib_returnFromFunction(hCPU, 0);
 }
 

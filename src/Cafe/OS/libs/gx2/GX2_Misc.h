@@ -31,6 +31,9 @@ namespace GX2
 
 	void GX2SetTVBuffer(void* imageBuffePtr, uint32 imageBufferSize, E_TVRES tvResolutionMode, uint32 surfaceFormat, E_TVBUFFERMODE bufferMode);
 	void GX2SetTVGamma(float gamma);
+	// scan buffers registered with GX2SetTVBuffer/GX2SetDRCBuffer, so copies that write straight into them can be presented
+	void GX2RegisterScanBuffer(uint32 scanTarget, MPTR imageBuffer, uint32 imageBufferSize);
+	uint32 GX2GetScanTargetOfAddress(MPTR address); // GX2_SCAN_TARGET_TV, GX2_SCAN_TARGET_DRC_FIRST or 0
 
 	void GX2Invalidate(GX2InvalidationFlag invalidationFlags, MPTR invalidationAddr, uint32 invalidationSize);
 

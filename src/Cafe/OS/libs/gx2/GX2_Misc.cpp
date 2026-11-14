@@ -203,7 +203,30 @@ namespace GX2
 	{
 		Latte::E_GX2SURFFMT surfaceFormat = (Latte::E_GX2SURFFMT)_surfaceFormat;
 		LatteGPUState.tvBufferUsesSRGB = HAS_FLAG(surfaceFormat, Latte::E_GX2SURFFMT::FMT_BIT_SRGB);
+		GX2RegisterScanBuffer(GX2_SCAN_TARGET_TV, memory_getVirtualOffsetFromPointer(imageBuffePtr), imageBufferSize);
 		// todo - actually allocate a scanbuffer
+	}
+
+	static struct
+	{
+		MPTR begin;
+		uint32 size;
+	}s_scanBuffers[2]{}; // TV, DRC
+
+	void GX2RegisterScanBuffer(uint32 scanTarget, MPTR imageBuffer, uint32 imageBufferSize)
+	{
+		auto& sb = s_scanBuffers[scanTarget == GX2_SCAN_TARGET_TV ? 0 : 1];
+		sb.begin = imageBuffer;
+		sb.size = imageBuffer ? imageBufferSize : 0;
+	}
+
+	uint32 GX2GetScanTargetOfAddress(MPTR address)
+	{
+		if (s_scanBuffers[0].size && address - s_scanBuffers[0].begin < s_scanBuffers[0].size)
+			return GX2_SCAN_TARGET_TV;
+		if (s_scanBuffers[1].size && address - s_scanBuffers[1].begin < s_scanBuffers[1].size)
+			return GX2_SCAN_TARGET_DRC_FIRST;
+		return 0;
 	}
 
 	void GX2SetTVGamma(float gamma)

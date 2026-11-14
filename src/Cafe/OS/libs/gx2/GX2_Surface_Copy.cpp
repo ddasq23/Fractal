@@ -9,6 +9,8 @@
 #include "util/highresolutiontimer/HighResolutionTimer.h"
 #include "GX2.h"
 #include "GX2_Resource.h"
+#include "GX2_Command.h"
+#include "GX2_Misc.h"
 
 template<uint32 copyBpp>
 void gx2SurfaceCopySoftware_specialized(
@@ -321,6 +323,23 @@ void GX2CopySurfaceInternal(GX2Surface* srcSurface, uint32 srcMip, uint32 srcSli
 void gx2Surface_GX2CopySurface(GX2Surface* srcSurface, uint32 srcMip, uint32 srcSlice, GX2Surface* dstSurface, uint32 dstMip, uint32 dstSlice)
 {
 	GX2CopySurfaceInternal(srcSurface, srcMip, srcSlice, dstSurface, dstMip, dstSlice);
+	// some titles (The Amazing Spider-Man) put the finished frame into the scan buffer with GX2CopySurface instead of
+	// GX2CopyColorBufferToScanBuffer. Scan buffers are not emulated as memory, so present the source surface like the latter would
+	uint32 scanTarget = (dstMip == 0) ? GX2::GX2GetScanTargetOfAddress(dstSurface->imagePtr) : 0;
+	if (scanTarget != 0 && srcMip == 0)
+	{
+		GX2::GX2ReserveCmdSpace(10);
+		gx2WriteGather_submitU32AsBE(pm4HeaderType3(IT_HLE_COPY_COLORBUFFER_TO_SCANBUFFER, 9));
+		gx2WriteGather_submitU32AsBE(memory_virtualToPhysical(srcSurface->imagePtr));
+		gx2WriteGather_submitU32AsBE((uint32)srcSurface->width);
+		gx2WriteGather_submitU32AsBE((uint32)srcSurface->height);
+		gx2WriteGather_submitU32AsBE((uint32)srcSurface->pitch);
+		gx2WriteGather_submitU32AsBE((uint32)srcSurface->tileMode.value());
+		gx2WriteGather_submitU32AsBE((uint32)srcSurface->swizzle);
+		gx2WriteGather_submitU32AsBE(srcSlice);
+		gx2WriteGather_submitU32AsBE((uint32)srcSurface->format.value());
+		gx2WriteGather_submitU32AsBE(scanTarget);
+	}
 }
 
 void gx2Export_GX2CopySurface(PPCInterpreter_t* hCPU)
