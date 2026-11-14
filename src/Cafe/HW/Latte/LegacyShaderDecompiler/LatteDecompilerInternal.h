@@ -212,6 +212,7 @@ struct LatteDecompilerShaderContext
 		bool genFloatReg; // if set, generate R*f register variables
 		bool genIntReg; // if set, generate R*i register variables
 		bool useArrayGPRs; // if set, an array is used to represent GPRs instead of individual variables
+		bool switchRelativeGPRWrites; // GPRs stay individual variables, indexed writes go to relW<unit> and a switch on the index stores them at the end of the group
 	}typeTracker;
 	// analyzer
 	struct
@@ -236,6 +237,7 @@ struct LatteDecompilerShaderContext
 		// misc
 		bool usesRelativeGPRRead; // set if indexed GPR reads are used
 		bool usesRelativeGPRWrite; // set if indexed GPR writes are used
+		bool relativeGPRWriteNeedsArray; // an indexed write the switch form does not handle (reduction instruction, loop or global index)
 		uint8 gprUseMask[(LATTE_NUM_GPR + 7) / 8]; // 1 bit per GPR, set if GPR is read/written anywhere in the program (ignores GPR accesses with relative index)
 		bool hasStreamoutWrite; // stream-out CF instructions are used
 		bool hasRedcCUBE; // has cube reduction instruction

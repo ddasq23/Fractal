@@ -517,6 +517,13 @@ void _emitInstructionOutputVariableName(LatteDecompilerShaderContext* shaderCont
 	else
 	{
 		// output to GPR. Aliasing to PV/PS happens at the end of the group
+		if (aluInstruction->destRel != 0 && shaderContext->typeTracker.switchRelativeGPRWrites)
+		{
+			// stored to the indexed GPR at the end of the group, see _emitALUGroupRelativeGPRWrites
+			src->addFmt("relW{}", aluInstruction->aluUnit);
+			_appendRegisterTypeSuffix(src, outputDataType);
+			return;
+		}
 		src->add(_getRegisterVarName(shaderContext, aluInstruction->destGpr, aluInstruction->destRel==0?-1:aluInstruction->indexMode));
 		_appendChannelAccess(src, aluInstruction->destElem);
 	}
@@ -1997,6 +2004,32 @@ void _emitGPRVectorAssignment(LatteDecompilerShaderContext* shaderContext, Latte
 	src->add(" = ");
 }
 
+// indexed GPR writes in the switch form (typeTracker.switchRelativeGPRWrites): the instructions wrote relW<unit>, store
+// each to GPR <destGpr + AR>. Only registers that are declared can be read later, the others are skipped
+static void _emitALUGroupRelativeGPRWrites(LatteDecompilerShaderContext* shaderContext, LatteDecompilerALUInstruction* aluInstr, size_t numInstr)
+{
+	if (!shaderContext->typeTracker.switchRelativeGPRWrites)
+		return;
+	StringBuf* src = shaderContext->shaderSource;
+	for (size_t i = 0; i < numInstr; i++)
+	{
+		const LatteDecompilerALUInstruction& inst = aluInstr[i];
+		if (inst.destRel == 0 || inst.writeMask == 0 || (!inst.isOP3 && inst.opcode == ALU_OP2_INST_NOP))
+			continue;
+		cemu_assert_debug(inst.indexMode <= GPU7_INDEX_AR_W);
+		src->addFmt("switch({}+ARi.{}) {{" _CRLF, inst.destGpr, _getElementStrByIndex(inst.indexMode & 3));
+		for (sint32 gprIndex = 0; gprIndex < LATTE_NUM_GPR; gprIndex++)
+		{
+			if ((shaderContext->analyzer.gprUseMask[gprIndex / 8] & (1 << (gprIndex % 8))) == 0)
+				continue;
+			src->addFmt("case {}: {}.{} = relW{}", gprIndex, _getRegisterVarName(shaderContext, gprIndex), _getElementStrByIndex(inst.destElem), inst.aluUnit);
+			_appendRegisterTypeSuffix(src, shaderContext->typeTracker.defaultDataType);
+			src->add("; break;" _CRLF);
+		}
+		src->add("default: break;" _CRLF "}" _CRLF);
+	}
+}
+
 void _emitALUClauseCode(LatteDecompilerShaderContext* shaderContext, LatteDecompilerCFInstruction* cfInstruction)
 {
 	ALUClauseTemporariesState pvpsState;
@@ -2013,6 +2046,7 @@ void _emitALUClauseCode(LatteDecompilerShaderContext* shaderContext, LatteDecomp
 			// apply PV/PS updates for previous group
 			if (i > 0)
 			{
+				_emitALUGroupRelativeGPRWrites(shaderContext, cfInstruction->instructionsALU.data() + groupStartIndex, i - groupStartIndex);
 				pvpsState.TrackGroupOutputPVPS(shaderContext, cfInstruction->instructionsALU.data() + groupStartIndex, i - groupStartIndex);
 			}
 			groupStartIndex = i;
@@ -2148,6 +2182,8 @@ void _emitALUClauseCode(LatteDecompilerShaderContext* shaderContext, LatteDecomp
 			}
 		}
 	}
+	if (!cfInstruction->instructionsALU.empty())
+		_emitALUGroupRelativeGPRWrites(shaderContext, cfInstruction->instructionsALU.data() + groupStartIndex, cfInstruction->instructionsALU.size() - groupStartIndex);
 	shaderContext->aluPVPSState = nullptr;
 }
 
@@ -4012,6 +4048,13 @@ void LatteDecompiler_emitGLSLShader(LatteDecompilerShaderContext* shaderContext,
 		src->addFmt("int backupReg0i, backupReg1i, backupReg2i, backupReg3i, backupReg4i;" _CRLF);
 	if (shaderContext->typeTracker.genFloatReg)
 		src->addFmt("float backupReg0f, backupReg1f, backupReg2f, backupReg3f, backupReg4f;" _CRLF);
+	if (shaderContext->typeTracker.switchRelativeGPRWrites)
+	{
+		if (shaderContext->typeTracker.genIntReg)
+			src->addFmt("int relW0i = 0, relW1i = 0, relW2i = 0, relW3i = 0, relW4i = 0;" _CRLF);
+		else
+			src->addFmt("float relW0f = 0.0, relW1f = 0.0, relW2f = 0.0, relW3f = 0.0, relW4f = 0.0;" _CRLF);
+	}
 	if (shaderContext->typeTracker.genIntReg)
 	{
 		src->addFmt("int PV0ix = 0, PV0iy = 0, PV0iz = 0, PV0iw = 0, PV1ix = 0, PV1iy = 0, PV1iz = 0, PV1iw = 0;" _CRLF);

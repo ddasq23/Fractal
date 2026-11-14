@@ -288,7 +288,12 @@ void LatteDecompiler_analyzeALUClause(LatteDecompilerShaderContext* shaderContex
 			}
 		}
 		if( aluInstruction.destRel != 0 )
+		{
 			shaderContext->analyzer.usesRelativeGPRWrite = true;
+			const bool isReduction = !aluInstruction.isOP3 && (aluInstruction.opcode == ALU_OP2_INST_DOT4 || aluInstruction.opcode == ALU_OP2_INST_DOT4_IEEE || aluInstruction.opcode == ALU_OP2_INST_CUBE);
+			if (isReduction || aluInstruction.indexMode > GPU7_INDEX_AR_W)
+				shaderContext->analyzer.relativeGPRWriteNeedsArray = true;
+		}
 		shaderContext->analyzer.gprUseMask[aluInstruction.destGpr/8] |= (1<<(aluInstruction.destGpr%8));
 	}
 }

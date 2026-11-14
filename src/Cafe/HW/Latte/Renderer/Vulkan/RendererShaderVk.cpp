@@ -331,6 +331,8 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 		GenerateShaderPrecompiledCacheFilename(m_type, m_baseHash, m_auxHash, h1, h2);
 		if (m_glslCode.find("uf_loopCount") != std::string::npos)
 			h2 ^= 0x4C4F4F5031ull; // entries from before loop counts existed must not be reused
+		if (m_glslCode.find("relW0") != std::string::npos)
+			h2 ^= 0x52454C5731ull; // nor entries from before indexed GPR writes became a switch (array form crashes the Qualcomm compiler)
 		std::vector<uint8> cacheFileData;
 		if (s_spirvCache->GetFile({ h1, h2 }, cacheFileData))
 		{
@@ -442,6 +444,8 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 		GenerateShaderPrecompiledCacheFilename(m_type, m_baseHash, m_auxHash, h1, h2);
 		if (m_glslCode.find("uf_loopCount") != std::string::npos)
 			h2 ^= 0x4C4F4F5031ull;
+		if (m_glslCode.find("relW0") != std::string::npos)
+			h2 ^= 0x52454C5731ull;
 		s_spirvCache->AddFile({ h1, h2 }, (const uint8*)spirvBuffer.data(), spirvBuffer.size() * sizeof(uint32));
 	}
 	if (useContentKey)
