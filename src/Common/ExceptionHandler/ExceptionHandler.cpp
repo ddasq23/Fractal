@@ -269,7 +269,7 @@ void ExceptionHandler_LogThreadList(bool withStacks)
         // write line to log
         CrashLog_WriteLine(dumpLine);
         // hang dumps: the call chain that led each waiting thread into its wait
-        if (withStacks && threadState == OSThread_t::THREAD_STATE::STATE_WAITING)
+        if (withStacks && (threadState == OSThread_t::THREAD_STATE::STATE_WAITING || threadState == OSThread_t::THREAD_STATE::STATE_READY))
             DebugLogStackTrace(threadItrBE, _swapEndianU32(threadItrBE->context.gpr[1]));
     }
 }

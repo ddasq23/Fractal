@@ -560,14 +560,15 @@ void PipelineCompiler::InitRasterizerState(const LatteContextRegister& latteRegi
 	else
 		rasterizer.depthBiasEnable = VK_FALSE;
 
-	// todo - how does culling behave with rects?
-	// right now we just assume that their winding is always CW
-	if (isPrimitiveRect)
+	// rects have no reliable winding here: the emulation geometry shader reorders the three vertices and VK_NV_fill_rectangle
+	// keeps the game's order, so culling one face could drop any rect. Rects are screen aligned passes (copies, resolves,
+	// fullscreen effects) and games leave the cull bits of the surrounding geometry set, e.g. Watch Dogs draws its final
+	// upscale and FXAA rects with CULL_BACK and a clockwise front face, which used to cull them and froze the picture.
+	// Only culling both faces (draw nothing) still applies
+	if (isPrimitiveRect && !(cullFront && cullBack))
 	{
-		if (frontFace == Latte::LATTE_PA_SU_SC_MODE_CNTL::E_FRONTFACE::CW)
-			cullFront = cullBack;
-		else
-			cullBack = cullFront;
+		cullFront = 0;
+		cullBack = 0;
 	}
 
 	if (cullFront && cullBack)
