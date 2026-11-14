@@ -1983,6 +1983,16 @@ bool PPCRecompiler_decodePPCInstruction(ppcImlGenContext_t* ppcImlGenContext)
 				break;
 			}
 			break;
+		case 6: // PSQ_LX (XO 6) and PSQ_LUX (XO 38)
+			if (PPCRecompilerImlGen_PSQ_LX(ppcImlGenContext, opcode, PPC_getBits(opcode, 25, 1) != 0) == false)
+				unsupportedInstructionFound = true;
+			ppcImlGenContext->hasFPUInstruction = true;
+			break;
+		case 7: // PSQ_STX (XO 7) and PSQ_STUX (XO 39)
+			if (PPCRecompilerImlGen_PSQ_STX(ppcImlGenContext, opcode, PPC_getBits(opcode, 25, 1) != 0) == false)
+				unsupportedInstructionFound = true;
+			ppcImlGenContext->hasFPUInstruction = true;
+			break;
 		case 10:
 			if (PPCRecompilerImlGen_PS_SUM0(ppcImlGenContext, opcode) == false)
 				unsupportedInstructionFound = true;
@@ -2297,6 +2307,12 @@ bool PPCRecompiler_decodePPCInstruction(ppcImlGenContext_t* ppcImlGenContext)
 			break;
 		case 278:
 			// DCBT (cache touch hint) -> No-Op
+			break;
+		case 470:
+			// DCBI (cache invalidate) -> No-Op, as in the interpreter
+			break;
+		case 854:
+			// EIEIO (I/O ordering barrier) -> No-Op like SYNC. Batman: Arkham Origins had 37 functions in the interpreter because of it
 			break;
 		case 87: // LBZX
 			PPCRecompilerImlGen_LOAD_INDEXED(ppcImlGenContext, opcode, 8, false, true, false);

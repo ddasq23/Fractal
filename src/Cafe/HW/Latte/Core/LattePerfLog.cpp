@@ -6,6 +6,7 @@
 
 #include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/CafeSystem.h"
+#include "Cafe/OS/RPL/rpl_symbol_storage.h"
 #include "Common/ExceptionHandler/ExceptionHandler.h"
 #include "config/ActiveSettings.h"
 #include "config/CemuConfig.h"
@@ -481,6 +482,17 @@ namespace PerfLog
 					ExceptionHandler_LogThreadList(true);
 				}
 			}
+			// diagnostics: perf/tuning.txt thread_dump_every_s=N writes the emulated threads and their stacks every N seconds,
+			// to see where a thread spends a long loading screen
+			if (static const sint32 dumpEveryS = (sint32)Tunable("thread_dump_every_s", 0); dumpEveryS > 0)
+			{
+				static sint32 s_dumpCounter = 0;
+				if (++s_dumpCounter % dumpEveryS == 0)
+				{
+					cemuLog_log(LogType::Force, "Perf log: thread dump at {} s:", s_dumpCounter);
+					ExceptionHandler_LogThreadList(true);
+				}
+			}
 			const double ftAvg = n ? ftSum / (double)n : 0.0;
 			// 99th percentile frametime; "1% low" fps is its inverse
 			const double ftP99 = n ? sorted[std::min(n - 1, (size_t)std::ceil(0.99 * (double)n) - 1)] : 0.0;
@@ -920,8 +932,12 @@ namespace PerfLog
 		std::scoped_lock lock(s_jitMutex);
 		if (!s_jitFail.is_open())
 			return;
-		s_jitFail << fmt::format("{:08x} {} {}\n", ppcAddress, ppcSize, stage);
-		Event("recompiler_fallback", fmt::format("function {:08x} ({} bytes) runs in the interpreter, {} (all in jitfail.txt)", ppcAddress, ppcSize, stage));
+		// the game's own symbol, when its executable exports one (many do): tells which part of the game runs slowly
+		std::string symbol;
+		if (RPLStoredSymbol* sym = rplSymbolStorage_getByClosestAddress(ppcAddress); sym && ppcAddress >= 0x01000000 && ppcAddress - sym->address < 0x1000)
+			symbol = fmt::format(" {}.{}+0x{:x}", (const char*)sym->libName, (const char*)sym->symbolName, ppcAddress - sym->address);
+		s_jitFail << fmt::format("{:08x} {} {}{}\n", ppcAddress, ppcSize, stage, symbol);
+		Event("recompiler_fallback", fmt::format("function {:08x}{} ({} bytes) runs in the interpreter, {} (all in jitfail.txt)", ppcAddress, symbol, ppcSize, stage));
 		s_jitFail.flush();
 	}
 }
