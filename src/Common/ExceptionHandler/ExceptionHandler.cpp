@@ -266,6 +266,26 @@ void ExceptionHandler_LogThreadList(bool withStacks)
             size_t len = strlen(dumpLine);
             snprintf(dumpLine + len, sizeof(dumpLine) - len, " in %s.%s+0x%x", (const char*)sym->libName, (const char*)sym->symbolName, ip - sym->address);
         }
+        // the caller of that OS call
+        const MPTR lr = _swapEndianU32(threadItrBE->context.lr);
+        if (RPLStoredSymbol* sym = rplSymbolStorage_getByClosestAddress(lr); sym && lr >= 0x01000000 && lr - sym->address < 0x4000)
+        {
+            size_t len = strlen(dumpLine);
+            snprintf(dumpLine + len, sizeof(dumpLine) - len, " from %s+0x%x", (const char*)sym->symbolName, lr - sym->address);
+        }
+        // waits: the object passed to the OS call (r3) and its first words, e.g. an OSEvent's value shows a lost wakeup
+        if (threadState == OSThread_t::THREAD_STATE::STATE_WAITING && withStacks)
+        {
+            const uint32 r3 = threadItrBE->context.gpr[3];
+            size_t len = strlen(dumpLine);
+            len += snprintf(dumpLine + len, sizeof(dumpLine) - len, " r3 %08x r4 %08x", r3, (uint32)threadItrBE->context.gpr[4]);
+            if (r3 >= 0x01000000 && r3 < 0xFFFFFF00 && memory_isAddressRangeAccessible(r3, 32))
+            {
+                const uint32be* w = (const uint32be*)memory_getPointerFromVirtualOffset(r3);
+                snprintf(dumpLine + len, sizeof(dumpLine) - len, " [%08x %08x %08x %08x %08x %08x %08x %08x]", (uint32)w[0], (uint32)w[1],
+                    (uint32)w[2], (uint32)w[3], (uint32)w[4], (uint32)w[5], (uint32)w[6], (uint32)w[7]);
+            }
+        }
         // write line to log
         CrashLog_WriteLine(dumpLine);
         // hang dumps: the call chain that led each waiting thread into its wait

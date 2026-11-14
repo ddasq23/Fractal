@@ -107,6 +107,17 @@ namespace GX2
 		uint32 commandPoolSize = 0;
 		if (initArgStream)
 		{
+			{
+				// the raw argument stream (id/value pairs up to EndOfArgs, at most 16 pairs), e.g. Watch Dogs: 1 <pool> 2 800000 9 0 a 0 0
+				std::string raw;
+				for (sint32 i = 0; i < 32; i++)
+				{
+					raw += fmt::format(" {:x}", (uint32)(GX2InitArg)initArgStream[i]);
+					if ((i & 1) == 0 && (GX2InitArg)initArgStream[i] == 0)
+						break;
+				}
+				cemuLog_log(LogType::Force, "GX2Init: args{}", raw);
+			}
 			while (true)
 			{
 				GX2InitArgId paramId = static_cast<GX2InitArgId>((GX2InitArg)*initArgStream);
@@ -134,7 +145,9 @@ namespace GX2
 				}
 				else
 				{
+					// every argument is an id/value pair: skip the value too, so it is not read as the next id
 					cemuLog_log(LogType::Force, "GX2Init: Unsupported init arg {}", (uint32)paramId);
+					initArgStream++;
 				}
 			}
 		}

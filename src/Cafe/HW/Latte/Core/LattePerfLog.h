@@ -72,6 +72,17 @@ namespace PerfLog
 		~GpuWaitScope();
 		GpuWaitReason m_prev;
 	};
+	// render thread breadcrumb for hang dumps: the blocking step the render thread is in (a string literal) and since when,
+	// e.g. a driver shader compiler or a fence that never returns. Set around host waits and synchronous pipeline compiles
+	struct RenderStage
+	{
+		explicit RenderStage(const char* what, uint64 arg = 0);
+		~RenderStage();
+		const char* m_prev;
+		uint64 m_prevArg;
+		sint64 m_prevSince;
+	};
+	std::string DescribeRenderStage();
 	void TextureReadbackScheduled();
 	void BufferUploadDirect(); // buffer cache upload written straight into GPU memory (no copy, no render pass end)
 	void DrawCall();

@@ -3200,14 +3200,13 @@ static bool _nanBits()
 	return s_on;
 }
 
-// perf/tuning.txt nan_clamp=1: the output clamp, MIN/MAX and the LOG input clamp with the R600 NaN rules instead of
-// GLSL clamp/min/max, whose result is undefined for NaN. Mali returns the non-NaN operand (like the Wii U GPU), Adreno
-// returns NaN, so a NaN that the console turns into 0 reaches the framebuffer (Ninja Gaiden 3 on Adreno: black skin and
-// hair that bloom spreads over the screen)
+// the output clamp, MIN/MAX and the LOG input clamp with the R600 NaN rules instead of GLSL clamp/min/max, whose result
+// is undefined for NaN. Mali and desktop GPUs return the non-NaN operand (like the Wii U GPU), Adreno returns NaN, so a
+// NaN that the console turns into 0 reaches the framebuffer (Watch Dogs on Adreno: the May Stadium washed out to white).
+// On by default on Adreno, perf/tuning.txt nan_clamp=0/1 overrides (Renderer::UseNanClamp)
 static bool _nanClamp()
 {
-	static const bool s_on = PerfLog::Tunable("nan_clamp", 0) != 0;
-	return s_on;
+	return g_renderer && g_renderer->UseNanClamp();
 }
 
 static const char* _isinfFn()

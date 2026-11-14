@@ -9,8 +9,17 @@
 #include <png.h>
 
 #include "config/ActiveSettings.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 
 std::unique_ptr<Renderer> g_renderer;
+
+bool Renderer::UseNanClamp() const
+{
+	static const sint64 s_nanClamp = PerfLog::Tunable("nan_clamp", -1);
+	if (s_nanClamp >= 0)
+		return s_nanClamp != 0;
+	return m_minMaxReturnsNaN;
+}
 
 bool Renderer::GetVRAMInfo(int& usageInMB, int& totalInMB) const
 {

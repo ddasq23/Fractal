@@ -158,6 +158,31 @@ private:
 
 void LatteCP_processCommandBuffer(DrawPassContext& drawPassCtx);
 
+// hang dumps (LattePerfLog freeze event): what the command processor is blocked on, written only around waits
+static std::atomic<uint32> s_cpWaitKind{0}; // 0 none, 1 WAIT_REG_MEM, 2 MEM_SEMAPHORE wait, 3 HLE wait for flip
+static std::atomic<uint32> s_cpWaitAddr{0}, s_cpWaitValue{0}, s_cpWaitMask{0}, s_cpWaitOp{0};
+static std::atomic<uint64> s_cpCmdBuffers{0};
+
+std::string LatteCP_DescribeWait()
+{
+	const uint32 kind = s_cpWaitKind.load();
+	std::string s = fmt::format("command buffers processed {}, ", s_cpCmdBuffers.load());
+	if (kind == 1)
+	{
+		const uint32 addr = s_cpWaitAddr.load();
+		const uint32 cur = _swapEndianU32(*(uint32*)memory_getPointerFromPhysicalOffset(addr));
+		s += fmt::format("waiting in WAIT_REG_MEM: phys {:08x} op {} (1 <, 2 <=, 3 ==, 4 !=, 5 >=, 6 >) value {:08x} mask {:08x}, memory now {:08x}",
+			addr, s_cpWaitOp.load(), s_cpWaitValue.load(), s_cpWaitMask.load(), cur);
+	}
+	else if (kind == 2)
+		s += fmt::format("waiting in MEM_SEMAPHORE: phys {:08x}", s_cpWaitAddr.load());
+	else if (kind == 3)
+		s += "waiting for a flip";
+	else
+		s += "not in a wait";
+	return s;
+}
+
 // called whenever the GPU runs out of commands or hits a wait condition (semaphores, HLE waits)
 void LatteCP_signalEnterWait()
 {
@@ -524,6 +549,8 @@ LatteCMDPtr LatteCP_itWaitRegMem(LatteCMDPtr cmd, uint32 nWords)
 	if ((word0 & 0x10) != 0)
 	{
 		// wait for memory address
+		s_cpWaitAddr = physAddr; s_cpWaitValue = fenceValue; s_cpWaitMask = fenceMask; s_cpWaitOp = compareOp;
+		s_cpWaitKind = 1;
 		performanceMonitor.gpuTime_fenceTime.beginMeasuring();
 		const auto fenceWaitStart = std::chrono::steady_clock::now();
 		while (true)
@@ -586,6 +613,7 @@ LatteCMDPtr LatteCP_itWaitRegMem(LatteCMDPtr cmd, uint32 nWords)
 			if (s_fenceSleepUs > 0 && std::chrono::steady_clock::now() - fenceWaitStart > std::chrono::microseconds(50))
 				std::this_thread::sleep_for(std::chrono::microseconds(s_fenceSleepUs));
 		}
+		s_cpWaitKind = 0;
 		performanceMonitor.gpuTime_fenceTime.endMeasuring();
 		PerfLog::GuestWaited(PerfLog::GuestWait::CpFence, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - fenceWaitStart).count());
 	}
@@ -690,6 +718,8 @@ LatteCMDPtr LatteCP_itMemSemaphore(LatteCMDPtr cmd, uint32 nWords)
 	{
 		// wait
 		LatteCP_signalEnterWait();
+		s_cpWaitAddr = semaphorePhysicalAddress;
+		s_cpWaitKind = 2;
 		size_t loopCount = 0;
 		while (true)
 		{
@@ -704,6 +734,7 @@ LatteCMDPtr LatteCP_itMemSemaphore(LatteCMDPtr cmd, uint32 nWords)
 			if (semaphoreData->compare_exchange_strong(oldVal, oldVal - 1))
 				break;
 		}
+		s_cpWaitKind = 0;
 	}
 	else
 	{
@@ -1021,6 +1052,7 @@ LatteCMDPtr LatteCP_itHLEWaitForFlip(LatteCMDPtr cmd, uint32 nWords)
 	cemu_assert_debug(nWords == 1);
 	MPTR reserved1 = LatteReadCMD(); // reserved
 	// wait for flip
+	s_cpWaitKind = 3;
 	uint32 currentFlipCount = LatteGPUState.flipCounter;
 	while (true)
 	{
@@ -1033,6 +1065,7 @@ LatteCMDPtr LatteCP_itHLEWaitForFlip(LatteCMDPtr cmd, uint32 nWords)
 		LatteTiming_HandleTimedVsync();
 		std::this_thread::yield();
 	}
+	s_cpWaitKind = 0;
 	return cmd;
 }
 
@@ -1244,6 +1277,7 @@ void LatteCP_processCommandBuffer(DrawPassContext& drawPassCtx)
 		LatteCMDPtr cmd, cmdStart, cmdEnd;
 		if (!drawPassCtx.PopCurrentCommandQueuePos(cmd, cmdStart, cmdEnd))
 			break;
+		s_cpCmdBuffers.fetch_add(1, std::memory_order_relaxed);
 		uint32 itHeader;
 		while (cmd < cmdEnd)
 		{

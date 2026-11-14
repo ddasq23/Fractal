@@ -1,4 +1,5 @@
 #include "Cafe/HW/Latte/Renderer/RendererShader.h"
+#include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/GameProfile/GameProfile.h"
 
@@ -23,7 +24,7 @@ uint32 RendererShader::GeneratePrecompiledCacheId()
 	// diagnostics that change the generated GLSL (LatteDecompilerEmitGLSL.cpp _emitPixelColorSanitizeDiag)
 	v += (uint32)PerfLog::Tunable("ps_sanitize", 0) * 7919;
 	v += (uint32)PerfLog::Tunable("nan_bits", 0) * 15485863;
-	v += (uint32)PerfLog::Tunable("nan_clamp", 0) * 32452843;
+	v += (uint32)(g_renderer && g_renderer->UseNanClamp()) * 32452843;
 	v += (uint32)PerfLog::Tunable("ps_sanitize_lo", 0) * 104729 + (uint32)PerfLog::Tunable("ps_sanitize_hi", 0xFFFF) * 1299709;
 
 	v += 0x820a5291; // change this value for manual invalidation

@@ -1024,6 +1024,10 @@ bool PipelineCompiler::Compile(bool forceCompile, bool isRenderThread, bool show
 	ExceptionHandler_SetThreadNote(fmt::format("vkCreateGraphicsPipelines vs {:016x} gs {:016x} ps {:016x}",
 		m_vkVertexShader ? m_vkVertexShader->GetBaseHash() : 0, m_vkGeometryShader ? m_vkGeometryShader->GetBaseHash() : 0,
 		m_vkPixelShader ? m_vkPixelShader->GetBaseHash() : 0).c_str());
+	// hang dumps: a synchronous compile on the render thread (the pixel shader hash names it)
+	std::optional<PerfLog::RenderStage> stage;
+	if (isRenderThread)
+		stage.emplace("vkCreateGraphicsPipelines ps", m_vkPixelShader ? m_vkPixelShader->GetBaseHash() : 0);
 	while (retryCount < 3)
 	{
 		std::shared_lock lock(vkRenderer->m_pipeline_cache_save_mutex);
@@ -1033,6 +1037,7 @@ bool PipelineCompiler::Compile(bool forceCompile, bool isRenderThread, bool show
 			break;
 		retryCount++;
 	}
+	stage.reset();
 	ExceptionHandler_SetThreadNote(nullptr);
 
 	if (result != VK_ERROR_PIPELINE_COMPILE_REQUIRED_EXT)

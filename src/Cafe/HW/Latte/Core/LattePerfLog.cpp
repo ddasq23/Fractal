@@ -12,6 +12,7 @@
 #include "config/CemuConfig.h"
 #include "Common/version.h"
 #include "util/helpers/helpers.h"
+#include "Cafe/OS/libs/gx2/GX2_Command.h"
 
 #include <condition_variable>
 #include <ctime>
@@ -29,6 +30,8 @@
 #if defined(__aarch64__)
 void PPCRecompilerAArch64Gen_reportInterfaceFunctionsToPerfLog(); // BackendAArch64.cpp
 #endif
+
+std::string LatteCP_DescribeWait(); // LatteCommandProcessor.cpp
 
 namespace PerfLog
 {
@@ -478,7 +481,9 @@ namespace PerfLog
 				{
 					hangDumped = true;
 					Event("freeze", fmt::format("no frame for {} s, emulated threads written to log.txt", hangDumpS));
-					cemuLog_log(LogType::Force, "Perf log: no frame for {} s, emulated threads:", hangDumpS);
+					cemuLog_log(LogType::Force, "Perf log: no frame for {} s, GPU: {}; {}; GX2 timestamps submitted {} retired {}", hangDumpS,
+						LatteCP_DescribeWait(), DescribeRenderStage(), GX2::GX2GetLastSubmittedTimeStamp(), GX2::GX2GetRetiredTimeStamp());
+					cemuLog_log(LogType::Force, "Perf log: emulated threads:");
 					ExceptionHandler_LogThreadList(true);
 				}
 			}
@@ -489,7 +494,8 @@ namespace PerfLog
 				static sint32 s_dumpCounter = 0;
 				if (++s_dumpCounter % dumpEveryS == 0)
 				{
-					cemuLog_log(LogType::Force, "Perf log: thread dump at {} s:", s_dumpCounter);
+					cemuLog_log(LogType::Force, "Perf log: thread dump at {} s, GPU: {}; {}; GX2 timestamps submitted {} retired {}", s_dumpCounter,
+						LatteCP_DescribeWait(), DescribeRenderStage(), GX2::GX2GetLastSubmittedTimeStamp(), GX2::GX2GetRetiredTimeStamp());
 					ExceptionHandler_LogThreadList(true);
 				}
 			}
@@ -749,6 +755,40 @@ namespace PerfLog
 	}
 
 	static thread_local GpuWaitReason t_gpuWaitReason = GpuWaitReason::Other;
+
+	static std::atomic<const char*> s_renderStage{nullptr};
+	static std::atomic<uint64> s_renderStageArg{0};
+	static std::atomic<sint64> s_renderStageSinceMs{0};
+
+	static sint64 _steadyMs()
+	{
+		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+	}
+
+	RenderStage::RenderStage(const char* what, uint64 arg)
+	{
+		m_prev = s_renderStage.load(std::memory_order_relaxed);
+		m_prevArg = s_renderStageArg.load(std::memory_order_relaxed);
+		m_prevSince = s_renderStageSinceMs.load(std::memory_order_relaxed);
+		s_renderStageArg.store(arg, std::memory_order_relaxed);
+		s_renderStageSinceMs.store(_steadyMs(), std::memory_order_relaxed);
+		s_renderStage.store(what, std::memory_order_release);
+	}
+
+	RenderStage::~RenderStage()
+	{
+		s_renderStageArg.store(m_prevArg, std::memory_order_relaxed);
+		s_renderStageSinceMs.store(m_prevSince, std::memory_order_relaxed);
+		s_renderStage.store(m_prev, std::memory_order_release);
+	}
+
+	std::string DescribeRenderStage()
+	{
+		const char* what = s_renderStage.load(std::memory_order_acquire);
+		if (!what)
+			return "render thread: not in a tracked wait";
+		return fmt::format("render thread: {} {:016x} for {} ms", what, s_renderStageArg.load(), _steadyMs() - s_renderStageSinceMs.load());
+	}
 
 	GpuWaitScope::GpuWaitScope(GpuWaitReason reason) : m_prev(t_gpuWaitReason)
 	{

@@ -223,6 +223,9 @@ void VulkanRenderer::DetermineVendor()
 	if(driverId == VK_DRIVER_ID_MESA_RADV || driverId == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
 		m_vendor = GfxVendor::Mesa;
 	m_isTurnip = driverId == VK_DRIVER_ID_MESA_TURNIP;
+	// Adreno (Qualcomm driver and Turnip) returns NaN from min/max/clamp with a NaN operand where the R600 returns the other
+	// operand, so a NaN the console drops reaches the framebuffer: Watch Dogs' May Stadium washed out to white on the RP5
+	m_minMaxReturnsNaN = properties.properties.vendorID == 0x5143;
 
 	cemuLog_log(LogType::Force, "Using GPU: {}", properties.properties.deviceName);
 
@@ -2595,6 +2598,7 @@ void VulkanRenderer::WaitForNextFinishedCommandBuffer()
 {
 	cemu_assert_debug(m_commandBufferSyncIndex != m_commandBufferIndex);
 	// wait on least recently submitted command buffer
+	PerfLog::RenderStage stage("vkWaitForFences command buffer", m_commandBufferSyncIndex);
 	VkResult result = vkWaitForFences(m_logicalDevice, 1, &m_cmdBufferFences[m_commandBufferSyncIndex], true, UINT64_MAX);
 	if (result == VK_TIMEOUT)
 	{
@@ -2692,6 +2696,7 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 	submitInfo.pWaitSemaphores = waitSemArray;
 
 	const auto submitStart = std::chrono::steady_clock::now();
+	PerfLog::RenderStage submitStage("vkQueueSubmit", m_numSubmittedCmdBuffers);
 	const VkResult result = vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, m_cmdBufferFences[m_commandBufferIndex]);
 	{
 		// some drivers block inside vkQueueSubmit (diagnostics: shows up as gw_other_ms)
@@ -3553,6 +3558,7 @@ bool VulkanRenderer::AcquireNextSwapchainImage(bool mainWindow)
 		return false;
 
 	const auto acquireStart = std::chrono::steady_clock::now();
+	PerfLog::RenderStage stage("swapchain acquire");
 	bool result = chainInfo.AcquireImage();
 	{
 		PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::Present);
@@ -3695,6 +3701,7 @@ void VulkanRenderer::SwapBuffer(bool mainWindow)
 		}
 	}
 
+	PerfLog::RenderStage presentStage("vkQueuePresentKHR");
 	VkResult result = vkQueuePresentKHR(m_presentQueue, &presentInfo);
 	{
 		// the acquire fence wait and vkQueuePresentKHR (Mesa's Android WSI can wait for rendering here): gw_present_ms
