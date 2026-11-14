@@ -17,6 +17,10 @@
 #include <bitset>
 #include <boost/container/small_vector.hpp>
 
+static bool _nanBits();
+static bool _nanClamp();
+static const char* _isinfFn();
+
 #define _CRLF	"\r\n"
 
 void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShader* shaderContext, StringBuf* src, LatteParsedFetchShaderAttribute* attrib);
@@ -1203,7 +1207,7 @@ void _emitALUOP2InstructionCode(LatteDecompilerShaderContext* shaderContext, Lat
 		src->add("tempResultf = 1.0 / (");
 		_emitOperandInputCode(shaderContext, aluInstruction, 0, LATTE_DECOMPILER_DTYPE_FLOAT);
 		src->add(");" _CRLF);
-		src->add("if (isinf(tempResultf)) tempResultf = uintBitsToFloat((floatBitsToUint(tempResultf) & 0x80000000u) | 0x7f7fffffu);" _CRLF);
+		src->addFmt("if ({0}(tempResultf)) tempResultf = uintBitsToFloat((floatBitsToUint(tempResultf) & 0x80000000u) | 0x7f7fffffu);" _CRLF, _isinfFn());
 		_emitInstructionOutputVariableName(shaderContext, aluInstruction);
 		src->add(" = ");
 		_emitTypeConversionPrefix(shaderContext, LATTE_DECOMPILER_DTYPE_FLOAT, outputType);
@@ -1218,9 +1222,9 @@ void _emitALUOP2InstructionCode(LatteDecompilerShaderContext* shaderContext, Lat
 		_emitOperandInputCode(shaderContext, aluInstruction, 0, LATTE_DECOMPILER_DTYPE_FLOAT);
 		src->add(");" _CRLF);
 		// INF becomes 0.0
-		src->add("if( isinf(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) == 0 ) tempResultf = 0.0;" _CRLF);
+		src->addFmt("if( {0}(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) == 0 ) tempResultf = 0.0;" _CRLF, _isinfFn());
 		// -INF becomes -0.0
-		src->add("else if( isinf(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) != 0 ) tempResultf = -0.0;" _CRLF);
+		src->addFmt("else if( {0}(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) != 0 ) tempResultf = -0.0;" _CRLF, _isinfFn());
 		// assign result to output
 		_emitInstructionOutputVariableName(shaderContext, aluInstruction);
 		src->add(" = ");
@@ -1240,14 +1244,14 @@ void _emitALUOP2InstructionCode(LatteDecompilerShaderContext* shaderContext, Lat
 		if (aluInstruction->opcode == ALU_OP2_INST_RECIPSQRT_CLAMPED)
 		{
 			// note: if( -INF < 0.0 ) does not resolve to true
-			src->add("if( isinf(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) != 0 ) tempResultf = -3.40282347E+38F;" _CRLF);
-			src->add("else if( isinf(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) == 0 ) tempResultf = 3.40282347E+38F;" _CRLF);
+			src->addFmt("if( {0}(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) != 0 ) tempResultf = -3.40282347E+38F;" _CRLF, _isinfFn());
+			src->addFmt("else if( {0}(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) == 0 ) tempResultf = 3.40282347E+38F;" _CRLF, _isinfFn());
 		}
 		else if (aluInstruction->opcode == ALU_OP2_INST_RECIPSQRT_FF)
 		{
 			// untested (BotW bombs)
-			src->add("if( isinf(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) != 0 ) tempResultf = -0.0;" _CRLF);
-			src->add("else if( isinf(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) == 0 ) tempResultf = 0.0;" _CRLF);
+			src->addFmt("if( {0}(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) != 0 ) tempResultf = -0.0;" _CRLF, _isinfFn());
+			src->addFmt("else if( {0}(tempResultf) == true && (floatBitsToInt(tempResultf)&0x80000000) == 0 ) tempResultf = 0.0;" _CRLF, _isinfFn());
 		}
 		// assign result to output
 		_emitInstructionOutputVariableName(shaderContext, aluInstruction);
@@ -1265,14 +1269,15 @@ void _emitALUOP2InstructionCode(LatteDecompilerShaderContext* shaderContext, Lat
 		_emitInstructionOutputVariableName(shaderContext, aluInstruction);
 		src->add(" = ");
 		_emitTypeConversionPrefix(shaderContext, LATTE_DECOMPILER_DTYPE_FLOAT, outputType);
+		const bool nanRules = _nanClamp();
 		if( aluInstruction->opcode == ALU_OP2_INST_MAX )
-			src->add("max");
+			src->add(nanRules ? "maxR6" : "max");
 		else if( aluInstruction->opcode == ALU_OP2_INST_MIN )
-			src->add("min");
+			src->add(nanRules ? "minR6" : "min");
 		else if (aluInstruction->opcode == ALU_OP2_INST_MAX_DX10)
-			src->add("max");
+			src->add(nanRules ? "maxDX10" : "max");
 		else if (aluInstruction->opcode == ALU_OP2_INST_MIN_DX10)
-			src->add("min");
+			src->add(nanRules ? "minDX10" : "min");
 		src->add("(");
 		_emitOperandInputCode(shaderContext, aluInstruction, 0, LATTE_DECOMPILER_DTYPE_FLOAT);
 		src->add(", ");
@@ -1303,14 +1308,14 @@ void _emitALUOP2InstructionCode(LatteDecompilerShaderContext* shaderContext, Lat
 	else if( aluInstruction->opcode == ALU_OP2_INST_LOG_CLAMPED ||
 		aluInstruction->opcode == ALU_OP2_INST_LOG_IEEE )
 	{
-		src->add("tempResultf = max(0.0, ");
+		src->add(_nanClamp() ? "tempResultf = maxR6(" : "tempResultf = max(0.0, ");
 		_emitOperandInputCode(shaderContext, aluInstruction, 0, LATTE_DECOMPILER_DTYPE_FLOAT);
-		src->add(");" _CRLF);
+		src->add(_nanClamp() ? ", 0.0);" _CRLF : ");" _CRLF);
 
 		src->add("tempResultf = log2(tempResultf);" _CRLF);
 		if( aluInstruction->opcode == ALU_OP2_INST_LOG_CLAMPED )
 		{
-			src->add("if( isinf(tempResultf) == true ) tempResultf = -3.40282347E+38F;" _CRLF);
+			src->addFmt("if( {0}(tempResultf) == true ) tempResultf = -3.40282347E+38F;" _CRLF, _isinfFn());
 		}
 		// assign result to output
 		_emitInstructionOutputVariableName(shaderContext, aluInstruction);
@@ -2089,9 +2094,9 @@ void _emitALUClauseCode(LatteDecompilerShaderContext* shaderContext, LatteDecomp
 			if( outputDataType == LATTE_DECOMPILER_DTYPE_FLOAT )
 			{
 				_emitInstructionOutputVariableName(shaderContext, &aluInstruction);
-				src->add(" = clamp(");
+				src->add(_nanClamp() ? " = satR6(" : " = clamp(");
 				_emitInstructionOutputVariableName(shaderContext, &aluInstruction);
-				src->add(", 0.0, 1.0);" _CRLF);
+				src->add(_nanClamp() ? ");" _CRLF : ", 0.0, 1.0);" _CRLF);
 			}
 			else if( outputDataType == LATTE_DECOMPILER_DTYPE_SIGNED_INT )
 			{
@@ -3150,8 +3155,32 @@ void _emitExportGPRReadCode(LatteDecompilerShaderContext* shaderContext, LatteDe
 		cemu_assert_unimplemented();
 }
 
+// perf/tuning.txt nan_bits=1: Inf tests and the 0*x=0 multiply on the float bits instead of isinf() and a compare.
+// Driver compilers that assume no Inf/NaN (fast math) may drop isinf() and turn "a==0||b==0 ? 0 : a*b" into a*b, so
+// 0*Inf gives NaN again (Ninja Gaiden 3 on Adreno: NaN lighting that bloom and depth of field spread over the screen)
+static bool _nanBits()
+{
+	static const bool s_on = PerfLog::Tunable("nan_bits", 0) != 0;
+	return s_on;
+}
+
+// perf/tuning.txt nan_clamp=1: the output clamp, MIN/MAX and the LOG input clamp with the R600 NaN rules instead of
+// GLSL clamp/min/max, whose result is undefined for NaN. Mali returns the non-NaN operand (like the Wii U GPU), Adreno
+// returns NaN, so a NaN that the console turns into 0 reaches the framebuffer (Ninja Gaiden 3 on Adreno: black skin and
+// hair that bloom spreads over the screen)
+static bool _nanClamp()
+{
+	static const bool s_on = PerfLog::Tunable("nan_clamp", 0) != 0;
+	return s_on;
+}
+
+static const char* _isinfFn()
+{
+	return _nanBits() ? "isinfBits" : "isinf";
+}
+
 // diagnostics: perf/tuning.txt ps_sanitize=1 replaces NaN/Inf in pixel shader color outputs with 0, =2 also clamps them to
-// the half float range. ps_sanitize_lo/ps_sanitize_hi limit it to shaders whose base hash top 16 bits are in that range
+// the half float range, =3 paints them (NaN magenta, Inf cyan). ps_sanitize_lo/ps_sanitize_hi limit it to shaders whose base hash top 16 bits are in that range
 // (decimal), to bisect for the shader that produces the values
 static void _emitPixelColorSanitizeDiag(LatteDecompilerShaderContext* shaderContext, uint32 colorIndex)
 {
@@ -3164,6 +3193,12 @@ static void _emitPixelColorSanitizeDiag(LatteDecompilerShaderContext* shaderCont
 	if (prefix < s_lo || prefix > s_hi)
 		return;
 	auto* src = shaderContext->shaderSource;
+	if (s_mode == 3)
+	{
+		// mark instead of fixing: magenta where an output component is NaN, cyan where it is +-Inf
+		src->addFmt("{{ uvec4 b = floatBitsToUint(passPixelColor{0}) & uvec4(0x7fffffffu); if (any(greaterThan(b, uvec4(0x7f800000u)))) passPixelColor{0} = vec4(1.0, 0.0, 1.0, 1.0); else if (any(equal(b, uvec4(0x7f800000u)))) passPixelColor{0} = vec4(0.0, 1.0, 1.0, 1.0); }}" _CRLF, colorIndex);
+		return;
+	}
 	src->addFmt("passPixelColor{0} = mix(passPixelColor{0}, vec4(0.0), equal(floatBitsToUint(passPixelColor{0}) & uvec4(0x7f800000u), uvec4(0x7f800000u)));" _CRLF, colorIndex);
 	if (s_mode >= 2)
 		src->addFmt("passPixelColor{0} = clamp(passPixelColor{0}, vec4(-65504.0), vec4(65504.0));" _CRLF, colorIndex);
@@ -3815,6 +3850,19 @@ void LatteDecompiler_emitGLSLHelperFunctions(LatteDecompilerShaderContext* shade
 		"	return floatBitsToInt(0.0);\r\n"
 		"return floatBitsToInt(clamp(intBitsToFloat(v), 0.0, 1.0));\r\n"
 	"}\r\n");
+	if (_nanBits())
+		fCStr_shaderSource->add("bool isinfBits(float v){ return (floatBitsToUint(v) & 0x7fffffffu) == 0x7f800000u; }" _CRLF);
+	if (_nanClamp())
+	{
+		// R600 ALU rules: MAX/MIN compare (src0 >= src1 / src0 < src1, so a NaN src0 gives src1), the DX10 variants and
+		// the output clamp return the non-NaN operand / 0
+		fCStr_shaderSource->add("float maxR6(float a, float b){ return a >= b ? a : b; }" _CRLF);
+		fCStr_shaderSource->add("float minR6(float a, float b){ return a < b ? a : b; }" _CRLF);
+		fCStr_shaderSource->add("bool isnanR6(float v){ return (floatBitsToUint(v) & 0x7fffffffu) > 0x7f800000u; }" _CRLF);
+		fCStr_shaderSource->add("float maxDX10(float a, float b){ return isnanR6(a) ? b : (isnanR6(b) ? a : max(a, b)); }" _CRLF);
+		fCStr_shaderSource->add("float minDX10(float a, float b){ return isnanR6(a) ? b : (isnanR6(b) ? a : min(a, b)); }" _CRLF);
+		fCStr_shaderSource->add("float satR6(float v){ return v > 0.0 ? min(v, 1.0) : 0.0; }" _CRLF);
+	}
 	// mul non-ieee way (0*NaN/INF => 0.0)
 	if (shaderContext->options->strictMul)
 	{
@@ -3826,7 +3874,9 @@ void LatteDecompiler_emitGLSLHelperFunctions(LatteDecompilerShaderContext* shade
 
 		// for "min" it used to be: float mul_nonIEEE(float a, float b){ return min(a*b,min(abs(a)*3.40282347E+38F,abs(b)*3.40282347E+38F)); }
 
-		if( LatteGPUState.glVendor == GLVENDOR_NVIDIA && !ActiveSettings::DumpShadersEnabled())
+		if (_nanBits())
+			fCStr_shaderSource->add("float mul_nonIEEE(float a, float b){ uint keep = ((floatBitsToUint(a) & 0x7fffffffu) == 0u || (floatBitsToUint(b) & 0x7fffffffu) == 0u) ? 0u : 0xffffffffu; return uintBitsToFloat(floatBitsToUint(a * b) & keep); }" _CRLF);
+		else if( LatteGPUState.glVendor == GLVENDOR_NVIDIA && !ActiveSettings::DumpShadersEnabled())
 			fCStr_shaderSource->add("float mul_nonIEEE(float a, float b){return mix(0.0, a*b, (a != 0.0) && (b != 0.0));}" _CRLF); // compiles faster on Nvidia and also results in lower RAM usage (OpenGL)
 		else
 			fCStr_shaderSource->add("float mul_nonIEEE(float a, float b){ if( a == 0.0 || b == 0.0 ) return 0.0; return a*b; }" _CRLF);

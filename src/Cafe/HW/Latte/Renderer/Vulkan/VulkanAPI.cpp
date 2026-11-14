@@ -258,6 +258,14 @@ void* load_custom_driver()
 
 	std::error_code ec;
 	fs::copy(fs::path(driver_path.value()) / driver_name, ActiveSettings::GetInternalPath(CUSTOM_DRIVER_LIB_NAME), fs::copy_options::overwrite_existing, ec);
+	// Qualcomm proprietary drivers ship the libraries the Vulkan library links against (notgsl.so, notllvm-qgl.so, ...)
+	// next to it: they must sit in the same dir as the copied library, which is where adrenotools looks for them
+	for (const auto& entry : fs::directory_iterator(fs::path(driver_path.value()), ec))
+	{
+		const auto& file = entry.path();
+		if (entry.is_regular_file(ec) && file.extension() == ".so" && file.filename() != driver_name)
+			fs::copy(file, ActiveSettings::GetInternalPath(file.filename().string()), fs::copy_options::overwrite_existing, ec);
+	}
 
 	// test hook: perf/driver_env.txt holds KEY=VALUE lines (e.g. TU_DEBUG=sysmem) exported before the driver reads its environment
 	if (std::ifstream envFile(ActiveSettings::GetUserDataPath("perf/driver_env.txt")); envFile)

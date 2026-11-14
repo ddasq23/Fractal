@@ -472,6 +472,14 @@ private:
 		bool renderPassDepthTested{}; // a draw of the current render pass had the depth or stencil test on
 		bool renderPassDepthStoreNone{}; // the current render pass doesn't store depth/stencil
 		uint8 renderPassWrittenColorMask{0}; // color attachments (render target indices) written since the current render pass began
+		// draw_selfDependencyCopy: pixel descriptor set that samples copies instead of the attachments the draw renders to, for
+		// this draw only (selfDepCopyPixelDSBound: it was bound, the next draw binds the regular set again). While dsViewSubstCount
+		// is set, draw_getOrCreateDescriptorSet replaces the views dsViewSubstFrom with dsViewSubstTo
+		struct VkDescriptorSetInfo* selfDepCopyPixelDS{};
+		bool selfDepCopyPixelDSBound{};
+		class LatteTextureViewVk* dsViewSubstFrom[4]{};
+		class LatteTextureViewVk* dsViewSubstTo[4]{};
+		sint32 dsViewSubstCount{0};
 		class CachedFBOVk* lastEndedFbo{nullptr}; // diagnostics: render passes restarted on the same framebuffer
 		PerfLog::RenderPassEnd lastEndReason{PerfLog::RenderPassEnd::Other}; // diagnostics: why the last render pass ended
 		bool colorBufferSyncPending{false}; // guest color-buffer sync since the previous draw; survives command-buffer resets
@@ -613,6 +621,7 @@ private:
 	void draw_setRenderPass();
 	VkImageAspectFlags draw_getCurrentWriteAspects(class CachedFBOVk* fboVk, uint8* colorAttachmentMask = nullptr) const;
 	bool draw_canKeepRenderPassForSelfDependency(class CachedFBOVk* fboVk, VkImageAspectFlags sampledAttachmentAspects, uint8 sampledColorAttachments);
+	bool draw_selfDependencyCopy(class CachedFBOVk* fboVk, uint8 sampledColorAttachments);
 	void draw_endRenderPass(PerfLog::RenderPassEnd reason = PerfLog::RenderPassEnd::Other);
 
 	void draw_beginSequence() override;
@@ -1157,6 +1166,21 @@ public:
 	bool HasStoreOpNone() const { return m_featureControl.deviceExtensions.load_store_op_none || m_featureControl.deviceExtensions.qcom_render_pass_store_ops; }
 	bool UseAttachmentFeedbackLoop() const { return m_featureControl.deviceExtensions.attachment_feedback_loop_dynamic_state; }
 	bool IsTurnip() const { return m_isTurnip; }
+	// whether the driver can filter this format linearly with optimal tiling (cached, GPU thread only)
+	bool FormatSupportsLinearFilter(VkFormat format)
+	{
+		auto it = m_linearFilterSupport.find(format);
+		if (it != m_linearFilterSupport.end())
+			return it->second;
+		VkFormatProperties props{};
+		vkGetPhysicalDeviceFormatProperties(m_physicalDevice, format, &props);
+		const bool supported = (props.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) != 0;
+		if (!supported)
+			cemuLog_log(LogType::Force, "Vulkan: format {} can't be filtered linearly, its textures are point sampled", (sint32)format);
+		m_linearFilterSupport.emplace(format, supported);
+		return supported;
+	}
+	std::unordered_map<VkFormat, bool> m_linearFilterSupport;
 
 private:
 

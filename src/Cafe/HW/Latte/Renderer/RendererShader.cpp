@@ -20,6 +20,11 @@ uint32 RendererShader::GeneratePrecompiledCacheId()
 	// settings that can influence shaders
 	v += (uint32)g_current_game_profile->GetAccurateShaderMul() * 133;
 	v += (uint32)(PerfLog::Tunable("strict_mul", -1) + 1) * 977;
+	// diagnostics that change the generated GLSL (LatteDecompilerEmitGLSL.cpp _emitPixelColorSanitizeDiag)
+	v += (uint32)PerfLog::Tunable("ps_sanitize", 0) * 7919;
+	v += (uint32)PerfLog::Tunable("nan_bits", 0) * 15485863;
+	v += (uint32)PerfLog::Tunable("nan_clamp", 0) * 32452843;
+	v += (uint32)PerfLog::Tunable("ps_sanitize_lo", 0) * 104729 + (uint32)PerfLog::Tunable("ps_sanitize_hi", 0xFFFF) * 1299709;
 
 	v += 0x820a5291; // change this value for manual invalidation
 

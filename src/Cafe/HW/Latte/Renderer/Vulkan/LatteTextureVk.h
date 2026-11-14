@@ -91,6 +91,10 @@ public:
 	uint64 m_vkVertexFlushIndex_write{}; // VulkanRenderer state.currentVertexFlushIndex at the time of the last write
 
 	uint32 m_selfDependencyCheckIndex{}; // used to track if texture is being both sampled and output to during drawcall
+	// copy of this texture sampled by draws that render to it (VulkanRenderer::draw_selfDependencyCopy). Host only: not in the
+	// texture cache, its views are not registered for lookups; deleted with this texture
+	LatteTextureVk* m_selfDepCopy{};
+	std::vector<class LatteTextureViewVk*> m_selfDepCopyViews;
 	VkImageAspectFlags m_selfDependencyCheckAspectMask{};
 
 	bool m_isAlternateFormat{}; // true if host pixel format does not 1:1 match the emulated guest texture pixel format

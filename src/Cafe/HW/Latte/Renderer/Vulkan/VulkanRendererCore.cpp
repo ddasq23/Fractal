@@ -617,7 +617,11 @@ uint64 VulkanRenderer::GetDescriptorSetStateHash(LatteDecompilerShader* shader)
 
 VkDescriptorSetInfo* VulkanRenderer::draw_getOrCreateDescriptorSet(PipelineInfo* pipeline_info, LatteDecompilerShader* shader)
 {
-	const uint64 stateHash = GetDescriptorSetStateHash(shader);
+	uint64 stateHash = GetDescriptorSetStateHash(shader);
+	// views replaced by draw_selfDependencyCopy: a set of its own
+	const sint32 viewSubstCount = shader->shaderType == LatteConst::ShaderType::Pixel ? m_state.dsViewSubstCount : 0;
+	for (sint32 k = 0; k < viewSubstCount; k++)
+		stateHash = std::rotl(stateHash, 17) ^ ((m_state.dsViewSubstTo[k]->GetUniqueId() + 1) * 0x9E3779B97F4A7C15ull);
 	cemu_assert_debug(shader->shaderType == LatteConst::ShaderType::Vertex || shader->shaderType == LatteConst::ShaderType::Pixel || shader->shaderType == LatteConst::ShaderType::Geometry);
 	auto& ds_cache = pipeline_info->GetDescriptorSetCache(shader->shaderType);
 	const auto it = ds_cache.find(stateHash);
@@ -702,6 +706,9 @@ VkDescriptorSetInfo* VulkanRenderer::draw_getOrCreateDescriptorSet(PipelineInfo*
 		}
 
 		auto textureView = m_state.boundTexture[hostTextureUnit];
+		for (sint32 k = 0; k < viewSubstCount; k++)
+			if (textureView == m_state.dsViewSubstFrom[k])
+				textureView = m_state.dsViewSubstTo[k];
 		if (!textureView)
 		{
 			if (textureDim == Latte::E_DIM::DIM_1D)
@@ -935,6 +942,34 @@ VkDescriptorSetInfo* VulkanRenderer::draw_getOrCreateDescriptorSet(PipelineInfo*
 					samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
 				}
 			}
+
+			// linear filtering of a format without VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT is undefined. Adreno 6xx
+			// can't filter 32-bit float formats (D32F, R32F...) and returns garbage, Mali filters them (Ninja Gaiden 3 on
+			// Adreno: depth of field reads the depth buffer linearly and blurs the whole picture, bloom gets NaN). Point
+			// sampling is what the GPU can do. perf/tuning.txt unfilterable_nearest=0 turns this off
+			static const bool s_unfilterableNearest = PerfLog::Tunable("unfilterable_nearest", 1) != 0;
+			const bool wantsLinear = samplerInfo.minFilter == VK_FILTER_LINEAR || samplerInfo.magFilter == VK_FILTER_LINEAR ||
+				samplerInfo.mipmapMode == VK_SAMPLER_MIPMAP_MODE_LINEAR;
+			if (s_unfilterableNearest && wantsLinear && !FormatSupportsLinearFilter(baseTexture->GetFormat()))
+			{
+				samplerInfo.minFilter = VK_FILTER_NEAREST;
+				samplerInfo.magFilter = VK_FILTER_NEAREST;
+				samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+				samplerInfo.anisotropyEnable = VK_FALSE;
+				samplerInfo.maxAnisotropy = 1.0f;
+			}
+		}
+
+		// diagnostics: perf/tuning.txt log_depth_reads=1 logs once per shader and unit each depth texture a shader samples
+		static const bool s_logDepthReads = PerfLog::Tunable("log_depth_reads", 0) != 0;
+		if (s_logDepthReads && baseTexture->isDepth)
+		{
+			static std::unordered_set<uint64> s_seenDepthReads;
+			if (s_seenDepthReads.insert(shader->baseHash ^ ((uint64)relative_textureUnit << 56)).second)
+				cemuLog_log(LogType::Force, "depth read: shader {:016x} type {} unit {} tex {:08x} {}x{} GX2 {:04x} Vk {} | min {} mag {} mip {} compare {} view GX2 {:04x}",
+					shader->baseHash, (sint32)shader->shaderType, relative_textureUnit, baseTexture->physAddress, baseTexture->width, baseTexture->height,
+					(uint32)baseTexture->format, (sint32)baseTexture->GetFormat(), (sint32)samplerInfo.minFilter, (sint32)samplerInfo.magFilter,
+					(sint32)samplerInfo.mipmapMode, (sint32)samplerInfo.compareEnable, (uint32)textureView->format);
 		}
 
 		VKRObjectSampler* samplerObj = VKRObjectSampler::GetOrCreateSampler(&samplerInfo);
@@ -1067,6 +1102,23 @@ static bool BarrierPrecise()
 	return s_precise;
 }
 
+
+// diagnostics: perf/tuning.txt diag_barrier bitmask adds full memory barriers (1 = before every render pass begins,
+// 2 = after every render pass ends, 4 = never relax the in-pass feedback barrier). For finding a missing barrier
+static sint64 DiagBarrierMask()
+{
+	static const sint64 s_mask = PerfLog::Tunable("diag_barrier", 0);
+	return s_mask;
+}
+
+static void DiagFullBarrier(VkCommandBuffer cmd)
+{
+	VkMemoryBarrier mb{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+	mb.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+	mb.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &mb, 0, nullptr, 0, nullptr);
+}
+
 void VulkanRenderer::sync_inputTexturesChanged(bool withinFeedbackLoopRenderPass)
 {
 	bool writeFlushRequired = withinFeedbackLoopRenderPass; // feedback loop still requires us to emit a barrier
@@ -1118,7 +1170,7 @@ void VulkanRenderer::sync_inputTexturesChanged(bool withinFeedbackLoopRenderPass
 	{
 		// Continued draws with unchanged descriptors in the same renderpass only introduce feedback hazards.
 		// Relax color feedback without a guest sync, but keep the read indices above updated for later passes.
-		if (withinFeedbackLoopRenderPass && !m_state.descriptorSetsChanged && !m_state.colorBufferSyncPending
+		if (withinFeedbackLoopRenderPass && !(DiagBarrierMask() & 4) && !m_state.descriptorSetsChanged && !m_state.colorBufferSyncPending
 			&& m_state.m_curRenderpassSelfDependencyInfo.GetAspectMask() == VK_IMAGE_ASPECT_COLOR_BIT)
 			return;
 
@@ -1312,6 +1364,13 @@ void VulkanRenderer::draw_setRenderPass()
 
 	bool feedbackLoopHandlesSelfDependency = UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.HasSelfDependency() && !currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency();
 	bool selfDependencyNeedsPassSplit = currentSelfDependencyInfo.HasSelfDependency() && !feedbackLoopHandlesSelfDependency;
+	// a pixel shader that samples the color attachment it renders to: without the feedback loop extension the draw samples a
+	// copy taken just before it (draw_selfDependencyCopy) and the pass needs no split for it
+	m_state.selfDepCopyPixelDS = nullptr;
+	if (selfDependencyNeedsPassSplit && !currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency() &&
+		currentSelfDependencyInfo.GetAspectMask() == VK_IMAGE_ASPECT_COLOR_BIT &&
+		draw_selfDependencyCopy(fboVk, currentSelfDependencyInfo.colorAttachmentMask))
+		selfDependencyNeedsPassSplit = false;
 	// accurate_barriers in perf/tuning.txt overrides the setting for measurements (-1 = use the setting)
 	static const sint64 s_accurateOverride = PerfLog::Tunable("accurate_barriers", -1);
 	const bool accurateBarriers = s_accurateOverride < 0 ? GetConfig().vk_accurate_barriers.GetValue() : s_accurateOverride != 0;
@@ -1375,6 +1434,8 @@ void VulkanRenderer::draw_setRenderPass()
 	m_state.renderPassDepthStoreNone = canSkipDepthStore && !fboVk->m_depthWrittenLastPass && !(draw_getCurrentWriteAspects(fboVk, nullptr) & kDepthStencil);
 	if (m_state.renderPassDepthStoreNone)
 		PerfLog::DepthStoreSkipped(false);
+	if (DiagBarrierMask() & 1)
+		DiagFullBarrier(m_state.currentCommandBuffer);
 	if (m_featureControl.deviceExtensions.dynamic_rendering)
 	{
 		if (canSkipDepthStore)
@@ -1456,6 +1517,88 @@ VkImageAspectFlags VulkanRenderer::draw_getCurrentWriteAspects(CachedFBOVk* fboV
 // and the draw itself does not write them either (e.g. soft particles reading the depth buffer with depth writes off).
 // Reading an attachment that nobody writes in GENERAL layout is valid inside the pass. BotW split its passes ~350 times per
 // frame for this, each split storing and reloading every attachment on tiled GPUs. selfdep_keep=0 in perf/tuning.txt disables
+// A draw whose pixel shader samples the color attachment it renders to (Assassin's Creed IV bloom: a blur added onto the
+// 320x180 RGBA16F target it reads, once per frame). On the GPU7 a pixel reads its own texel before writing it. Vulkan only
+// defines that with VK_EXT_attachment_feedback_loop_layout; without it the Adreno 650 driver (Qualcomm blob) returns
+// garbage in blocks, which the bloom spreads into colored squares over the particles. Copy the sampled subresources to a
+// host only texture outside the render pass and bind a pixel descriptor set that samples the copy. perf/tuning.txt
+// selfdep_copy=0 turns this off (old behaviour: split the pass and sample the attachment)
+bool VulkanRenderer::draw_selfDependencyCopy(CachedFBOVk* fboVk, uint8 sampledColorAttachments)
+{
+	static const bool s_enabled = PerfLog::Tunable("selfdep_copy", 1) != 0;
+	if (!s_enabled || !m_state.activePixelDS || !m_state.activePipelineInfo)
+		return false;
+	uint8 colorWrites = 0;
+	draw_getCurrentWriteAspects(fboVk, &colorWrites);
+	const uint8 hazard = sampledColorAttachments & colorWrites;
+	if (hazard == 0)
+		return false; // only sampled: the regular split and barrier handle it
+	LatteDecompilerShader* pixelShader = LatteSHRC_GetActivePixelShader();
+	if (!pixelShader)
+		return false;
+	auto overlaps = [](const LatteTextureView* a, const LatteTextureView* b) -> bool
+	{
+		return a->baseTexture == b->baseTexture &&
+			a->firstMip < b->firstMip + b->numMip && b->firstMip < a->firstMip + a->numMip &&
+			a->firstSlice < b->firstSlice + b->numSlice && b->firstSlice < a->firstSlice + a->numSlice;
+	};
+	// pick the views to replace first, so that nothing is copied when one can't be handled
+	sint32 count = 0;
+	for (LatteTextureViewVk* view : m_state.activePixelDS->list_referencedViews)
+	{
+		bool written = false;
+		for (sint32 i = 0; i < 8; i++)
+			if ((hazard & (1 << i)) && fboVk->colorBuffer[i].texture && overlaps(view, fboVk->colorBuffer[i].texture))
+				written = true;
+		if (!written)
+			continue;
+		if (count == 4 || view->baseTexture->Is3DTexture() || view->baseTexture->isDepth)
+			return false;
+		m_state.dsViewSubstFrom[count++] = view;
+	}
+	if (count == 0)
+		return false;
+	for (sint32 k = 0; k < count; k++)
+	{
+		LatteTextureViewVk* view = m_state.dsViewSubstFrom[k];
+		LatteTextureVk* tex = view->GetBaseImage();
+		if (!tex->m_selfDepCopy)
+		{
+			tex->m_selfDepCopy = static_cast<LatteTextureVk*>(texture_createTextureEx(tex->dim, tex->physAddress, tex->physMipAddress, tex->format, tex->width, tex->height,
+				tex->depth, tex->pitch, tex->mipLevels, tex->swizzle, tex->tileMode, tex->isDepth));
+			tex->m_selfDepCopy->isHostOnlyCopy = true;
+			tex->m_selfDepCopy->AllocateOnHost();
+			tex->m_selfDepCopy->isDataDefined = true;
+			static std::atomic<int> s_logged{0};
+			if (s_logged.fetch_add(1) < 16)
+				cemuLog_log(LogType::Force, "Vulkan: draw samples the attachment it renders to (shader {:016x}, texture {:08x} {}x{} GX2 {:04x}), sampling a copy",
+					pixelShader->baseHash, tex->physAddress, tex->width, tex->height, (uint32)tex->format);
+		}
+		LatteTextureVk* copy = tex->m_selfDepCopy;
+		LatteTextureViewVk* copyView = nullptr;
+		for (LatteTextureViewVk* v : tex->m_selfDepCopyViews)
+			if (v->dim == view->dim && v->format == view->format && v->firstMip == view->firstMip && v->numMip == view->numMip &&
+				v->firstSlice == view->firstSlice && v->numSlice == view->numSlice)
+				copyView = v;
+		if (!copyView)
+		{
+			copyView = new LatteTextureViewVk(GetLogicalDevice(), copy, view->dim, view->format, view->firstMip, view->numMip, view->firstSlice, view->numSlice, false);
+			tex->m_selfDepCopyViews.emplace_back(copyView);
+		}
+		for (sint32 mip = view->firstMip; mip < view->firstMip + view->numMip; mip++)
+		{
+			sint32 effectiveWidth, effectiveHeight;
+			tex->GetEffectiveSize(effectiveWidth, effectiveHeight, mip);
+			texture_copyImageSubData(tex, mip, 0, 0, view->firstSlice, copy, mip, 0, 0, view->firstSlice, effectiveWidth, effectiveHeight, view->numSlice);
+		}
+		m_state.dsViewSubstTo[k] = copyView;
+	}
+	m_state.dsViewSubstCount = count;
+	m_state.selfDepCopyPixelDS = draw_getOrCreateDescriptorSet(m_state.activePipelineInfo, pixelShader);
+	m_state.dsViewSubstCount = 0;
+	return true;
+}
+
 bool VulkanRenderer::draw_canKeepRenderPassForSelfDependency(CachedFBOVk* fboVk, VkImageAspectFlags sampledAttachmentAspects, uint8 sampledColorAttachments)
 {
 	static const bool s_enabled = PerfLog::Tunable("selfdep_keep", 1) != 0;
@@ -1508,6 +1651,21 @@ void VulkanRenderer::draw_endRenderPass(PerfLog::RenderPassEnd reason)
 		vkCmdEndRenderingKHR(m_state.currentCommandBuffer);
 	else
 		vkCmdEndRenderPass(m_state.currentCommandBuffer);
+	// Turnip: make every render pass's attachment writes visible to everything recorded after it. Some reads of those
+	// attachments get no barrier from the flush index tracking; Mali and Qualcomm's driver hide that, Turnip doesn't.
+	// NG3 Razor's Edge on the RP5 (Adreno 650, Turnip T19): the depth of field reads a stale depth buffer and blurs the
+	// whole picture, TU_DEBUG=flushall and this barrier both fix it, at no measurable cost (36 vs 35 fps).
+	// perf/tuning.txt pass_end_barrier=0/1 overrides
+	static const sint64 s_passEndBarrier = PerfLog::Tunable("pass_end_barrier", -1);
+	if ((DiagBarrierMask() & 2) || (s_passEndBarrier < 0 ? IsTurnip() : s_passEndBarrier != 0))
+	{
+		VkMemoryBarrier mb{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+		mb.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		mb.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+		vkCmdPipelineBarrier(m_state.currentCommandBuffer,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &mb, 0, nullptr, 0, nullptr);
+	}
 	PassProfileEndPass();
 	if (m_state.activeRenderpassFBO->hasDepthBuffer())
 	{
@@ -1641,11 +1799,20 @@ static bool DiagSkipDraw()
 {
 	DiagFrameDraws();
 	static const sint64 s_skip[4] = { PerfLog::Tunable("skip_ps1", 0), PerfLog::Tunable("skip_ps2", 0), PerfLog::Tunable("skip_ps3", 0), PerfLog::Tunable("skip_ps4", 0) };
-	if (s_skip[0] == 0)
+	// skip_ps_lo/skip_ps_hi=<top 16 bits of the pixel shader base hash, decimal>: drop every draw in that range, to bisect for
+	// the draw that breaks the picture (how the AC IV bloom blur on the Adreno blob was found)
+	static const sint64 s_skipLo = PerfLog::Tunable("skip_ps_lo", -1), s_skipHi = PerfLog::Tunable("skip_ps_hi", -1);
+	if (s_skip[0] == 0 && s_skipLo < 0)
 		return false;
 	LatteDecompilerShader* ps = LatteSHRC_GetActivePixelShader();
 	if (!ps)
 		return false;
+	if (s_skipLo >= 0)
+	{
+		const sint64 top = (sint64)(ps->baseHash >> 48);
+		if (top >= s_skipLo && top <= s_skipHi)
+			return true;
+	}
 	for (sint64 h : s_skip)
 		if (h != 0 && (sint64)ps->baseHash == h)
 			return true;
@@ -1822,6 +1989,11 @@ void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, 
 	m_state.descriptorSetsChanged = true;
 
 	draw_setRenderPass();
+	// the set that samples the copies is for this draw only (draw_selfDependencyCopy); all sets are bound below anyway
+	if (m_state.selfDepCopyPixelDS)
+		pixelDS = m_state.selfDepCopyPixelDS;
+	m_state.selfDepCopyPixelDSBound = m_state.selfDepCopyPixelDS != nullptr;
+	m_state.selfDepCopyPixelDS = nullptr;
 
 	if (m_state.currentPipeline != vkObjPipeline->GetPipeline())
 	{
@@ -2046,6 +2218,15 @@ void VulkanRenderer::draw_execute_continued(uint32 baseVertex, uint32 baseInstan
 		draw_updateVkBlendConstants();
 
 	// update descriptor sets
+	if (m_state.selfDepCopyPixelDS || m_state.selfDepCopyPixelDSBound)
+	{
+		// the set that samples the copies is for this draw only (draw_selfDependencyCopy)
+		stageUniformModifiedMask |= (1 << VulkanRendererConst::SHADER_STAGE_INDEX_FRAGMENT);
+		if (m_state.selfDepCopyPixelDS)
+			pixelDS = m_state.selfDepCopyPixelDS;
+		m_state.selfDepCopyPixelDSBound = m_state.selfDepCopyPixelDS != nullptr;
+		m_state.selfDepCopyPixelDS = nullptr;
+	}
 	uint32_t dynamicOffsets[17 * 2];
 	VkDescriptorSet dsArray[2];
 	sint32 dsArraySize = 0;

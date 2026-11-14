@@ -150,6 +150,15 @@ LatteTextureVk::~LatteTextureVk()
 {
 	cemu_assert_debug(views.empty());
 
+	for (LatteTextureViewVk* view : m_selfDepCopyViews)
+		delete view;
+	m_selfDepCopyViews.clear();
+	if (m_selfDepCopy)
+	{
+		delete m_selfDepCopy;
+		m_selfDepCopy = nullptr;
+	}
+
 	m_vkr->surfaceCopy_notifyTextureRelease(this);
 
 	VulkanRenderer::GetInstance()->ReleaseDestructibleObject(vkObjTex);

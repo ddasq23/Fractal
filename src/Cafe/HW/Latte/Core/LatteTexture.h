@@ -151,6 +151,7 @@ public:
 	uint32 texDataHash2{};
 	// state
 	bool isUpdatedOnGPU{ false }; // set if any GPU-side operation modified this texture and strict one-way RAM->VRAM memory mirroring no longer applies
+	bool isHostOnlyCopy{ false }; // renderer-owned copy of another texture (not in the texture cache): the cache never deletes it, its owner does
 	bool enableReadback{ false }; // if true, texture will be mirrored back to CPU RAM under specific circumstances
 	// invalidation
 	bool forceInvalidate{};

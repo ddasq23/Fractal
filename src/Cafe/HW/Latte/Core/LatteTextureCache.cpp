@@ -354,6 +354,8 @@ void LatteTexture_Delete(LatteTexture* texture)
  */
 bool LatteTC_CleanupCheckTexture(LatteTexture* texture, uint32 currentTick)
 {
+	if (texture->isHostOnlyCopy)
+		return false; // deleted with the texture that owns it
 	uint32 currentFrameCount = LatteGPUState.frameCounter;
 	uint32 ticksSinceLastAccess = currentTick - texture->lastAccessTick;
 	uint32 framesSinceLastAccess = currentFrameCount - texture->lastAccessFrameCount;
@@ -452,11 +454,12 @@ std::vector<LatteTexture*> LatteTC_GetDeleteableTextures()
 
 void LatteTC_UnloadAllTextures()
 {
-	std::vector<LatteTexture*> allTexturesCopy = LatteTexture::GetAllTextures();
+	// host only copies go with the textures that own them, so leave them out before anything is deleted
+	std::vector<LatteTexture*> allTexturesCopy;
+	for (LatteTexture* itr : LatteTexture::GetAllTextures())
+		if (itr && !itr->isHostOnlyCopy)
+			allTexturesCopy.emplace_back(itr);
 	for (auto& itr : allTexturesCopy)
-	{
-		if(itr)
-			LatteTexture_Delete(itr);
-	}
+		LatteTexture_Delete(itr);
 	LatteRenderTarget_unloadAll();
 }

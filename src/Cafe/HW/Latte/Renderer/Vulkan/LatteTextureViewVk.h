@@ -7,7 +7,7 @@
 class LatteTextureViewVk : public LatteTextureView
 {
 public:
-	LatteTextureViewVk(VkDevice device, class LatteTextureVk* texture, Latte::E_DIM dim, Latte::E_GX2SURFFMT format, sint32 firstMip, sint32 mipCount, sint32 firstSlice, sint32 sliceCount);
+	LatteTextureViewVk(VkDevice device, class LatteTextureVk* texture, Latte::E_DIM dim, Latte::E_GX2SURFFMT format, sint32 firstMip, sint32 mipCount, sint32 firstSlice, sint32 sliceCount, bool registerView = true);
 	~LatteTextureViewVk();
 
 	uint64 GetUniqueId() const { return m_uniqueId; };

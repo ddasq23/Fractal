@@ -1051,7 +1051,9 @@ bool PipelineCompiler::Compile(bool forceCompile, bool isRenderThread, bool show
 	}
 	else
 	{
-		cemuLog_log(LogType::Force, "Failed to create graphics pipeline. Error {}", (sint32)result);
+		cemuLog_log(LogType::Force, "Failed to create graphics pipeline. Error {} | vs {:016x} gs {:016x} ps {:016x} rectGS {} discard {} stages {} robust {}", (sint32)result,
+			m_vkVertexShader ? m_vkVertexShader->GetBaseHash() : 0, m_vkGeometryShader ? m_vkGeometryShader->GetBaseHash() : 0, m_vkPixelShader ? m_vkPixelShader->GetBaseHash() : 0,
+			m_rectEmulationGS != nullptr, rasterizer.rasterizerDiscardEnable, pipelineInfo.stageCount, m_requestRobustBufferAccess);
 		cemu_assert_debug(false);
 		return true; // true indicates that caller should no longer attempt to compile this pipeline again
 	}

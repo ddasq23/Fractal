@@ -393,6 +393,9 @@ void VulkanRenderer::GetDeviceFeatures()
 		m_featureControl.deviceExtensions.attachment_feedback_loop_layout = attachmentFeedbackLoopLayoutFeature.attachmentFeedbackLoopLayout == VK_TRUE;
 	if (m_featureControl.deviceExtensions.attachment_feedback_loop_dynamic_state && m_featureControl.deviceExtensions.attachment_feedback_loop_layout)
 		m_featureControl.deviceExtensions.attachment_feedback_loop_dynamic_state = attachmentFeedbackLoopDynamicStateFeature.attachmentFeedbackLoopDynamicState == VK_TRUE;
+	// diagnostics: perf/tuning.txt feedback_loop=0 ends the render pass for every self dependency, as without the extension
+	if (PerfLog::Tunable("feedback_loop", 1) == 0)
+		m_featureControl.deviceExtensions.attachment_feedback_loop_dynamic_state = false;
 	if (!UseAttachmentFeedbackLoop())
 		cemuLog_log(LogType::Force, "VK_EXT_attachment_feedback_loop_layout(_dynamic_state) not supported");
 	// GPU timestamps for the performance log

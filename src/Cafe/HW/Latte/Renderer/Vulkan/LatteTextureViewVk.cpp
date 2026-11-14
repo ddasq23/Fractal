@@ -55,8 +55,8 @@ uint32 LatteTextureVk_AdjustTextureCompSel(Latte::E_GX2SURFFMT format, uint32 co
 	return compSel;
 }
 
-LatteTextureViewVk::LatteTextureViewVk(VkDevice device, LatteTextureVk* texture, Latte::E_DIM dim, Latte::E_GX2SURFFMT format, sint32 firstMip, sint32 mipCount, sint32 firstSlice, sint32 sliceCount)
-	: LatteTextureView(texture, firstMip, mipCount, firstSlice, sliceCount, dim, format), m_device(device)
+LatteTextureViewVk::LatteTextureViewVk(VkDevice device, LatteTextureVk* texture, Latte::E_DIM dim, Latte::E_GX2SURFFMT format, sint32 firstMip, sint32 mipCount, sint32 firstSlice, sint32 sliceCount, bool registerView)
+	: LatteTextureView(texture, firstMip, mipCount, firstSlice, sliceCount, dim, format, registerView), m_device(device)
 {
 	if(texture->overwriteInfo.hasFormatOverwrite)
 	{
