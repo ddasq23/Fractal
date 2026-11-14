@@ -6,6 +6,7 @@
 #include "Cafe/HW/Espresso/Debugger/GDBStub.h"
 #include "ExceptionHandler.h"
 #include "Cafe/HW/Espresso/Debugger/GuestWatch.h"
+#include "Cafe/OS/RPL/rpl_symbol_storage.h"
 
 #if BOOST_PLAT_ANDROID
 #include <android/log.h>
@@ -200,6 +201,14 @@ void ExceptionHandler_LogGeneralInfo()
     // PPC thread log
     CrashLog_WriteLine("");
     CrashLog_WriteHeader("PPC threads");
+    ExceptionHandler_LogThreadList(false);
+}
+
+// the emulated threads: state, where each stopped (IP/LR and the OS call), optionally the stack of every waiting thread.
+// Also used without a crash, for games that freeze (perf log tunable hang_dump_s)
+void ExceptionHandler_LogThreadList(bool withStacks)
+{
+    char dumpLine[1024];
     if (activeThreadCount == 0)
     {
         CrashLog_WriteLine("None active");
@@ -231,7 +240,18 @@ void ExceptionHandler_LogGeneralInfo()
         if (!threadItrBE->threadName.IsNull())
             threadName = threadItrBE->threadName.GetPtr();
         sprintf(dumpLine, "%08x Ent %08x IP %08x LR %08x %-9s Aff %d%d%d Pri %2d Name %s", threadItrMPTR, threadItrBE->entrypoint.GetMPTR(), threadItrBE->context.srr0, _swapEndianU32(threadItrBE->context.lr), threadStateStr, (affinity >> 0) & 1, (affinity >> 1) & 1, (affinity >> 2) & 1, effectivePriority, threadName);
+        // name the function the thread stopped in (usually an OS call such as a wait or a yield). In the HLE trampoline area below
+        // 0x01000000 only an exact match is meaningful, the closest symbol there belongs to an unrelated stub
+        const MPTR ip = threadItrBE->context.srr0;
+        if (RPLStoredSymbol* sym = rplSymbolStorage_getByClosestAddress(ip); sym && (ip < 0x01000000 ? ip == sym->address : ip - sym->address < 0x1000))
+        {
+            size_t len = strlen(dumpLine);
+            snprintf(dumpLine + len, sizeof(dumpLine) - len, " in %s.%s+0x%x", (const char*)sym->libName, (const char*)sym->symbolName, ip - sym->address);
+        }
         // write line to log
         CrashLog_WriteLine(dumpLine);
+        // hang dumps: the call chain that led each waiting thread into its wait
+        if (withStacks && threadState == OSThread_t::THREAD_STATE::STATE_WAITING)
+            DebugLogStackTrace(threadItrBE, _swapEndianU32(threadItrBE->context.gpr[1]));
     }
 }

@@ -25,14 +25,33 @@ typedef struct {
 
 static_assert(sizeof(z_stream_ppc2) == 0x38);
 
+// zlib-ng (the libz of several Linux distributions, picked up at run time even when built against classic zlib headers) keeps a much
+// larger internal state than zlib 1.2.5. Games that hand zlib a fixed-size allocator sized for the original state (Ninja Gaiden 3 gives
+// it 10 KB, zlib-ng asks 41 KB) crash inside their own allocator, so with zlib-ng the host state always comes from the default heap
+static bool zlib125_hostIsZlibNg()
+{
+	static const bool s_isZlibNg = strstr(zlibVersion(), "zlib-ng") != nullptr;
+	return s_isZlibNg;
+}
+
 voidpf zcallocWrapper(voidpf opaque, uInt items, uInt size)
 {
 	z_stream_ppc2* zstream = (z_stream_ppc2*)opaque;
 	PPCInterpreter_t* hCPU = PPCInterpreter_getCurrentInstance();
-	hCPU->gpr[3] = zstream->opaque.GetMPTR();
-	hCPU->gpr[4] = items;
-	hCPU->gpr[5] = size;
-	PPCCore_executeCallbackInternal(zstream->zalloc.GetMPTR());
+	if (zlib125_hostIsZlibNg())
+	{
+		hCPU->gpr[3] = items * size;
+		PPCCore_executeCallbackInternal(gCoreinitData->MEMAllocFromDefaultHeap.GetMPTR());
+	}
+	else
+	{
+		hCPU->gpr[3] = zstream->opaque.GetMPTR();
+		hCPU->gpr[4] = items;
+		hCPU->gpr[5] = size;
+		PPCCore_executeCallbackInternal(zstream->zalloc.GetMPTR());
+	}
+	if (hCPU->gpr[3] == 0)
+		return Z_NULL;
 	memset(memory_getPointerFromVirtualOffset(hCPU->gpr[3]), 0, items*size);
 	return memory_getPointerFromVirtualOffset(hCPU->gpr[3]);
 }
@@ -41,9 +60,17 @@ void zcfreeWrapper(voidpf opaque, voidpf baseIndex)
 {
 	z_stream_ppc2* zstream = (z_stream_ppc2*)opaque;
 	PPCInterpreter_t* hCPU = PPCInterpreter_getCurrentInstance();
-	hCPU->gpr[3] = zstream->opaque.GetMPTR();
-	hCPU->gpr[4] = memory_getVirtualOffsetFromPointer(baseIndex);
-	PPCCore_executeCallbackInternal(zstream->zfree.GetMPTR());
+	if (zlib125_hostIsZlibNg())
+	{
+		hCPU->gpr[3] = memory_getVirtualOffsetFromPointer(baseIndex);
+		PPCCore_executeCallbackInternal(gCoreinitData->MEMFreeToDefaultHeap.GetMPTR());
+	}
+	else
+	{
+		hCPU->gpr[3] = zstream->opaque.GetMPTR();
+		hCPU->gpr[4] = memory_getVirtualOffsetFromPointer(baseIndex);
+		PPCCore_executeCallbackInternal(zstream->zfree.GetMPTR());
+	}
 	return;
 }
 

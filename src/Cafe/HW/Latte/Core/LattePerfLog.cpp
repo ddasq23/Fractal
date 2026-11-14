@@ -6,6 +6,7 @@
 
 #include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/CafeSystem.h"
+#include "Common/ExceptionHandler/ExceptionHandler.h"
 #include "config/ActiveSettings.h"
 #include "config/CemuConfig.h"
 #include "Common/version.h"
@@ -368,6 +369,8 @@ namespace PerfLog
 		auto prevTicks = ReadThreadTicks();
 		auto prevTime = Clock::now();
 		bool infoWritten = false;
+		sint32 zeroFrameSeconds = 0;
+		bool hangDumped = false;
 		std::vector<FrameSample> batch;
 		std::vector<float> sorted;
 
@@ -408,6 +411,18 @@ namespace PerfLog
 			std::sort(sorted.begin(), sorted.end());
 			const size_t n = sorted.size();
 			const double fps = dt > 0.0 ? (double)n / dt : 0.0;
+			// tuning hang_dump_s=N: after N seconds in a row without a frame, write the emulated threads and the stacks of the
+			// waiting ones to log.txt, once per session. For freezes on devices without root (no way to signal the app from adb)
+			if (const sint32 hangDumpS = Tunable("hang_dump_s", 0); hangDumpS > 0)
+			{
+				zeroFrameSeconds = n ? 0 : zeroFrameSeconds + 1;
+				if (zeroFrameSeconds == hangDumpS && !hangDumped)
+				{
+					hangDumped = true;
+					cemuLog_log(LogType::Force, "Perf log: no frame for {} s, emulated threads:", hangDumpS);
+					ExceptionHandler_LogThreadList(true);
+				}
+			}
 			const double ftAvg = n ? ftSum / (double)n : 0.0;
 			// 99th percentile frametime; "1% low" fps is its inverse
 			const double ftP99 = n ? sorted[std::min(n - 1, (size_t)std::ceil(0.99 * (double)n) - 1)] : 0.0;

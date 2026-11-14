@@ -8,6 +8,7 @@
 #include "Cafe/HW/Espresso/Recompiler/PPCRecompiler.h"
 #include "Cafe/HW/Espresso/Debugger/Debugger.h"
 #include "Cafe/GraphicPack/GraphicPack2.h"
+#include "Cafe/CafeSystem.h"
 #include "util/ChunkedHeap/ChunkedHeap.h"
 
 #include "util/crypto/crc32.h"
@@ -1860,6 +1861,8 @@ void RPLLoader_FixModuleTLSIndex(RPLModule* rplLoaderContext)
 	rplLoaderContext->fileInfo.tlsModuleIndex = tlsModuleIndex;
 }
 
+static void RPLLoader_ApplyTitleFixes(RPLModule* module);
+
 void RPLLoader_Link()
 {
 	// calculate TLS index
@@ -1884,8 +1887,48 @@ void RPLLoader_Link()
 		RPLLoader_LinkSingleModule(module, true);
 		RPLLoader_LoadDebugSymbols(module);
 		module->isLinked = true; // mark as linked
+		RPLLoader_ApplyTitleFixes(module);
 		GraphicPack2::NotifyModuleLoaded(module);
 		g_debuggerDispatcher.NotifyModuleLoaded(module);
+	}
+}
+
+// Fixes for races inside a game's own code that the console's timing never hits but an emulator can.
+// Each one looks for the exact instruction sequence first, so another version or region of the game is left alone.
+static void RPLLoader_ApplyTitleFixes(RPLModule* module)
+{
+	const uint64 titleId = CafeSystem::GetForegroundTitleId();
+	const bool isNinjaGaiden3 = titleId == 0x0005000010110A00ull || titleId == 0x0005000010110B00ull ||
+		titleId == 0x0005000010110900ull || titleId == 0x0005000010139B00ull;
+	if (!isNinjaGaiden3 || module->regionSize_text < 64)
+		return;
+	// Ninja Gaiden 3: Razor's Edge, event flags "set": after OR-ing the new bits it walks the waiters and signals or resets
+	// each one's OSEvent, re-reading the flags without a lock. The waiter woken first can clear the flags and set the
+	// other thread's bit between that read and the reset, so the reset wipes out a signal that was just given: both
+	// threads then wait forever (the game froze with a black screen after a few minutes on Android). Setting bits never
+	// makes a waiter's condition false, and "clear" resets the events itself, so the reset there is dropped.
+	static const uint32 pattern[] = {
+		0x7FC3F378, 0x48000003, // mr r3,r30; bla OSSignalEvent
+		0x80DE0030, 0x2C060000, 0x41820024, 0x811F0010, 0x813F0014, 0x91060000, 0x91260004, 0x3BBD0040, 0x48000010,
+		0x7FC3F378, 0x48000003, // mr r3,r30; bla OSResetEvent <- nop
+	};
+	constexpr size_t count = sizeof(pattern) / sizeof(pattern[0]);
+	uint32be* text = (uint32be*)module->regionMappingBase_text.GetPtr();
+	const size_t words = module->regionSize_text / 4;
+	for (size_t i = 0; i + count <= words; i++)
+	{
+		bool match = true;
+		for (size_t k = 0; k < count && match; k++)
+		{
+			const uint32 w = text[i + k];
+			match = pattern[k] == 0x48000003 ? (w & 0xFC000003) == 0x48000003 : w == pattern[k];
+		}
+		if (!match)
+			continue;
+		const MPTR addr = module->regionMappingBase_text.GetMPTR() + (uint32)(i + count - 1) * 4;
+		text[i + count - 1] = 0x60000000; // nop
+		cemuLog_log(LogType::Force, "Ninja Gaiden 3: event flag reset race fixed at 0x{:08x}", addr);
+		return;
 	}
 }
 
