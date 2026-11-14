@@ -58,3 +58,7 @@ bin/graphicPacks/*
 .DS_Store
 # python bytecode of tools/
 __pycache__/
+
+# Claude Code (local)
+.claude/settings.local.json
+CLAUDE.local.md

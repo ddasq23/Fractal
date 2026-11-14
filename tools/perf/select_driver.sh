@@ -18,7 +18,7 @@ dump(){ $A exec-out uiautomator dump /dev/tty 2>/dev/null | grep -o 'text="[^"]\
 tapt(){ local l; l=$(dump | grep "^$1|" | head -1); [ -n "$l" ] || return 1; IFS='|' read -r _ x1 y1 x2 y2 <<<"$l"; $A shell input tap $(( (x1+x2)/2 )) $(( (y1+y2)/2 )); }
 read -r W H < <($A shell wm size | grep -o "[0-9]*x[0-9]*" | tail -1 | tr x " "); SX=$((W/2)); SY1=$((H*8/10)); SY2=$((H*5/10))
 $A shell am force-stop dev.dfd.fractal
-$A shell monkey -p dev.dfd.fractal -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1; sleep 5
+$A shell am start -n dev.dfd.fractal/.MainActivity >/dev/null 2>&1; sleep 5
 l=$($A exec-out uiautomator dump /dev/tty 2>/dev/null | grep -o 'content-desc="Configurações"[^>]*bounds="[^"]*"' | grep -o '[0-9]\+' | tr '\n' ' ')
 read -r x1 y1 x2 y2 <<<"$l"; [ -n "${y2:-}" ] || { echo "no settings button"; exit 1; }
 $A shell input tap $(( (x1+x2)/2 )) $(( (y1+y2)/2 )); sleep 2

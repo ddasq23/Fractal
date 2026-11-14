@@ -1,0 +1,41 @@
+# title: Batman™: Arkham Origins
+# title_id: 0005000010137c00
+# duration: 480
+# scene: first boot: A through logos and title (main menu ~80 s, on STORY), A opens NEW GAME OPTIONS (~95 s), DOWN x4 to START GAME and A, then the opening cutscene and first gameplay; A every 20 s afterwards for prompts
+30 A
+36 A
+42 A
+48 A
+54 A
+60 A
+66 A
+72 A
+78 A
+84 A
+90 A
+100 DOWN
+102 DOWN
+104 DOWN
+106 DOWN
+108 A
+120 DOWN
+122 DOWN
+124 DOWN
+126 DOWN
+128 A
+160 A
+180 A
+200 A
+220 A
+240 A
+260 A
+280 A
+300 A
+320 A
+340 A
+360 A
+380 A
+400 A
+420 A
+440 A
+460 A

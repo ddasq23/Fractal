@@ -1,0 +1,41 @@
+# title: Assassin's Creed® IV Black Flag
+# title_id: 0005000010138b00
+# duration: 500
+# window: 400 490
+# scene: new game opening: menus as ac4 (PLUS at 115 answers the name keyboard), then hands off through the opening cutscene; stick and camera on the deck from 400 s
+40 A
+46 A
+52 A
+58 A
+64 A
+70 A
+75 PLUS
+76 A
+82 A
+88 A
+94 A
+100 A
+106 A
+112 A
+115 PLUS
+400 LUP 4000
+405 RRIGHT 700
+407 LUP 2500
+412 LUP 4000
+417 RRIGHT 700
+419 LUP 2500
+424 LUP 4000
+429 RRIGHT 700
+431 LUP 2500
+436 LUP 4000
+441 RRIGHT 700
+443 LUP 2500
+448 LUP 4000
+453 RRIGHT 700
+455 LUP 2500
+460 LUP 4000
+465 RRIGHT 700
+467 LUP 2500
+472 LUP 4000
+477 RRIGHT 700
+479 LUP 2500

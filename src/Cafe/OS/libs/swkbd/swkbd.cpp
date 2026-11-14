@@ -3,6 +3,7 @@
 #include "Cafe/OS/libs/coreinit/coreinit_FS.h"
 #include "Cafe/OS/libs/gx2/GX2.h"
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 
 #include <imgui.h>
 #include "imgui/imgui_extension.h"
@@ -92,6 +93,14 @@ sint32 isNeedCalcSubThreadFont = 0;
 sint32 isNeedCalcSubThreadPredict = 0;
 
 std::shared_ptr<swkbd::swkbdCallbacks> s_swkbdCallbacks;
+
+// a perf scene script has no keyboard: while it runs, the form is answered here (the game calls SwkbdCalc every frame)
+// with "x" plus Return on the script's PLUS presses, and the host keyboard (Android text dialog) is not shown
+static bool PerfScriptActive()
+{
+	return !PerfLog::InputScript().empty();
+}
+
 
 void swkbd::setSwkbdCallbacks(const std::shared_ptr<swkbd::swkbdCallbacks>& swkbdCallbacks)
 {
@@ -228,7 +237,7 @@ uint32 SwkbdAppearInputForm(const swkbdAppearArg_t* appearArg)
 		swkbdInternalState->formStringBuffer[0] = '\0';
 		swkbdInternalState->formStringLength = 0;
 	}
-	if (s_swkbdCallbacks)
+	if (s_swkbdCallbacks && !PerfScriptActive())
 		s_swkbdCallbacks->showSoftwareKeyboard({swkbdInternalState->formStringBuffer, swkbdInternalState->formStringBuffer + swkbdInternalState->formStringLength}, swkbdInternalState->maxTextLength);
 
 	return 1;
@@ -250,7 +259,7 @@ uint32 SwkbdAppearKeyboard(const SwkbdKeyboardArg_t* keyboardArg)
 	swkbdInternalState->formStringBuffer[0] = '\0';
 	swkbdInternalState->formStringLength = 0;
 	swkbdInternalState->keyboardArg = *keyboardArg;
-	if (s_swkbdCallbacks)
+	if (s_swkbdCallbacks && !PerfScriptActive())
 	{
 		sint32 maxLength = std::max(swkbdInternalState->keyboardArg.receiverArg.stringBufSize - 1, 0);
 		s_swkbdCallbacks->showSoftwareKeyboard({swkbdInternalState->formStringBuffer, swkbdInternalState->formStringBuffer + swkbdInternalState->formStringLength}, maxLength);
@@ -411,7 +420,20 @@ void SwkbdCalcSubThreadPredict()
 
 void SwkbdCalc(void* controllerInfo)
 {
-	// no op for now
+	if (swkbdInternalState == nullptr || !swkbdInternalState->isActive || !PerfScriptActive())
+		return;
+	static bool s_prevPlus = true;
+	bool plus = false;
+	const double now = PerfLog::SessionSeconds();
+	for (const auto& press : PerfLog::InputScript())
+		plus |= press.button == "PLUS" && now >= press.startS && now < press.endS;
+	if (plus && !s_prevPlus)
+	{
+		if (swkbdInternalState->formStringLength == 0)
+			swkbd::keyInput('x');
+		swkbd::keyInput(swkbd::RETURN_KEYCODE);
+	}
+	s_prevPlus = plus;
 }
 
 void swkbd::render(bool mainWindow)

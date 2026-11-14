@@ -12,10 +12,11 @@
 # Scenes live in tools/perf/scenes/<scene>.txt: a header with "# title:", "# title_id:" and
 # "# duration:", then the input script (see LattePerfLog.h). Before each run the game's save is
 # deleted (only the emulated save inside the app's own folder), so every run starts the same way;
-# it is pulled to ~/.cache/fractal-perf/save_backups/<title id>/<time> first (SAVE_BACKUPS overrides).
+# it is pulled to ~/AndroidStudioProjects/Fractal-trabalho/save_backups/<title id>/<time> first (SAVE_BACKUPS overrides).
 # KEEP_SAVE=1 leaves it in place.
 # The "Record performance log" setting must be on and controller 1 must be a Wii U GamePad.
-# PKG selects the app (default dev.dfd.fractal).
+# PKG selects the app (default dev.dfd.fractal). PPC_DUMP=1 on a rooted device writes the emulated thread list to log.txt
+# before the app is closed (see the end of the script), for runs that freeze.
 set -u
 exec </dev/null
 DEV=$1; SCENE=$2; OUT=$3; SHOTS=${4:-}
@@ -38,7 +39,7 @@ $A shell cat "$FILES/controllerProfiles/controller0.xml" 2>/dev/null | grep -q '
 backup_save() {
   local dir="$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}"
   $A shell ls "$dir" >/dev/null 2>&1 || return 0
-  local dst="${SAVE_BACKUPS:-$HOME/.cache/fractal-perf/save_backups}/$TID/$(date +%Y%m%d-%H%M%S)"
+  local dst="${SAVE_BACKUPS:-$HOME/AndroidStudioProjects/Fractal-trabalho/save_backups}/$TID/$(date +%Y%m%d-%H%M%S)"
   mkdir -p "$dst"
   $A pull "$dir" "$dst" >/dev/null 2>&1 || { echo "$SCENE: could not back up the save, not deleting it"; exit 1; }
 }
@@ -47,11 +48,11 @@ if [ "${KEEP_SAVE:-0}" != 1 ]; then
   backup_save
   $A shell rm -rf "$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}"
 fi
-# "# save: <name>" starts from a saved game: the folder SAVES/<name> (default ~/.cache/fractal-perf/saves, a copy of
+# "# save: <name>" starts from a saved game: the folder SAVES/<name> (default ~/AndroidStudioProjects/Fractal-trabalho/saves, a copy of
 # mlc01/usr/save/<high>/<low> made after playing to that point) replaces the title's save before each run
 SAVE_NAME=$(sed -n 's/^# save: *//p' "$FILE")
 if [ -n "$SAVE_NAME" ]; then
-  SRC="${SAVES:-$HOME/.cache/fractal-perf/saves}/$SAVE_NAME"
+  SRC="${SAVES:-$HOME/AndroidStudioProjects/Fractal-trabalho/saves}/$SAVE_NAME"
   [ -d "$SRC" ] || { echo "$SCENE: save $SRC not found"; exit 1; }
   [ "${KEEP_SAVE:-0}" = 1 ] && backup_save
   $A shell rm -rf "$FILES/mlc01/usr/save/${TID:0:8}/${TID:8:8}"
@@ -63,7 +64,9 @@ $A push "$FILE" "$FILES/perf/input_$TID.txt" >/dev/null
 before=$($A shell ls "$FILES/perf" | tr -d '\r' | grep "_$TID\$" | sort | tail -1)
 
 # open the library and tap the game
-$A shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
+# am start, not monkey: monkey sometimes never returns on the RG Cube
+ACT=$($A shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER $PKG | tail -1 | tr -d '\r')
+$A shell am start -n "$ACT" >/dev/null 2>&1
 sleep 6
 # the game may be below the visible rows: scroll down a few times until it shows up
 for try in 1 2 3 4 5; do
@@ -79,6 +82,13 @@ done
 ty=$(( (y1 + y2) / 2 ))
 [ $ty -gt $(( H * 85 / 100 )) ] && ty=$(( y1 - 2 * (y2 - y1) ))
 $A shell input tap $(( (x1 + x2) / 2 )) $ty
+# a tap that lands while the library is still settling only moves the focus (seen on the RP5): tap again until the game opens
+for try in 1 2 3; do
+  sleep 4
+  $A shell dumpsys window | grep -m1 mCurrentFocus | grep -q EmulationActivity && break
+  echo "$SCENE: the game did not open, tapping again"
+  $A shell input tap $(( (x1 + x2) / 2 )) $ty
+done
 start=$(date +%s)
 
 # clocks and thermal state every 2 s (the RP5 caps its GPU at 400 of 905 MHz when hot, which changes every result)
@@ -97,6 +107,12 @@ done
 now=$(( $(date +%s) - start )); [ $DUR -gt $now ] && sleep $(( DUR - now ))
 
 alive=$($A shell pidof $PKG | tr -d '\r')
+# PPC_DUMP=1 (rooted device): SIGSEGV the still running app first, so the crash handler writes the emulated thread list
+# (which OS call each guest thread waits in) to log.txt. Meant for freezes, where no crash report would exist otherwise
+if [ -n "${PPC_DUMP:-}" ]; then
+  emu=$($A shell pidof $PKG:EmulationProcess | tr -d '\r')
+  [ -n "$emu" ] && $A shell "su -c 'kill -SEGV $emu'" && sleep 4
+fi
 $A shell am force-stop $PKG
 session=$($A shell ls "$FILES/perf" | tr -d '\r' | grep "_$TID\$" | sort | tail -1)
 if [ -z "$session" ] || [ "$session" = "$before" ]; then echo "$SCENE: no new session (app alive: ${alive:-no})"; exit 1; fi

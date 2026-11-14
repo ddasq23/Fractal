@@ -1,0 +1,20 @@
+# title: Assassin's Creed® IV Black Flag
+# title_id: 0005000010138b00
+# duration: 170
+# window: 100 160
+# scene: ac4_intro up to the loading screen after the name keyboard (menu and loading particles), for driver A/Bs
+40 A
+46 A
+52 A
+58 A
+64 A
+70 A
+75 PLUS
+76 A
+82 A
+88 A
+94 A
+100 A
+106 A
+112 A
+115 PLUS
