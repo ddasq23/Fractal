@@ -3196,8 +3196,7 @@ void _emitExportGPRReadCode(LatteDecompilerShaderContext* shaderContext, LatteDe
 // 0*Inf gives NaN again (Ninja Gaiden 3 on Adreno: NaN lighting that bloom and depth of field spread over the screen)
 static bool _nanBits()
 {
-	static const bool s_on = PerfLog::Tunable("nan_bits", 0) != 0;
-	return s_on;
+	return g_renderer && g_renderer->UseStrictMulBits();
 }
 
 // the output clamp, MIN/MAX and the LOG input clamp with the R600 NaN rules instead of GLSL clamp/min/max, whose result

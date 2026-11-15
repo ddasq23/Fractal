@@ -29,6 +29,14 @@ bool Renderer::UseRelativeWriteSwitch() const
 	return m_relativeWriteSwitch;
 }
 
+bool Renderer::UseStrictMulBits() const
+{
+	static const sint64 s_nanBits = PerfLog::Tunable("nan_bits", -1);
+	if (s_nanBits >= 0)
+		return s_nanBits != 0;
+	return m_strictMulBits;
+}
+
 bool Renderer::GetVRAMInfo(int& usageInMB, int& totalInMB) const
 {
 	usageInMB = totalInMB = -1;

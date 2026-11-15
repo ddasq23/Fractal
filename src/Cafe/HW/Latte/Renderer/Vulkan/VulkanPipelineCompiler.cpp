@@ -1021,9 +1021,25 @@ bool PipelineCompiler::Compile(bool forceCompile, bool isRenderThread, bool show
 	uint8 retryCount = 0;
 	PerfLogTimer perfTimer;
 	// a driver that crashes inside its shader compiler leaves only its own frames in the backtrace: name the shaders
-	ExceptionHandler_SetThreadNote(fmt::format("vkCreateGraphicsPipelines vs {:016x} gs {:016x} ps {:016x}",
+	// and the fixed function state, to tell which part of the pipeline a driver can't handle
+	std::string blendNote;
+	for (uint32 i = 0; i < colorBlending.attachmentCount; i++)
+	{
+		const auto& a = colorBlending.pAttachments[i];
+		blendNote += fmt::format(" c{}:{}{}/{}{}{}m{:x}", i, a.blendEnable ? "b" : "-", (uint32)a.srcColorBlendFactor, (uint32)a.dstColorBlendFactor,
+			(uint32)a.colorBlendOp, a.alphaBlendOp != VK_BLEND_OP_ADD ? "A" : "", (uint32)a.colorWriteMask);
+	}
+	ExceptionHandler_SetThreadNote(fmt::format("vkCreateGraphicsPipelines vs {:016x} gs {:016x} ps {:016x} | topo {} restart {} "
+		"poly {} cull {} discard {} clamp {} bias {} samples {} a2c {} | depth {}{} op {} stencil {} bounds {} | logic {} blend{} | "
+		"vtx {}/{} dyn {} robust {} stages {}",
 		m_vkVertexShader ? m_vkVertexShader->GetBaseHash() : 0, m_vkGeometryShader ? m_vkGeometryShader->GetBaseHash() : 0,
-		m_vkPixelShader ? m_vkPixelShader->GetBaseHash() : 0).c_str());
+		m_vkPixelShader ? m_vkPixelShader->GetBaseHash() : 0, (uint32)inputAssembly.topology, inputAssembly.primitiveRestartEnable,
+		(uint32)rasterizer.polygonMode, (uint32)rasterizer.cullMode, rasterizer.rasterizerDiscardEnable, rasterizer.depthClampEnable,
+		rasterizer.depthBiasEnable, (uint32)multisampling.rasterizationSamples, multisampling.alphaToCoverageEnable,
+		depthStencilState.depthTestEnable ? "t" : "-", depthStencilState.depthWriteEnable ? "w" : "-", (uint32)depthStencilState.depthCompareOp,
+		depthStencilState.stencilTestEnable, depthStencilState.depthBoundsTestEnable, colorBlending.logicOpEnable ? (sint32)colorBlending.logicOp : -1,
+		blendNote, vertexInputInfo.vertexBindingDescriptionCount, vertexInputInfo.vertexAttributeDescriptionCount, dynamicState.dynamicStateCount,
+		m_requestRobustBufferAccess, pipelineInfo.stageCount).c_str());
 	// hang dumps: a synchronous compile on the render thread (the pixel shader hash names it)
 	std::optional<PerfLog::RenderStage> stage;
 	if (isRenderThread)

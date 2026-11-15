@@ -105,6 +105,10 @@ public:
 	bool UseNanClamp() const;
 	// indexed GPR writes as a switch over the registers in use instead of one GPR array (see LatteDecompilerRegisterDataTypeTracker)
 	bool UseRelativeWriteSwitch() const;
+	// Fractal: the 0*x=0 multiply and the Inf tests on the float bits (perf/tuning.txt nan_bits=0/1 overrides). Turnip's
+	// compiler for Adreno 8xx has no fmadz: NIR turns "a==0||b==0 ? 0 : a*b" followed by an add into one, the shader fails
+	// to compile ("Unhandled ALU op: fmadz") and the driver crashes in vkCreateGraphicsPipelines (Ninja Gaiden 3, AC IV)
+	bool UseStrictMulBits() const;
 	virtual bool UseTFViaSSBO() const { return false; }
 	virtual void AppendOverlayDebugInfo() = 0;
 
@@ -200,6 +204,7 @@ protected:
 	GfxVendor m_vendor = GfxVendor::Generic;
 	bool m_relativeWriteSwitch = false; // Fractal: the Qualcomm compiler crashes on the GPR array form, Mali never finishes the switch form
 	bool m_minMaxReturnsNaN = false; // Fractal: GLSL min/max/clamp return NaN when an operand is NaN (Adreno)
+	bool m_strictMulBits = false; // Fractal: UseStrictMulBits (Turnip on Adreno 8xx)
 	std::string m_selectedDeviceName = "";
 
 	static uint8 SRGBComponentToRGB(uint8 ci);

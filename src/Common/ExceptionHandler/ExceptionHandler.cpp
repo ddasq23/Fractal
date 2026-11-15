@@ -204,7 +204,7 @@ void ExceptionHandler_LogGeneralInfo()
     ExceptionHandler_LogThreadList(false);
 }
 
-static thread_local char t_threadNote[256];
+static thread_local char t_threadNote[640];
 
 void ExceptionHandler_SetThreadNote(const char* note)
 {

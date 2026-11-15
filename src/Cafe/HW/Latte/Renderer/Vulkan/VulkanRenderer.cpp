@@ -227,6 +227,8 @@ void VulkanRenderer::DetermineVendor()
 	// operand, so a NaN the console drops reaches the framebuffer: Watch Dogs' May Stadium washed out to white on the RP5
 	m_minMaxReturnsNaN = properties.properties.vendorID == 0x5143;
 	m_relativeWriteSwitch = properties.properties.vendorID == 0x5143;
+	// Turnip for Adreno 8xx (Steven's Gen8 V39, Mesa 27.0-devel) can't compile fmadz, which NIR makes from the strict multiply
+	m_strictMulBits = m_isTurnip && std::string_view(properties.properties.deviceName).starts_with("Adreno (TM) 8");
 
 	cemuLog_log(LogType::Force, "Using GPU: {}", properties.properties.deviceName);
 
