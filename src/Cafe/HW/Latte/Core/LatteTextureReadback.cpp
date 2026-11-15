@@ -3,6 +3,10 @@
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "Cafe/HW/Latte/Core/LatteTexture.h"
 #include "Cafe/HW/Latte/Core/LattePerfLog.h"
+#include <unordered_map>
+#include "config/ActiveSettings.h"
+#include "Common/FileStream.h"
+#include <chrono>
 
 #define LOG_READBACK_TIME
 
@@ -101,6 +105,91 @@ void LatteTextureReadback_Initate(LatteTextureView* textureView)
 	sTextureScheduledReadbacks.emplace_back(queueEntry);
 }
 
+// Fractal diagnostics (debug session, always on): name the first readback of each texture, and report float data with NaN or
+// Inf, which the game's CPU code then turns into its own state (an exposure computed from a luminance readback that turns NaN
+// keeps the whole frame white or black). Readbacks are rare, so scanning them costs nothing
+static void LatteTextureReadback_CheckData(LatteTextureReadbackInfo* info, const uint8* data)
+{
+	const auto& tex = info->hostTextureCopy;
+	const uint32 fmt = (uint32)tex.format;
+	PerfLog::Event(fmt::format("readback {:08x}", tex.physAddress), fmt::format("texture {}x{} GX2 {:04x} mip {} slice {} read back to memory",
+		tex.width, tex.height, fmt, info->m_firstMip, info->m_firstSlice));
+	// perf/tuning.txt readback_stats=1: once per second per texture, the byte statistics of what was read back (games that
+	// cull on the CPU from a GPU visibility buffer hide everything when it reads back as all occluded)
+	static const bool s_stats = PerfLog::Tunable("readback_stats", 0) != 0;
+	if (s_stats && data)
+	{
+		static std::unordered_map<uint32, std::chrono::steady_clock::time_point> s_lastLog;
+		auto now = std::chrono::steady_clock::now();
+		auto& last = s_lastLog[tex.physAddress];
+		if (now - last >= std::chrono::seconds(1))
+		{
+			last = now;
+			const size_t n = (size_t)info->m_rowPitch * std::max<uint32>(tex.height >> info->m_firstMip, 1);
+			uint64 sum = 0;
+			size_t zeros = 0, ones = 0;
+			for (size_t i = 0; i < n; i++)
+			{
+				sum += data[i];
+				zeros += data[i] == 0x00;
+				ones += data[i] == 0xFF;
+			}
+			uint64 hash = 0xcbf29ce484222325ull;
+			for (size_t i = 0; i < n; i += 64)
+				hash = (hash ^ data[i]) * 0x100000001b3ull;
+			cemuLog_log(LogType::Force, "readback {:08x} {}x{} {:04x}: {} bytes mean {:.1f} 00:{:.1f}% FF:{:.1f}% hash {:08x}", tex.physAddress, tex.width,
+				tex.height, fmt, n, n ? (double)sum / n : 0.0, n ? 100.0 * zeros / n : 0.0, n ? 100.0 * ones / n : 0.0, (uint32)hash);
+		}
+	}
+	// perf/tuning.txt readback_dump=1: every 2 s per texture, the raw data (rows of m_rowPitch bytes) to perf/rb/
+	static const bool s_dump = PerfLog::Tunable("readback_dump", 0) != 0;
+	if (s_dump && data)
+	{
+		static std::unordered_map<uint32, std::chrono::steady_clock::time_point> s_lastDump;
+		auto now = std::chrono::steady_clock::now();
+		auto& last = s_lastDump[tex.physAddress];
+		if (now - last >= std::chrono::seconds(2))
+		{
+			last = now;
+			const uint32 h = std::max<uint32>(tex.height >> info->m_firstMip, 1);
+			const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+			std::error_code ec;
+			fs::create_directories(ActiveSettings::GetUserDataPath("perf/rb"), ec);
+			FileStream* fs = FileStream::createFile2(ActiveSettings::GetUserDataPath("perf/rb/{:08x}_{}_{}x{}_{:04x}_p{}.bin", tex.physAddress, ms, tex.width, h, fmt, info->m_rowPitch));
+			if (fs)
+			{
+				fs->writeData(data, (size_t)info->m_rowPitch * h);
+				delete fs;
+			}
+		}
+	}
+	if (!data || (fmt & 0x800) == 0)
+		return;
+	const uint32 hw = fmt & 0x3F;
+	const bool half = hw == 0x06 || hw == 0x10 || hw == 0x20;
+	const bool single = hw == 0x0E || hw == 0x1E || hw == 0x23;
+	if (!half && !single)
+		return;
+	const uint32 height = std::max<uint32>(tex.height >> info->m_firstMip, 1);
+	const size_t size = (size_t)info->m_rowPitch * height;
+	uint32 bad = 0;
+	if (half)
+	{
+		for (size_t i = 0; i + 1 < size; i += 2)
+			if (((*(const uint16*)(data + i)) & 0x7C00) == 0x7C00)
+				bad++;
+	}
+	else
+	{
+		for (size_t i = 0; i + 3 < size; i += 4)
+			if (((*(const uint32*)(data + i)) & 0x7F800000) == 0x7F800000)
+				bad++;
+	}
+	if (bad)
+		PerfLog::Event(fmt::format("readback_nan {:08x}", tex.physAddress), fmt::format("texture {}x{} GX2 {:04x} read back with {} NaN/Inf values",
+			tex.width, tex.height, fmt, bad));
+}
+
 void LatteTextureReadback_UpdateFinishedTransfers(bool forceFinish)
 {
 	if (forceFinish)
@@ -147,6 +236,7 @@ void LatteTextureReadback_UpdateFinishedTransfers(bool forceFinish)
 		}
 #endif
 		uint8* pixelData = readbackInfo->GetData();
+		LatteTextureReadback_CheckData(readbackInfo, pixelData);
 		LatteTextureLoader_writeReadbackTextureToMemory(&readbackInfo->hostTextureCopy, readbackInfo->m_firstSlice, readbackInfo->m_firstMip, pixelData, readbackInfo->m_rowPitch);
 		readbackInfo->ReleaseData();
 		// get the original texture if it still exists and invalidate the current data hash

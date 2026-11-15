@@ -2,9 +2,17 @@
 #include "Cafe/HW/Latte/Core/LatteShader.h"
 #include "Cafe/HW/Latte/Core/LattePerformanceMonitor.h"
 #include "Cafe/HW/Latte/Core/LatteTexture.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "Cafe/HW/Latte/LatteAddrLib/LatteAddrLib.h"
+
+// linear_reinterpret=1 (perf/tuning.txt): see LatteTexture_IsLinearReinterpretation
+static bool LatteTexture_LinearReinterpretEnabled()
+{
+	static const bool s_enabled = PerfLog::Tunable("linear_reinterpret", 0) != 0;
+	return s_enabled;
+}
 
 #include "Cafe/GraphicPack/GraphicPack2.h"
 
@@ -454,6 +462,16 @@ void LatteTexture_SyncSlice(LatteTexture* srcTexture, sint32 srcSliceIndex, sint
 	else if(srcTexture->overwriteInfo.hasFormatOverwrite && srcTexture->overwriteInfo.format != dstTexture->overwriteInfo.format)
 		return; // both are overwritten but with different formats
 
+	if (LatteTexture_LinearReinterpretEnabled() && srcTexture->GetBPP() != dstTexture->GetBPP() && !srcTexture->IsCompressedFormat() && !dstTexture->IsCompressedFormat() && !srcTexture->isDepth && !dstTexture->isDepth)
+	{
+		// linear reinterpretation (see LatteTexture_IsLinearReinterpretation): copy the bytes of each row
+		const sint32 srcRowBytes = std::max(srcWidth >> srcMipIndex, 1) * (sint32)srcTexture->GetBPP() / 8;
+		const sint32 dstRowBytes = std::max(dstWidth >> dstMipIndex, 1) * (sint32)dstTexture->GetBPP() / 8;
+		const sint32 rows = std::min(std::max(srcHeight >> srcMipIndex, 1), std::max(dstHeight >> dstMipIndex, 1));
+		g_renderer->texture_copyImageBytes(srcTexture, srcMipIndex, srcSliceIndex, dstTexture, dstMipIndex, dstSliceIndex, std::min(srcRowBytes, dstRowBytes), rows);
+		return;
+	}
+
 	if (srcMipIndex == 0 && dstMipIndex == 0 && (srcTexture->tileMode == Latte::E_HWTILEMODE::TM_LINEAR_ALIGNED || srcTexture->tileMode == Latte::E_HWTILEMODE::TM_1D_TILED_THIN1) && srcTexture->height > dstTexture->height && (srcTexture->height % dstTexture->height) == 0)
 	{
 		bool isMatch = srcTexture->tileMode == Latte::E_HWTILEMODE::TM_LINEAR_ALIGNED;
@@ -599,6 +617,27 @@ bool LatteTexture_IsBlockedFormatRelation(LatteTexture* texture1, LatteTexture* 
 	return __LatteTexture_IsBlockedFormatRelation(texture2, texture1);
 }
 
+// Fractal: two linear textures at the same address whose formats differ in texel size but whose rows have the same size in
+// bytes (AC IV writes its occlusion map as R8 768 wide and reduces it as RGBA8 192 wide) share their bytes: the
+// relation is tracked and synced with a byte copy. Off by default (perf/tuning.txt linear_reinterpret=1): it was not
+// what blacked out AC IV and is not tried on other games yet
+static bool LatteTexture_IsLinearReinterpretation(LatteTexture* t1, LatteTextureSliceMipInfo* s1, LatteTexture* t2, LatteTextureSliceMipInfo* s2)
+{
+	if (!LatteTexture_LinearReinterpretEnabled() || g_renderer->GetType() != RendererAPI::Vulkan)
+		return false;
+	auto isLinear = [](Latte::E_HWTILEMODE tm) { return tm == Latte::E_HWTILEMODE::TM_LINEAR_ALIGNED || tm == Latte::E_HWTILEMODE::TM_LINEAR_GENERAL; };
+	if (!isLinear(s1->tileMode) || !isLinear(s2->tileMode))
+		return false;
+	if (t1->isDepth || t2->isDepth || t1->IsCompressedFormat() || t2->IsCompressedFormat())
+		return false;
+	if (t1->overwriteInfo.hasResolutionOverwrite || t2->overwriteInfo.hasResolutionOverwrite || t1->overwriteInfo.hasFormatOverwrite || t2->overwriteInfo.hasFormatOverwrite)
+		return false;
+	const uint32 bpp1 = t1->GetBPP(), bpp2 = t2->GetBPP();
+	if (bpp1 == bpp2 || bpp1 == 0 || bpp2 == 0 || (bpp1 & 7) || (bpp2 & 7))
+		return false;
+	return s1->pitch * bpp1 == s2->pitch * bpp2;
+}
+
 // called if two textures are known to overlap in memory
 // this function then tries to figure out the details and registers the relation in texture*->list_compatibleRelations
 void LatteTexture_TrackTextureRelation(LatteTexture* texture1, LatteTexture* texture2)
@@ -651,7 +690,7 @@ void LatteTexture_TrackTextureRelation(LatteTexture* texture1, LatteTexture* tex
 		LatteTextureSliceMipInfo* texture2SliceInfo = texture2->sliceMipInfo + texture2->GetSliceMipArrayIndex(0, 0);
 		if (_LatteTexture_IsTileModeCompatible(texture1, baseMipIndex, texture2, 0) == false)
 			return; // not compatible
-		if (texture1SliceInfo->pitch != texture2SliceInfo->pitch)
+		if (texture1SliceInfo->pitch != texture2SliceInfo->pitch && !LatteTexture_IsLinearReinterpretation(texture1, texture1SliceInfo, texture2, texture2SliceInfo))
 			return; // not compatible
 		// calculate compatible depth range
 		sint32 baseRemainingDepth = texture1->GetMipDepth(baseMipIndex) - baseSliceIndex;
@@ -771,6 +810,10 @@ void LatteTexture_GatherTextureRelations(LatteTexture* texture)
 							if (sliceMipInfo->pitch == occupancy.sliceMipInfo->pitch && LatteTexture_IsTexelSizeCompatibleFormat(texture->format, itrTexture->format)
 								&& sliceMipInfo->tileMode == occupancy.sliceMipInfo->tileMode &&
 								LatteTexture_IsFormatViewCompatible(texture->format, itrTexture->format))
+							{
+								LatteTexture_TrackTextureRelation(texture, itrTexture);
+							}
+							else if (LatteTexture_IsLinearReinterpretation(texture, sliceMipInfo, itrTexture, occupancy.sliceMipInfo))
 							{
 								LatteTexture_TrackTextureRelation(texture, itrTexture);
 							}

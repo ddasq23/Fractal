@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2026 DFD */
 
+#include "Cafe/HW/Latte/Renderer/Renderer.h"
 #include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/CafeSystem.h"
 #include "Cafe/OS/RPL/rpl_symbol_storage.h"
@@ -107,6 +108,14 @@ namespace PerfLog
 	static bool s_stop = false;
 
 	static std::vector<ScriptedPress> s_inputScript; // set before s_active, read-only afterwards
+	static std::vector<ScriptedAxes> s_inputAxes; // same
+	// SYNC lines of the input script: recorded time, draw threshold, and the session time the sync happened (-1 pending)
+	struct ScriptSync { double recordedS; uint32 minDraws; };
+	static std::vector<ScriptSync> s_scriptSyncs;
+	static std::array<std::atomic<double>, 16> s_scriptSyncAt;
+	static std::atomic<uint32> s_frameDraws{};
+	static std::atomic<uint64> s_presentCount{};
+	static std::array<std::atomic<uint64>, 16> s_scriptSyncFrame;
 
 	static std::mutex s_jitMutex;
 	static std::ofstream s_jitMap, s_jitFail, s_jitCode;
@@ -163,6 +172,28 @@ namespace PerfLog
 			fs::remove_all(sessions[i], ec);
 	}
 
+	double ScriptSeconds(int segment)
+	{
+		const double now = SessionSeconds();
+		if (segment <= 0)
+			return now;
+		const double at = s_scriptSyncAt[segment - 1].load(std::memory_order_relaxed);
+		if (at < 0.0)
+			return -1.0;
+		// script_frames=1: time after a sync counts presented frames (1/60 s each) instead of the clock, so the same game
+		// frame gets the same input on every replay
+		static const bool s_frames = Tunable("script_frames", 0) != 0;
+		if (s_frames)
+			return (double)(s_presentCount.load(std::memory_order_relaxed) - s_scriptSyncFrame[segment - 1].load(std::memory_order_relaxed)) / 60.0 + s_scriptSyncs[segment - 1].recordedS;
+		return now - at + s_scriptSyncs[segment - 1].recordedS;
+	}
+
+	const std::vector<ScriptedAxes>& InputAxes()
+	{
+		static const std::vector<ScriptedAxes> empty;
+		return IsActive() ? s_inputAxes : empty;
+	}
+
 	const std::vector<ScriptedPress>& InputScript()
 	{
 		static const std::vector<ScriptedPress> empty;
@@ -195,10 +226,23 @@ namespace PerfLog
 			double holdMs = 150.0;
 			if (!(ss >> t >> button))
 				continue;
+			if (button == "AXIS")
+			{
+				ScriptedAxes a{t, (int)s_scriptSyncs.size()};
+				if (ss >> a.lx >> a.ly >> a.rx >> a.ry)
+					s_inputAxes.push_back(a);
+				continue;
+			}
 			ss >> holdMs;
 			for (char& ch : button)
 				ch = (char)toupper((unsigned char)ch);
-			script.push_back({t, t + holdMs / 1000.0, button});
+			if (button == "SYNC")
+			{
+				if (s_scriptSyncs.size() < s_scriptSyncAt.size())
+					s_scriptSyncs.push_back({t, (uint32)holdMs});
+				continue;
+			}
+			script.push_back({t, t + holdMs / 1000.0, button, (int)s_scriptSyncs.size()});
 		}
 		cemuLog_log(LogType::Force, "Performance log: input script {} ({} presses)", _pathToUtf8(path), script.size());
 		return script;
@@ -216,6 +260,44 @@ namespace PerfLog
 		if (!IsActive())
 			return;
 		const auto now = Clock::now();
+		const uint32 frameDraws = s_frameDraws.exchange(0, std::memory_order_relaxed);
+		const uint64 presentIndex = s_presentCount.fetch_add(1, std::memory_order_relaxed) + 1;
+		// shot_every_s=N: a screenshot every N seconds as shot_<seconds>.ppm in the session folder, to see what a replayed
+		// input script did without a window on the desktop
+		static const sint64 s_shotEvery = Tunable("shot_every_s", 0);
+		if (s_shotEvery > 0 && g_renderer)
+		{
+			static double s_nextShot = 0.0;
+			const double t = std::chrono::duration<double>(now - s_sessionStart).count();
+			if (t >= s_nextShot)
+			{
+				s_nextShot = t + (double)s_shotEvery;
+				const fs::path file = s_sessionDir / fmt::format("shot_{:04.0f}.ppm", t);
+				g_renderer->RequestScreenshot([file](const std::vector<uint8>& rgb, int w, int h, bool mainWindow) -> std::optional<std::string> {
+					if (!mainWindow)
+						return std::nullopt;
+					std::ofstream f(file, std::ios::binary | std::ios::trunc);
+					const std::string header = fmt::format("P6\n{} {}\n255\n", w, h);
+					f.write(header.data(), (std::streamsize)header.size());
+					f.write((const char*)rgb.data(), (std::streamsize)std::min<size_t>(rgb.size(), (size_t)w * h * 3));
+					return std::nullopt;
+				});
+			}
+		}
+		// input script: the next pending SYNC happens on the first frame with enough draws
+		for (size_t i = 0; i < s_scriptSyncs.size(); i++)
+		{
+			if (s_scriptSyncAt[i].load(std::memory_order_relaxed) >= 0.0)
+				continue;
+			if (frameDraws >= s_scriptSyncs[i].minDraws)
+			{
+				const double at = std::chrono::duration<double>(now - s_sessionStart).count();
+				s_scriptSyncFrame[i] = presentIndex;
+				s_scriptSyncAt[i] = at;
+				cemuLog_log(LogType::Force, "Performance log: input script sync {} at {:.2f} s ({} draws, recorded at {:.2f} s)", i + 1, at, frameDraws, s_scriptSyncs[i].recordedS);
+			}
+			break;
+		}
 		if (s_hasLastFrame)
 		{
 			FrameSample sample;
@@ -687,6 +769,10 @@ namespace PerfLog
 			std::scoped_lock lock(s_frameMutex);
 			s_frames.clear();
 		}
+		s_scriptSyncs.clear();
+		s_inputAxes.clear();
+		for (auto& a : s_scriptSyncAt)
+			a = -1.0;
 		s_inputScript = LoadInputScript(CafeSystem::GetForegroundTitleId());
 		{
 			std::scoped_lock lock(s_jitMutex);
@@ -958,7 +1044,10 @@ namespace PerfLog
 	void DrawCall()
 	{
 		if (IsActive())
+		{
 			s_counters.draws.fetch_add(1, std::memory_order_relaxed);
+			s_frameDraws.fetch_add(1, std::memory_order_relaxed);
+		}
 	}
 
 	void GpuWork(uint64 startNs, uint64 endNs)

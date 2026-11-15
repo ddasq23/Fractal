@@ -104,13 +104,26 @@ namespace PerfLog
 	// Buttons: A B X Y L R ZL ZR PLUS MINUS UP DOWN LEFT RIGHT, and LUP LDOWN LLEFT LRIGHT RUP RDOWN
 	// RLEFT RRIGHT for the sticks. Only read while the performance log is on; the GamePad (VPAD)
 	// presses the buttons that are held at the current time.
+	// "<seconds> SYNC <draws>" lines: the presses after it wait until a frame with at least <draws> draws was presented
+	// (after the previous sync) and are timed from that frame, so a recorded walk survives load times that vary
 	struct ScriptedPress
 	{
 		double startS;
 		double endS;
 		std::string button;
+		int segment = 0; // number of SYNC lines before this press
 	};
 	const std::vector<ScriptedPress>& InputScript();
+	// "<seconds> AXIS <lx> <ly> <rx> <ry>" lines: analog stick positions from that time on (recorded with input_record=1)
+	struct ScriptedAxes
+	{
+		double t;
+		int segment;
+		float lx, ly, rx, ry;
+	};
+	const std::vector<ScriptedAxes>& InputAxes();
+	// current time for the presses of a segment (same scale as startS), or a negative value while its sync is pending
+	double ScriptSeconds(int segment);
 	double SessionSeconds();
 }
 

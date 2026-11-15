@@ -4777,6 +4777,66 @@ static uint32 VkFormatTexelSize(VkFormat format)
 	return 0;
 }
 
+// rows of bytes from one image to another whose format has a different texel size: through a buffer, tightly packed, so
+// the bytes of each row land where they were (vkCmdCopyImage needs size-compatible formats)
+bool VulkanRenderer::texture_copyImageBytes(LatteTexture* src, sint32 srcMip, sint32 srcSlice, LatteTexture* dst, sint32 dstMip, sint32 dstSlice, sint32 rowBytes, sint32 rows)
+{
+	LatteTextureVk* srcVk = static_cast<LatteTextureVk*>(src);
+	LatteTextureVk* dstVk = static_cast<LatteTextureVk*>(dst);
+	VKRObjectTexture* srcVkObj = srcVk->GetImageObj();
+	VKRObjectTexture* dstVkObj = dstVk->GetImageObj();
+	const uint32 srcTexel = VkFormatTexelSize(srcVkObj->m_format), dstTexel = VkFormatTexelSize(dstVkObj->m_format);
+	// the host formats must store the guest bytes unchanged
+	if (srcTexel == 0 || dstTexel == 0 || srcTexel * 8 != src->GetBPP() || dstTexel * 8 != dst->GetBPP() || rowBytes <= 0 || rows <= 0)
+		return false;
+	if ((rowBytes % srcTexel) != 0 || (rowBytes % dstTexel) != 0)
+		return false;
+	if (srcVk->GetImageAspect() != VK_IMAGE_ASPECT_COLOR_BIT || dstVk->GetImageAspect() != VK_IMAGE_ASPECT_COLOR_BIT)
+		return false;
+	static bool s_logged = false;
+	if (!s_logged)
+	{
+		s_logged = true;
+		PerfLog::Event("linear_reinterpret", fmt::format("{:08x} GX2 {:04x} {}x{} -> GX2 {:04x} {}x{}: {} bytes x {} rows", src->physAddress, (uint32)src->format, src->width, src->height, (uint32)dst->format, dst->width, dst->height, rowBytes, rows));
+	}
+
+	draw_endRenderPass(PerfLog::RenderPassEnd::Copy);
+	srcVkObj->flagForCurrentCommandBuffer();
+	dstVkObj->flagForCurrentCommandBuffer();
+
+	VkImageSubresourceLayers srcSub{ VK_IMAGE_ASPECT_COLOR_BIT, (uint32)srcMip, 0, 1 };
+	VkImageSubresourceLayers dstSub{ VK_IMAGE_ASPECT_COLOR_BIT, (uint32)dstMip, 0, 1 };
+	VkOffset3D srcOff{ 0, 0, 0 }, dstOff{ 0, 0, 0 };
+	if (src->Is3DTexture()) srcOff.z = srcSlice; else srcSub.baseArrayLayer = srcSlice;
+	if (dst->Is3DTexture()) dstOff.z = dstSlice; else dstSub.baseArrayLayer = dstSlice;
+
+	barrier_image<SYNC_OP::IMAGE_WRITE | SYNC_OP::ANY_TRANSFER, SYNC_OP::ANY_TRANSFER>(srcVk, srcSub, VK_IMAGE_LAYOUT_GENERAL);
+	barrier_image<SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE | SYNC_OP::ANY_TRANSFER, SYNC_OP::ANY_TRANSFER>(dstVk, dstSub, VK_IMAGE_LAYOUT_GENERAL);
+
+	const uint32 copySize = (uint32)rowBytes * (uint32)rows;
+	auto stagingResv = memoryManager->getStagingAllocator().AllocateBufferMemory(copySize, 16);
+	VkBufferImageCopy toBuffer{};
+	toBuffer.bufferOffset = stagingResv.bufferOffset;
+	toBuffer.imageSubresource = srcSub;
+	toBuffer.imageOffset = srcOff;
+	toBuffer.imageExtent = { (uint32)rowBytes / srcTexel, (uint32)rows, 1 };
+	vkCmdCopyImageToBuffer(m_state.currentCommandBuffer, srcVkObj->m_image, VK_IMAGE_LAYOUT_GENERAL, stagingResv.vkBuffer, 1, &toBuffer);
+	VkMemoryBarrier memBarrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+	memBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	memBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	vkCmdPipelineBarrier(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &memBarrier, 0, nullptr, 0, nullptr);
+	VkBufferImageCopy fromBuffer{};
+	fromBuffer.bufferOffset = stagingResv.bufferOffset;
+	fromBuffer.imageSubresource = dstSub;
+	fromBuffer.imageOffset = dstOff;
+	fromBuffer.imageExtent = { (uint32)rowBytes / dstTexel, (uint32)rows, 1 };
+	vkCmdCopyBufferToImage(m_state.currentCommandBuffer, stagingResv.vkBuffer, dstVkObj->m_image, VK_IMAGE_LAYOUT_GENERAL, 1, &fromBuffer);
+
+	barrier_image<SYNC_OP::ANY_TRANSFER, SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE | SYNC_OP::ANY_TRANSFER>(srcVk, srcSub, srcVk->GetDefaultLayout());
+	barrier_image<SYNC_OP::ANY_TRANSFER, SYNC_OP::IMAGE_READ | SYNC_OP::IMAGE_WRITE | SYNC_OP::ANY_TRANSFER>(dstVk, dstSub, dstVk->GetDefaultLayout());
+	return true;
+}
+
 void VulkanRenderer::texture_copyImageSubData(LatteTexture* src, sint32 srcMip, sint32 effectiveSrcX, sint32 effectiveSrcY, sint32 srcSlice, LatteTexture* dst, sint32 dstMip, sint32 effectiveDstX, sint32 effectiveDstY, sint32 dstSlice, sint32 effectiveCopyWidth, sint32 effectiveCopyHeight, sint32 srcDepth)
 {
 	LatteTextureVk* srcVk = static_cast<LatteTextureVk*>(src);

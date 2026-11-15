@@ -1793,8 +1793,59 @@ static void DiagFrameDraws()
 		(uint32)LatteGPUState.contextNew.VGT_PRIMITIVE_TYPE.get_PRIMITIVE_MODE());
 }
 
-static bool DiagSkipDraw()
+// frame_map=N: every Nth frame, each run of draws with the same render targets, shaders and textures, written to
+// framemap_f<frame>.txt in the session folder: what the frame is made of, to compare a good frame against a broken one
+static void FrameMapDraw(VkDescriptorSetInfo* pixelDS, uint32 count)
 {
+	static const sint64 s_every = PerfLog::Tunable("frame_map", 0);
+	if (s_every <= 0)
+		return;
+	static uint32 s_frame = 0xFFFFFFFF;
+	static std::string s_text, s_key;
+	static uint32 s_runDraws = 0, s_runCount = 0;
+	auto flushRun = [] {
+		if (s_runDraws)
+			s_text += fmt::format("{} x{} n{}\n", s_key, s_runDraws, s_runCount);
+		s_runDraws = s_runCount = 0;
+	};
+	const uint32 f = LatteGPUState.frameCounter;
+	if (f != s_frame)
+	{
+		if (!s_text.empty())
+		{
+			flushRun();
+			PerfLog::SessionFile(fmt::format("framemap_f{:06}.txt", s_frame), s_text);
+			s_text.clear();
+		}
+		s_frame = f;
+		s_key.clear();
+	}
+	if ((f % (uint32)s_every) != 0)
+		return;
+	if (s_text.empty())
+		s_text = fmt::format("frame {} t {:.2f}\n", f, PerfLog::SessionSeconds());
+	const uint32* regs = LatteGPUState.contextRegister;
+	LatteDecompilerShader* vs = LatteSHRC_GetActiveVertexShader();
+	LatteDecompilerShader* ps = LatteSHRC_GetActivePixelShader();
+	std::string key = fmt::format("cb0 {:08x} {:08x} {:08x} db {:08x} {:08x} mask {:08x} blend {:08x} dctl {:08x} vs {:016x} ps {:016x} tex",
+		regs[mmCB_COLOR0_BASE], regs[mmCB_COLOR0_SIZE], regs[mmCB_COLOR0_INFO], regs[mmDB_DEPTH_BASE], regs[mmDB_DEPTH_INFO],
+		regs[Latte::REGADDR::CB_TARGET_MASK], regs[Latte::REGADDR::CB_BLEND0_CONTROL], regs[Latte::REGADDR::DB_DEPTH_CONTROL],
+		vs ? vs->baseHash : 0, ps ? ps->baseHash : 0);
+	if (pixelDS)
+		for (LatteTextureViewVk* view : pixelDS->list_referencedViews)
+			key += fmt::format(" {:08x}:{}x{}:{:04x}", view->baseTexture->physAddress, view->baseTexture->width, view->baseTexture->height, (uint32)view->baseTexture->format);
+	if (key != s_key)
+	{
+		flushRun();
+		s_key = std::move(key);
+	}
+	s_runDraws++;
+	s_runCount += count;
+}
+
+static bool DiagSkipDraw(VkDescriptorSetInfo* pixelDS, uint32 count)
+{
+	FrameMapDraw(pixelDS, count);
 	DiagFrameDraws();
 	static const sint64 s_skip[4] = { PerfLog::Tunable("skip_ps1", 0), PerfLog::Tunable("skip_ps2", 0), PerfLog::Tunable("skip_ps3", 0), PerfLog::Tunable("skip_ps4", 0) };
 	// skip_ps_lo/skip_ps_hi=<top 16 bits of the pixel shader base hash, decimal>: drop every draw in that range, to bisect for
@@ -2046,7 +2097,7 @@ void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, 
 	}
 	// draw
 	MarkSampledTexturesUsed();
-	if (!DiagSkipDraw())
+	if (!DiagSkipDraw(m_state.activePixelDS, hostIndexCount))
 	{
 		if (streamoutDeindex && hostIndexType != INDEX_TYPE::NONE)
 			vkCmdDraw(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseInstance);
@@ -2287,7 +2338,7 @@ void VulkanRenderer::draw_execute_continued(uint32 baseVertex, uint32 baseInstan
 
 	// draw
 	MarkSampledTexturesUsed();
-	if (!DiagSkipDraw())
+	if (!DiagSkipDraw(m_state.activePixelDS, hostIndexCount))
 	{
 		if (hostIndexType != INDEX_TYPE::NONE)
 			vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);

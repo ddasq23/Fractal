@@ -194,6 +194,85 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 			PerfLog::JitFailure(range.startAddress, range.length, "jit_skip");
 			return nullptr;
 		}
+		// jit_reject=<mask>: functions with an instruction of a marked class stay in the interpreter, to find which kind of
+		// instruction the recompiler gets wrong. 1 float arithmetic, 2 paired singles, 4 float loads/stores, 8 integer
+		// multiply/divide, 16 carry arithmetic, 32 rotates/shifts, 64 condition register ops, 128 every function.
+		// jit_reject_lo/hi (decimal addresses) limit it to functions starting in [lo, hi)
+		// jit_rop1..jit_rop16=<primary*1000+extended opcode>: also leave functions with one of these float instructions to the
+		// interpreter (A-form ops of 59/63 use the 5-bit extended opcode, e.g. 63029 fmadd, 63012 frsp, 59024 fres)
+		static const std::vector<uint32> s_rejectOps = [] {
+			std::vector<uint32> ops;
+			for (int i = 1; i <= 16; i++)
+				if (const sint64 v = PerfLog::Tunable(fmt::format("jit_rop{}", i), 0); v > 0)
+					ops.push_back((uint32)v);
+			return ops;
+		}();
+		static const uint32 s_ropLo = (uint32)PerfLog::Tunable("jit_rop_lo", 0);
+		static const uint32 s_ropHi = (uint32)PerfLog::Tunable("jit_rop_hi", 0xFFFFFFFF);
+		if (!s_rejectOps.empty() && range.startAddress >= s_ropLo && range.startAddress < s_ropHi)
+		{
+			for (uint32 a = range.startAddress; a < range.startAddress + range.length; a += 4)
+			{
+				const uint32 op = memory_readU32(a);
+				const uint32 primary = op >> 26;
+				if (primary != 59 && primary != 63 && primary != 4)
+					continue;
+				const uint32 ext5 = (op >> 1) & 0x1F;
+				const uint32 key = primary * 1000 + ((ext5 & 0x10) ? ext5 : ((op >> 1) & 0x3FF));
+				if (std::find(s_rejectOps.begin(), s_rejectOps.end(), key) != s_rejectOps.end())
+				{
+					PerfLog::JitFailure(range.startAddress, range.length, "jit_rop");
+					return nullptr;
+				}
+			}
+		}
+		static const uint32 s_reject = (uint32)PerfLog::Tunable("jit_reject", 0);
+		static const uint32 s_rejectLo = (uint32)PerfLog::Tunable("jit_reject_lo", 0);
+		static const uint32 s_rejectHi = (uint32)PerfLog::Tunable("jit_reject_hi", 0xFFFFFFFF);
+		if (s_reject != 0 && range.startAddress >= s_rejectLo && range.startAddress < s_rejectHi)
+		{
+			uint32 classes = 128;
+			for (uint32 a = range.startAddress; a < range.startAddress + range.length; a += 4)
+			{
+				const uint32 op = memory_readU32(a);
+				const uint32 primary = op >> 26, ext = (op >> 1) & 0x3FF;
+				if (primary == 59 || primary == 63)
+					classes |= 1;
+				else if (primary == 4 || primary == 56 || primary == 57 || primary == 60 || primary == 61)
+					classes |= 2;
+				else if (primary >= 48 && primary <= 55)
+					classes |= 4;
+				else if (primary == 7)
+					classes |= 8;
+				else if (primary == 8 || primary == 12 || primary == 13)
+					classes |= 16;
+				else if (primary == 20 || primary == 21 || primary == 23)
+					classes |= 32;
+				else if (primary == 19 && ext != 16 && ext != 528 && ext != 50 && ext != 150)
+					classes |= 64;
+				else if (primary == 31)
+				{
+					switch (ext & 0x1FF) // OE variants share the low 9 bits
+					{
+					case 235: case 75: case 11: case 491: case 459: classes |= 8; break;
+					case 10: case 138: case 202: case 234: case 8: case 136: case 200: case 232: classes |= 16; break;
+					default: break;
+					}
+					switch (ext)
+					{
+					case 24: case 536: case 792: case 824: classes |= 32; break;
+					case 19: case 144: case 512: classes |= 64; break;
+					case 535: case 567: case 599: case 631: case 663: case 695: case 727: case 759: case 983: classes |= 4; break;
+					default: break;
+					}
+				}
+			}
+			if (classes & s_reject)
+			{
+				PerfLog::JitFailure(range.startAddress, range.length, "jit_reject");
+				return nullptr;
+			}
+		}
 	}
 	uint32 codeGenRangeStart;
 	uint32 codeGenRangeSize = 0;

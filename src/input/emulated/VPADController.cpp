@@ -115,10 +115,10 @@ void VPADController::VPADRead(VPADStatus_t& status, const BtnRepeat& repeat)
 	// Fractal: benchmark input script (only while the performance log runs)
 	if (const auto& script = PerfLog::InputScript(); !script.empty())
 	{
-		const double t = PerfLog::SessionSeconds();
 		for (const auto& press : script)
 		{
-			if (t < press.startS || t >= press.endS)
+			const double t = PerfLog::ScriptSeconds(press.segment);
+			if (t < 0.0 || t < press.startS || t >= press.endS)
 				continue;
 			const std::string& b = press.button;
 			if (b == "A") status.hold |= VPAD_A;
@@ -144,6 +144,70 @@ void VPADController::VPADRead(VPADStatus_t& status, const BtnRepeat& repeat)
 			else if (b == "RLEFT") { status.rightStick.x = -1.0f; status.hold |= VPAD_STICK_R_LEFT; }
 			else if (b == "RRIGHT") { status.rightStick.x = 1.0f; status.hold |= VPAD_STICK_R_RIGHT; }
 		}
+		// analog sticks: the latest recorded position whose time has come
+		const PerfLog::ScriptedAxes* cur = nullptr;
+		for (const auto& a : PerfLog::InputAxes())
+		{
+			const double ta = PerfLog::ScriptSeconds(a.segment);
+			if (ta < 0.0 || ta < a.t)
+				break;
+			cur = &a;
+		}
+		if (cur)
+		{
+			status.leftStick.x = cur->lx;
+			status.leftStick.y = cur->ly;
+			status.rightStick.x = cur->rx;
+			status.rightStick.y = cur->ry;
+			status.hold &= ~(VPAD_STICK_L_LEFT | VPAD_STICK_L_RIGHT | VPAD_STICK_L_UP | VPAD_STICK_L_DOWN | VPAD_STICK_R_LEFT | VPAD_STICK_R_RIGHT | VPAD_STICK_R_UP | VPAD_STICK_R_DOWN);
+			if (cur->lx <= -kAxisThreshold) status.hold |= VPAD_STICK_L_LEFT; else if (cur->lx >= kAxisThreshold) status.hold |= VPAD_STICK_L_RIGHT;
+			if (cur->ly <= -kAxisThreshold) status.hold |= VPAD_STICK_L_DOWN; else if (cur->ly >= kAxisThreshold) status.hold |= VPAD_STICK_L_UP;
+			if (cur->rx <= -kAxisThreshold) status.hold |= VPAD_STICK_R_LEFT; else if (cur->rx >= kAxisThreshold) status.hold |= VPAD_STICK_R_RIGHT;
+			if (cur->ry <= -kAxisThreshold) status.hold |= VPAD_STICK_R_DOWN; else if (cur->ry >= kAxisThreshold) status.hold |= VPAD_STICK_R_UP;
+		}
+	}
+
+	// Fractal: perf/tuning.txt input_record=1 writes what the player pressed as an input script (input_rec.txt in the
+	// session folder), so a scene played once by hand can be replayed without anyone at the controls
+	static const bool s_record = PerfLog::Tunable("input_record", 0) != 0;
+	if (s_record && PerfLog::IsActive())
+	{
+		static const std::pair<uint32, const char*> kNames[] = {
+			{VPAD_A, "A"}, {VPAD_B, "B"}, {VPAD_X, "X"}, {VPAD_Y, "Y"}, {VPAD_L, "L"}, {VPAD_R, "R"}, {VPAD_ZL, "ZL"},
+			{VPAD_ZR, "ZR"}, {VPAD_PLUS, "PLUS"}, {VPAD_MINUS, "MINUS"}, {VPAD_UP, "UP"}, {VPAD_DOWN, "DOWN"},
+			{VPAD_LEFT, "LEFT"}, {VPAD_RIGHT, "RIGHT"}};
+		static uint32 s_recHold = 0;
+		static double s_recStart[std::size(kNames)] = {};
+		static std::string s_recText = "# recorded with input_record=1: <seconds> <button> <hold ms>\n";
+		const double t = PerfLog::SessionSeconds();
+		bool changed = false;
+		for (size_t i = 0; i < std::size(kNames); i++)
+		{
+			const uint32 bit = kNames[i].first;
+			const bool down = (status.hold & bit) != 0, was = (s_recHold & bit) != 0;
+			if (down && !was)
+				s_recStart[i] = t;
+			else if (!down && was)
+			{
+				s_recText += fmt::format("{:.2f} {} {:.0f}\n", s_recStart[i], kNames[i].second, (t - s_recStart[i]) * 1000.0);
+				changed = true;
+			}
+		}
+		s_recHold = status.hold;
+		// sticks as analog positions, whenever one moved by more than 0.03
+		static float s_recAxes[4] = {};
+		const float axes[4] = {status.leftStick.x, status.leftStick.y, status.rightStick.x, status.rightStick.y};
+		bool moved = false;
+		for (int i = 0; i < 4; i++)
+			moved |= std::fabs(axes[i] - s_recAxes[i]) > 0.03f || ((axes[i] == 0.0f) != (s_recAxes[i] == 0.0f));
+		if (moved)
+		{
+			std::copy(axes, axes + 4, s_recAxes);
+			s_recText += fmt::format("{:.3f} AXIS {:.2f} {:.2f} {:.2f} {:.2f}\n", t, axes[0], axes[1], axes[2], axes[3]);
+			changed = true;
+		}
+		if (changed)
+			PerfLog::SessionFile("input_rec.txt", s_recText);
 	}
 
 	// button repeat
