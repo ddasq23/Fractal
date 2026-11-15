@@ -10,6 +10,7 @@ import dev.dfd.fractal.settings.appearance.AppearanceScreen
 import dev.dfd.fractal.settings.audio.AudioSettingsScreen
 import dev.dfd.fractal.drivers.DriversScreen
 import dev.dfd.fractal.settings.emulatedusbdevices.EmulatedUSBDevicesSettingsScreen
+import dev.dfd.fractal.settings.framegen.FrameGenSettingsScreen
 import dev.dfd.fractal.settings.gamespath.GamePathsScreen
 import dev.dfd.fractal.settings.general.GeneralSettingsScreen
 import dev.dfd.fractal.settings.graphics.GraphicsSettingsScreen
@@ -50,6 +51,9 @@ private object SettingsRoutes {
 
     @Serializable
     object GraphicsSettingsScreenRoute
+
+    @Serializable
+    object FrameGenSettingsScreenRoute
 
     @Serializable
     object OverlaySettingsScreenRoute
@@ -98,6 +102,7 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
                 goToAccountSettings = { navController.navigate(SettingsRoutes.AccountSettingsScreenRoute) },
                 goToWelcome = goToWelcome,
                 goToGraphicsSettings = { navController.navigate(SettingsRoutes.GraphicsSettingsScreenRoute) },
+                goToFrameGenSettings = { navController.navigate(SettingsRoutes.FrameGenSettingsScreenRoute) },
                 // the only way to the drivers screen from the settings; the library and the welcome setup open it too
                 goToDrivers = { navController.navigate(CustomDriversRoute) },
                 goToAudioSettings = { navController.navigate(SettingsRoutes.AudioSettingsScreenRoute) },
@@ -116,6 +121,11 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
         }
         screen<SettingsRoutes.GraphicsSettingsScreenRoute> {
             GraphicsSettingsScreen(
+                navigateBack = { navController.popBackStack() },
+            )
+        }
+        screen<SettingsRoutes.FrameGenSettingsScreenRoute> {
+            FrameGenSettingsScreen(
                 navigateBack = { navController.popBackStack() },
             )
         }

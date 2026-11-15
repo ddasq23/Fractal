@@ -2969,3 +2969,106 @@ msgstr "Cada tipo de controle tem seus próprios perfis. O layout se adapta à t
 
 msgid "Edit layout"
 msgstr "Editar layout"
+
+# Frame generation (Lossless Scaling)
+msgid "Fixed multiplier"
+msgstr "Multiplicador fixo"
+
+msgid "{0} FPS"
+msgstr "{0} FPS"
+
+msgid "The file could not be read"
+msgstr "Não foi possível ler o arquivo"
+
+msgid "The file is not a Windows DLL"
+msgstr "O arquivo não é uma DLL do Windows"
+
+msgid "The DLL does not contain the frame generation shaders"
+msgstr "A DLL não contém os shaders de geração de quadros"
+
+msgid "The frame generation shaders could not be loaded"
+msgstr "Não foi possível carregar os shaders de geração de quadros"
+
+msgid "Unknown error"
+msgstr "Erro desconhecido"
+
+msgid "Active"
+msgstr "Ativa"
+
+msgid "Not supported by this GPU driver (needs the Vulkan memory model, float16 and null descriptors)"
+msgstr "Sem suporte neste driver de GPU (precisa do modelo de memória Vulkan, float16 e descritores nulos)"
+
+msgid "Lossless.dll is missing or invalid"
+msgstr "Lossless.dll ausente ou inválida"
+
+msgid "Failed to start"
+msgstr "Falha ao iniciar"
+
+msgid "Restart the game to turn it on"
+msgstr "Reinicie o jogo para ativar"
+
+msgid "Waiting for the game"
+msgstr "Aguardando o jogo"
+
+msgid "Lossless.dll installed"
+msgstr "Lossless.dll instalada"
+
+msgid "Could not install Lossless.dll: {0}"
+msgstr "Não foi possível instalar a Lossless.dll: {0}"
+
+msgid "Frame generation"
+msgstr "Geração de quadros"
+
+msgid "Lossless Scaling"
+msgstr "Lossless Scaling"
+
+msgid "Frame generation uses the shaders of Lossless Scaling, which Fractal does not include. Select Lossless.dll from your own copy of Lossless Scaling (in its installation folder on Windows). The DLL is only read, never run."
+msgstr "A geração de quadros usa os shaders do Lossless Scaling, que o Fractal não inclui. Selecione a Lossless.dll da sua própria cópia do Lossless Scaling (na pasta de instalação dele no Windows). A DLL só é lida, nunca executada."
+
+msgid "Replace Lossless.dll"
+msgstr "Substituir Lossless.dll"
+
+msgid "Select Lossless.dll"
+msgstr "Selecionar Lossless.dll"
+
+msgid "Status: {0}"
+msgstr "Estado: {0}"
+
+msgid "Remove Lossless.dll"
+msgstr "Remover Lossless.dll"
+
+msgid "Lossless.dll removed"
+msgstr "Lossless.dll removida"
+
+msgid "Enable frame generation"
+msgstr "Ativar geração de quadros"
+
+msgid "Inserts generated frames between the frames the game renders. TV screen only, forces VSync while it runs. Takes effect the next time a game starts; the other options apply right away and are also in the in-game menu."
+msgstr "Insere quadros gerados entre os quadros que o jogo renderiza. Só na tela da TV, força o VSync enquanto funciona. Vale a partir da próxima vez que um jogo iniciar; as outras opções valem na hora e também ficam no menu do jogo."
+
+msgid "Target frame rate"
+msgstr "Taxa de quadros alvo"
+
+msgid "Frame multiplier"
+msgstr "Multiplicador de quadros"
+
+msgid "Motion estimation resolution"
+msgstr "Resolução da estimativa de movimento"
+
+msgid "The target frame rate picks the multiplier by itself and backs off when frame generation slows the game down. Pick the refresh rate of your screen, or use a fixed multiplier. A lower motion estimation resolution is the cheapest way to save GPU time."
+msgstr "A taxa de quadros alvo escolhe o multiplicador sozinha e recua quando a geração de quadros deixa o jogo mais lento. Escolha a taxa de atualização da sua tela ou use um multiplicador fixo. Uma resolução menor na estimativa de movimento é o jeito mais barato de poupar a GPU."
+
+msgid "Installing"
+msgstr "Instalando"
+
+msgid "Lossless Scaling frame generation with your own Lossless.dll"
+msgstr "Geração de quadros do Lossless Scaling com a sua própria Lossless.dll"
+
+msgid "Add your Lossless.dll in Settings, Frame generation to use it."
+msgstr "Adicione a sua Lossless.dll em Configurações, Geração de quadros para usar."
+
+msgid "TV screen only, forces VSync while it runs"
+msgstr "Só na tela da TV, força o VSync enquanto funciona"
+
+msgid "Lower is cheaper on the GPU"
+msgstr "Menor pesa menos na GPU"

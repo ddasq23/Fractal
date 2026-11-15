@@ -35,7 +35,10 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -53,6 +56,14 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.dfd.fractal.common.framegen.FrameGenFlowScaleChoices
+import dev.dfd.fractal.common.framegen.FrameGenMultiplierChoices
+import dev.dfd.fractal.common.framegen.FrameGenTargetRateChoices
+import dev.dfd.fractal.common.framegen.frameGenFlowScaleToString
+import dev.dfd.fractal.common.framegen.frameGenMultiplierToString
+import dev.dfd.fractal.common.framegen.frameGenRuntimeStatusToString
+import dev.dfd.fractal.common.framegen.frameGenTargetRateToString
+import dev.dfd.fractal.common.framegen.hasLosslessDll
 import dev.dfd.fractal.common.ui.fractal.SierpinskiMark
 import dev.dfd.fractal.common.ui.fractal.StatusChip
 import dev.dfd.fractal.common.ui.fractal.focusRing
@@ -66,7 +77,9 @@ import dev.dfd.fractal.emulation.DisplayOptions
 import dev.dfd.fractal.emulation.SideMenuState
 import dev.dfd.fractal.emulation.inputoverlay.ui.OverlayChip
 import dev.dfd.fractal.emulation.inputoverlay.ui.OverlaySliderRow
+import dev.dfd.fractal.nativeinterface.NativeFrameGen
 import dev.dfd.fractal.nativeinterface.NativeSettings
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 /** What the in-game menu can ask the emulation screen to do. */
@@ -241,6 +254,8 @@ fun EmulationMenuContent(
         )
         MenuHint(tr("Filters and VSync apply right away and are kept for every game. Resolution and other graphic packs are set in the game's settings in the library and apply the next time the game starts."))
 
+        FrameGenMenuSection(isOpen)
+
         MenuSection(tr("Controls"))
         MenuToggleRow(
             icon = FractalIcons.TouchControls,
@@ -302,6 +317,78 @@ fun EmulationMenuContent(
         )
         Spacer(Modifier.padding(bottom = 8.dp))
     }
+}
+
+/** Lossless Scaling frame generation (ported from Cemu Plus). Changes apply to the running game and are saved. */
+@Composable
+private fun FrameGenMenuSection(isOpen: Boolean) {
+    MenuSection(tr("Frame generation"))
+    val isDllInstalled = remember(isOpen) { hasLosslessDll() }
+    if (!isDllInstalled) {
+        MenuHint(tr("Add your Lossless.dll in Settings, Frame generation to use it."))
+        return
+    }
+
+    var enabled by remember { mutableStateOf(NativeFrameGen.isEnabled()) }
+    var multiplier by remember { mutableIntStateOf(NativeFrameGen.getMultiplier()) }
+    var targetRate by remember { mutableIntStateOf(NativeFrameGen.getTargetRate()) }
+    var flowScale by remember { mutableIntStateOf(NativeFrameGen.getFlowScale()) }
+    var runtimeStatus by remember { mutableIntStateOf(NativeFrameGen.getRuntimeStatus()) }
+
+    LaunchedEffect(isOpen, enabled) {
+        // only polled while the menu is open
+        while (isOpen && enabled) {
+            runtimeStatus = NativeFrameGen.getRuntimeStatus()
+            delay(1000)
+        }
+    }
+
+    MenuToggleRow(
+        icon = FractalIcons.Layers,
+        title = tr("Enable frame generation"),
+        description = if (enabled) tr("Status: {0}", frameGenRuntimeStatusToString(runtimeStatus))
+        else tr("TV screen only, forces VSync while it runs"),
+        checked = enabled,
+        onCheckedChange = { on ->
+            enabled = on
+            NativeFrameGen.setEnabled(on)
+            NativeSettings.saveSettings()
+        },
+    )
+    if (!enabled) return
+    MenuChoiceRow(
+        title = tr("Target frame rate"),
+        choices = FrameGenTargetRateChoices.map { it to frameGenTargetRateToString(it) },
+        selected = targetRate,
+        onSelect = { value ->
+            targetRate = value
+            NativeFrameGen.setTargetRate(value)
+            NativeSettings.saveSettings()
+        },
+    )
+    if (targetRate == 0) {
+        MenuChoiceRow(
+            title = tr("Frame multiplier"),
+            choices = FrameGenMultiplierChoices.map { it to frameGenMultiplierToString(it) },
+            selected = multiplier,
+            onSelect = { value ->
+                multiplier = value
+                NativeFrameGen.setMultiplier(value)
+                NativeSettings.saveSettings()
+            },
+        )
+    }
+    MenuChoiceRow(
+        title = tr("Motion estimation resolution"),
+        description = tr("Lower is cheaper on the GPU"),
+        choices = FrameGenFlowScaleChoices.map { it to frameGenFlowScaleToString(it) },
+        selected = flowScale,
+        onSelect = { value ->
+            flowScale = value
+            NativeFrameGen.setFlowScale(value)
+            NativeSettings.saveSettings()
+        },
+    )
 }
 
 @Composable
