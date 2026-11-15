@@ -15,6 +15,10 @@ import android.content.Context
 import android.content.Intent
 import android.provider.DocumentsContract
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -233,7 +237,6 @@ fun LibraryScreen(
                 onSort = { sortOpen = true },
                 onSettings = navigation.goToSettings,
                 onOptions = { optionsOpen = true },
-                onAddFolder = navigation.goToGamePaths,
                 modifier = modifier,
             )
         }
@@ -265,7 +268,18 @@ fun LibraryScreen(
             NavStyle.RAIL -> Row(Modifier.fillMaxSize()) {
                 navBar(Modifier.fillMaxHeight())
                 Box(Modifier.weight(1f).fillMaxHeight()) {
-                    content(PaddingValues(start = 8.dp, end = 20.dp, top = 16.dp, bottom = 88.dp))
+                    Column(Modifier.fillMaxSize()) {
+                        if (searchOpen) {
+                            SearchField(
+                                query,
+                                viewModel::setFilterText,
+                                Modifier.padding(start = 8.dp, end = 20.dp, top = 16.dp).widthIn(max = 420.dp).fillMaxWidth(),
+                            )
+                        }
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            content(PaddingValues(start = 8.dp, end = 20.dp, top = if (searchOpen) 12.dp else 16.dp, bottom = 88.dp))
+                        }
+                    }
                     // Material You: "add folder" as an extended FAB
                     ExtendedFloatingActionButton(
                         onClick = navigation.goToGamePaths,
@@ -391,7 +405,6 @@ private fun LibraryNavBar(
     onSort: () -> Unit,
     onSettings: () -> Unit,
     onOptions: () -> Unit,
-    onAddFolder: () -> Unit,
     modifier: Modifier,
 ) {
     val viewButtons: @Composable () -> Unit = {
@@ -399,40 +412,58 @@ private fun LibraryNavBar(
         FractalIconButton(FractalIcons.Carousel, tr("Carousel"), { onViewChange(LibraryView.CAROUSEL) }, selected = view == LibraryView.CAROUSEL)
         FractalIconButton(FractalIcons.List, tr("List"), { onViewChange(LibraryView.LIST) }, selected = view == LibraryView.LIST)
     }
+    // one button that steps through the views, for bars without room for the three
+    val viewCycleButton: @Composable () -> Unit = {
+        val views = LibraryView.entries
+        FractalIconButton(
+            when (view) {
+                LibraryView.GRID -> FractalIcons.Grid
+                LibraryView.CAROUSEL -> FractalIcons.Carousel
+                LibraryView.LIST -> FractalIcons.List
+            },
+            tr("View"),
+            { onViewChange(views[(view.ordinal + 1) % views.size]) },
+        )
+    }
     when (style) {
-        NavStyle.RAIL -> Column(
-            modifier
-                .padding(12.dp)
-                .themedPanel()
-                .padding(vertical = 16.dp, horizontal = 10.dp)
-                .width(64.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            SierpinskiMark(Modifier.size(28.dp))
-            Spacer(Modifier.height(12.dp))
-            viewButtons()
-            FractalIconButton(FractalIcons.Search, tr("Search"), onSearchToggle, selected = searchOpen)
-            FractalIconButton(GameIcons.Sort, tr("Sort by"), onSort)
-            Spacer(Modifier.weight(1f))
-            FractalIconButton(FractalIcons.Settings, tr("Settings"), onSettings)
-            FractalIconButton(FractalIcons.More, tr("Options"), onOptions)
-            Spacer(Modifier.height(8.dp))
-            // Material You: "add folder" FAB
-            Box(
-                Modifier
-                    .size(56.dp)
-                    .fractalSurface(RoundedCornerShape(16.dp), FractalTheme.surface, FractalTheme.colors.accent),
-                contentAlignment = Alignment.Center,
-            ) {
-                FractalIconButton(FractalIcons.FolderAdd, tr("Add game folder"), onAddFolder)
+        NavStyle.RAIL -> {
+            // landscape handhelds are ~400 dp tall, less than the rail needs: let it scroll there, and
+            // keep settings and options at the bottom when there is room
+            BoxWithConstraints(modifier.padding(12.dp)) {
+                val railHeight = maxHeight
+                Column(
+                    Modifier
+                        .themedPanel()
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(min = railHeight)
+                        .padding(vertical = 16.dp, horizontal = 10.dp)
+                        .width(64.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SierpinskiMark(Modifier.size(28.dp))
+                    Spacer(Modifier.height(12.dp))
+                    viewButtons()
+                    FractalIconButton(FractalIcons.Search, tr("Search"), onSearchToggle, selected = searchOpen)
+                    FractalIconButton(GameIcons.Sort, tr("Sort by"), onSort)
+                    Spacer(Modifier.weight(1f))
+                    FractalIconButton(FractalIcons.Settings, tr("Settings"), onSettings)
+                    FractalIconButton(FractalIcons.More, tr("Options"), onOptions)
+                    // "add folder" is the extended floating button next to the rail
+                }
             }
         }
 
-        NavStyle.FLOATING_PILL, NavStyle.TOP_BAR -> {
+        NavStyle.FLOATING_PILL, NavStyle.TOP_BAR -> BoxWithConstraints(modifier) {
             val pill = style == NavStyle.FLOATING_PILL
+            // everything needs ~640 dp, the open search field ~200 more: portrait phones and narrow
+            // windows lose the wordmark's letters first, then the three view buttons become one
+            val showWordmark = maxWidth >= if (searchOpen) 860.dp else 640.dp
+            val allViewButtons = maxWidth >= if (searchOpen) 680.dp else 480.dp
+            val showSort = !searchOpen || maxWidth >= 420.dp
             Row(
-                modifier
+                Modifier
+                    .then(if (pill) Modifier else Modifier.fillMaxWidth())
                     .then(
                         if (pill) Modifier
                             .fractalSurface(RoundedCornerShape(50), FractalTheme.surface)
@@ -442,21 +473,35 @@ private fun LibraryNavBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                FractalWordmark()
-                if (pill) Spacer(Modifier.width(24.dp)) else Spacer(Modifier.weight(1f))
-                if (searchOpen) SearchField(query, onQueryChange, Modifier.widthIn(min = 180.dp, max = 320.dp))
+                if (showWordmark) FractalWordmark() else SierpinskiMark(Modifier.size(26.dp))
+                when {
+                    searchOpen && pill -> {
+                        Spacer(Modifier.width(12.dp))
+                        Box(Modifier.weight(1f, fill = false)) {
+                            SearchField(query, onQueryChange, Modifier.widthIn(min = 120.dp, max = 320.dp).fillMaxWidth())
+                        }
+                    }
+
+                    searchOpen -> Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                        SearchField(query, onQueryChange, Modifier.widthIn(max = 360.dp).fillMaxWidth())
+                    }
+
+                    pill -> Spacer(Modifier.width(24.dp))
+                    else -> Spacer(Modifier.weight(1f))
+                }
                 FractalIconButton(FractalIcons.Search, tr("Search"), onSearchToggle, selected = searchOpen)
-                FractalIconButton(GameIcons.Sort, tr("Sort by"), onSort)
-                Spacer(Modifier.width(8.dp))
-                viewButtons()
-                Spacer(Modifier.width(8.dp))
+                if (showSort) FractalIconButton(GameIcons.Sort, tr("Sort by"), onSort)
+                if (allViewButtons) {
+                    Spacer(Modifier.width(8.dp))
+                    viewButtons()
+                    Spacer(Modifier.width(8.dp))
+                } else if (!searchOpen) {
+                    viewCycleButton()
+                }
                 FractalIconButton(FractalIcons.Settings, tr("Settings"), onSettings)
                 FractalIconButton(FractalIcons.More, tr("Options"), onOptions)
             }
         }
-    }
-    if (style == NavStyle.RAIL && searchOpen) {
-        Box(Modifier.padding(start = 100.dp, top = 16.dp)) { SearchField(query, onQueryChange, Modifier.width(320.dp)) }
     }
 }
 
@@ -490,21 +535,37 @@ private fun EmptyState(
     body: String? = null,
     action: (@Composable () -> Unit)?,
 ) {
-    Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-        Column(
-            Modifier.widthIn(max = 520.dp).themedPanel().padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+    BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+        // centered, and scrollable when a short landscape screen can't fit the panel
+        Box(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight),
+            contentAlignment = Alignment.Center,
         ) {
-            SierpinskiMark(Modifier.size(56.dp))
-            Spacer(Modifier.height(18.dp))
-            Text(title, style = MaterialTheme.typography.headlineSmall, color = FractalTheme.colors.text)
-            if (body != null) {
-                Spacer(Modifier.height(8.dp))
-                Text(body, style = MaterialTheme.typography.bodyMedium, color = FractalTheme.colors.textSecondary)
-            }
-            if (action != null) {
-                Spacer(Modifier.height(22.dp))
-                action()
+            Column(
+                Modifier.widthIn(max = 520.dp).themedPanel().padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                SierpinskiMark(Modifier.size(56.dp))
+                Spacer(Modifier.height(18.dp))
+                Text(
+                    title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = FractalTheme.colors.text,
+                    textAlign = TextAlign.Center,
+                )
+                if (body != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        body,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = FractalTheme.colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                if (action != null) {
+                    Spacer(Modifier.height(22.dp))
+                    action()
+                }
             }
         }
     }
@@ -517,14 +578,20 @@ fun ActionSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
         Column(
             Modifier
                 .widthIn(min = 320.dp, max = 460.dp)
-                .fractalSurface(FractalTheme.shapes.panel, FractalTheme.surface, FractalTheme.colors.surface.copy(alpha = 1f))
+                .fractalSurface(FractalTheme.shapes.panel, FractalTheme.surface, MaterialTheme.colorScheme.surfaceContainer)
                 .padding(20.dp),
         ) {
             Column(
                 Modifier.weight(1f, fill = false).focusOnOpen().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(title, style = MaterialTheme.typography.titleLarge, color = FractalTheme.colors.text, maxLines = 2)
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = FractalTheme.colors.text,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Spacer(Modifier.height(6.dp))
                 content()
             }
@@ -536,7 +603,7 @@ fun ActionSheet(title: String, onDismiss: () -> Unit, content: @Composable () ->
 
 @Composable
 fun SheetAction(text: String, icon: ImageVector, onClick: () -> Unit) {
-    FractalButton(text, onClick, icon = icon, modifier = Modifier.fillMaxWidth())
+    FractalButton(text, onClick, icon = icon, modifier = Modifier.fillMaxWidth(), maxLines = 2)
 }
 
 // region helpers kept from the original game list screen

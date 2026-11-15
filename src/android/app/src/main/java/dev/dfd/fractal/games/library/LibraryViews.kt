@@ -16,6 +16,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -198,6 +199,7 @@ private fun GridCard(game: Game, actions: LibraryActions, focusRequester: FocusR
                     regionName(game.region),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = 0.7f),
+                    maxLines = 1,
                 )
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -273,7 +275,7 @@ fun LibraryCarousel(
                 }
             }
         }
-        Column(Modifier.fillMaxSize().padding(contentPadding)) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(contentPadding)) {
             LazyRow(
                 state = listState,
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
@@ -316,10 +318,18 @@ fun LibraryCarousel(
                 if (game.isFavorite) StatusChip(tr("Favorite"), icon = FractalIcons.Star)
             }
             Spacer(Modifier.height(if (compact) 10.dp else 20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
                 FractalButton(tr("Play"), onClick = { actions.play(game) }, icon = FractalIcons.Play, primary = true)
                 FractalButton(tr("Configure game"), onClick = { actions.configure(game) }, icon = FractalIcons.Tune)
-                FractalIconButton(FractalIcons.More, tr("More"), onClick = { actions.openMenu(game) })
+                // the button sits on the dark game art: give it the buttons' fill, or a light theme's
+                // dark icon disappears on it
+                Box(Modifier.clip(FractalTheme.shapes.button).background(FractalTheme.colors.surfaceHigh)) {
+                    FractalIconButton(FractalIcons.More, tr("More"), onClick = { actions.openMenu(game) })
+                }
             }
         }
     }
@@ -355,24 +365,29 @@ fun LibraryList(
     entryFocus: FocusRequester,
     contentPadding: PaddingValues,
 ) {
-    Row(Modifier.fillMaxSize().padding(contentPadding), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        LazyColumn(
-            modifier = Modifier.weight(0.58f).fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(games, key = { it.path }) { game ->
-                ListRow(
-                    game = game,
-                    isSelected = game == selected,
-                    actions = actions,
-                    focusRequester = if (game == (selected ?: games.first())) entryFocus else null,
-                    modifier = Modifier.animateItem(),
-                )
+    BoxWithConstraints(Modifier.fillMaxSize().padding(contentPadding)) {
+        // portrait phones: the list alone, the game's details are in its menu (Select / long press)
+        val narrow = maxWidth < 600.dp
+        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            LazyColumn(
+                modifier = Modifier.weight(if (narrow) 1f else 0.58f).fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(games, key = { it.path }) { game ->
+                    ListRow(
+                        game = game,
+                        isSelected = game == selected,
+                        actions = actions,
+                        focusRequester = if (game == (selected ?: games.first())) entryFocus else null,
+                        compact = narrow,
+                        modifier = Modifier.animateItem(),
+                    )
+                }
             }
-        }
-        val game = selected ?: games.firstOrNull()
-        if (game != null) {
-            DetailsPanel(game, actions, Modifier.weight(0.42f).fillMaxHeight())
+            val game = selected ?: games.firstOrNull()
+            if (game != null && !narrow) {
+                DetailsPanel(game, actions, Modifier.weight(0.42f).fillMaxHeight())
+            }
         }
     }
 }
@@ -383,13 +398,14 @@ private fun ListRow(
     isSelected: Boolean,
     actions: LibraryActions,
     focusRequester: FocusRequester?,
+    compact: Boolean,
     modifier: Modifier,
 ) {
     val colors = FractalTheme.colors
     val shape: Shape = FractalTheme.shapes.card
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val status by rememberGameStatus(if (isSelected) game else null)
+    val status by rememberGameStatus(if (isSelected && !compact) game else null)
     Row(
         modifier
             .fillMaxWidth()
@@ -431,10 +447,11 @@ private fun ListRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textSecondary,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         if (game.minutesPlayed > 0 || game.lastPlayedDate != null) {
-            Column(Modifier.padding(horizontal = 12.dp), horizontalAlignment = Alignment.End) {
+            Column(Modifier.padding(start = 12.dp, end = if (compact) 14.dp else 12.dp), horizontalAlignment = Alignment.End) {
                 if (game.minutesPlayed > 0)
                     Text(
                         formatPlaytime(game.minutesPlayed, compact = true),
@@ -452,7 +469,9 @@ private fun ListRow(
                 }
             }
         }
-        status?.let { StatusChip(it.driver, icon = FractalIcons.Chip, modifier = Modifier.padding(end = 14.dp)) }
+        status?.let {
+            StatusChip(it.driver, icon = FractalIcons.Chip, modifier = Modifier.padding(end = 14.dp).widthIn(max = 160.dp))
+        }
     }
 }
 

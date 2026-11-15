@@ -228,7 +228,7 @@ private fun TransferProgressDialog(busy: TransferBusy) {
         Column(
             Modifier
                 .widthIn(min = 280.dp, max = 420.dp)
-                .fractalSurface(FractalTheme.shapes.panel, FractalTheme.surface, FractalTheme.colors.surface.copy(alpha = 1f))
+                .fractalSurface(FractalTheme.shapes.panel, FractalTheme.surface, MaterialTheme.colorScheme.surfaceContainer)
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
