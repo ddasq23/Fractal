@@ -99,156 +99,6 @@ fun BehaviorEditor(
     }
 }
 
-/** Options of one overlay input, opened by a long press in edit mode. */
-@Composable
-fun InputOptionsDialog(
-    target: OverlayTarget,
-    settings: InputOverlaySettings,
-    controllerType: OverlayControllerType,
-    onBehaviorChange: (ButtonBehavior) -> Unit,
-    onHide: () -> Unit,
-    onEditMacro: (OverlayMacro) -> Unit,
-    onDeleteMacro: (OverlayMacro) -> Unit,
-    onDismiss: () -> Unit,
-    onStyleChange: (OverlayInputStyle) -> Unit = {},
-    onStylePreview: (OverlayInputStyle) -> Unit = {},
-    onEditShortcut: (OverlayShortcut) -> Unit = {},
-    onDeleteShortcut: (OverlayShortcut) -> Unit = {},
-) {
-    val profile = settings.activeProfile(controllerType)
-    var confirmDelete by remember { mutableStateOf(false) }
-    val inputStyle = profile.styles[target.styleKey] ?: OverlayInputStyle()
-
-    @Composable
-    fun StyleSection(canChangeShape: Boolean) {
-        SectionLabel(tr("Look"))
-        InputStyleEditor(
-            style = inputStyle,
-            globalAlpha = settings.alpha,
-            canChangeShape = canChangeShape,
-            onPreview = onStylePreview,
-            onChange = onStyleChange,
-        )
-    }
-    when (target) {
-        is OverlayTarget.Builtin -> {
-            val config = target.config
-            OverlayDialog(
-                title = config.displayName(),
-                onDismiss = onDismiss,
-                actions = {
-                    DialogTextButton(tr("Hide"), onHide)
-                    DialogTextButton(tr("Close"), onDismiss)
-                },
-            ) {
-                if (config.isButton) {
-                    BehaviorEditor(
-                        behavior = profile.behaviors[config] ?: ButtonBehavior(),
-                        onChange = onBehaviorChange,
-                    )
-                } else {
-                    Text(
-                        tr("Sticks and the D-pad have no button options. Drag to move, pinch or use Resize to change the size."),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = FractalTheme.colors.textSecondary,
-                    )
-                }
-                StyleSection(canChangeShape = config.isButton)
-                Text(
-                    tr("Hidden inputs can be shown again in the input overlay settings."),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = FractalTheme.colors.textSecondary,
-                )
-            }
-        }
-
-        is OverlayTarget.Macro -> {
-            val macro = profile.macros.firstOrNull { it.id == target.id }
-            if (macro == null) {
-                // deleted meanwhile
-                LaunchedEffect(Unit) { onDismiss() }
-                return
-            }
-            OverlayDialog(
-                title = tr("Macro {0}", macro.label),
-                onDismiss = onDismiss,
-                actions = {
-                    DialogTextButton(tr("Delete"), { confirmDelete = true }, destructive = true)
-                    DialogTextButton(tr("Edit"), { onEditMacro(macro) })
-                    DialogTextButton(tr("Close"), onDismiss)
-                },
-            ) {
-                Text(macro.summary(), style = MaterialTheme.typography.bodyMedium, color = FractalTheme.colors.textSecondary)
-                BehaviorEditor(
-                    behavior = macro.behavior,
-                    onChange = onBehaviorChange,
-                    isSequence = macro.kind == MacroKind.SEQUENCE,
-                )
-                StyleSection(canChangeShape = true)
-            }
-            if (confirmDelete) {
-                ConfirmDialog(
-                    title = tr("Delete macro"),
-                    message = tr("Delete the macro \"{0}\"?", macro.label),
-                    confirmText = tr("Delete"),
-                    onConfirm = {
-                        confirmDelete = false
-                        onDeleteMacro(macro)
-                    },
-                    onDismiss = { confirmDelete = false },
-                )
-            }
-        }
-
-        is OverlayTarget.Shortcut -> {
-            val shortcut = profile.shortcuts.firstOrNull { it.id == target.id }
-            if (shortcut == null) {
-                LaunchedEffect(Unit) { onDismiss() }
-                return
-            }
-            val name = shortcut.label.ifBlank { shortcut.action.shortLabel() }
-            OverlayDialog(
-                title = tr("Shortcut {0}", name),
-                onDismiss = onDismiss,
-                actions = {
-                    DialogTextButton(tr("Delete"), { confirmDelete = true }, destructive = true)
-                    DialogTextButton(tr("Edit"), { onEditShortcut(shortcut) })
-                    DialogTextButton(tr("Close"), onDismiss)
-                },
-            ) {
-                Text(
-                    tr("Runs: {0}", shortcut.action.hotkeyDisplayName()),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = FractalTheme.colors.textSecondary,
-                )
-                StyleSection(canChangeShape = true)
-            }
-            if (confirmDelete) {
-                ConfirmDialog(
-                    title = tr("Delete shortcut"),
-                    message = tr("Delete the shortcut \"{0}\"?", name),
-                    confirmText = tr("Delete"),
-                    onConfirm = {
-                        confirmDelete = false
-                        onDeleteShortcut(shortcut)
-                    },
-                    onDismiss = { confirmDelete = false },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text.uppercase(),
-        style = MaterialTheme.typography.labelLarge,
-        color = FractalTheme.colors.accent,
-        modifier = Modifier.padding(top = 6.dp),
-    )
-}
-
 fun OverlayMacro.summary(): String = when (kind) {
     MacroKind.COMBO -> tr("Presses together: {0}", buttons.joinToString(" + ") { it.displayName() })
     MacroKind.SEQUENCE -> tr("Sequence of {0} steps", steps.size)
@@ -270,11 +120,12 @@ fun MacroEditorDialog(
     controllerType: OverlayControllerType,
     onSave: (OverlayMacro) -> Unit,
     onDismiss: () -> Unit,
+    initialKind: MacroKind = MacroKind.COMBO,
 ) {
     val available = remember(controllerType) { macroInputsFor(controllerType) }
     val key = initial?.id
     var label by remember(key) { mutableStateOf(initial?.label ?: "") }
-    var kind by remember(key) { mutableStateOf(initial?.kind ?: MacroKind.COMBO) }
+    var kind by remember(key) { mutableStateOf(initial?.kind ?: initialKind) }
     val comboButtons = remember(key) { (initial?.buttons ?: emptyList()).toMutableStateList() }
     val steps = remember(key) {
         (initial?.steps?.takeIf { it.isNotEmpty() } ?: listOf(MacroStep())).toMutableStateList()
@@ -389,7 +240,7 @@ fun MacroEditorDialog(
         }
         BehaviorEditor(behavior, { behavior = it }, isSequence = kind == MacroKind.SEQUENCE)
         Text(
-            tr("New macros appear in the middle of the screen; move them in edit mode."),
+            tr("New buttons appear in a free spot; drag them where you want."),
             style = MaterialTheme.typography.bodySmall,
             color = FractalTheme.colors.textSecondary,
         )
@@ -650,6 +501,18 @@ fun OverlayAppearanceOptions(
         description = tr("Inputs moved or resized in edit mode line up on a grid"),
         checked = settings.snapToGrid,
         onCheckedChange = { on -> onUpdate { it.copy(snapToGrid = on) } },
+    )
+    OverlayToggleRow(
+        title = tr("Snap to guides"),
+        description = tr("Inputs moved in edit mode line up with the others, the middle of the screen and the mirrored spot on the other side"),
+        checked = settings.snapToGuides,
+        onCheckedChange = { on -> onUpdate { it.copy(snapToGuides = on) } },
+    )
+    OverlayToggleRow(
+        title = tr("Pause while editing"),
+        description = tr("The game pauses while the on-screen controls are edited from the in-game menu"),
+        checked = settings.pauseWhileEditing,
+        onCheckedChange = { on -> onUpdate { it.copy(pauseWhileEditing = on) } },
     )
 }
 

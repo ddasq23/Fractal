@@ -4,59 +4,67 @@ import android.graphics.Color
 import dev.dfd.fractal.common.settings.OverlayStyle
 
 /**
- * Opaque colors of the overlay inputs; the overlay opacity is applied on top.
- * [activeAlphaBoost] makes pressed inputs stand out more than idle ones.
+ * Opaque colors of the on-screen controls; the opacity setting is applied on top by [SkinColors].
  */
 data class OverlayPalette(
-    val activeFill: Int,
-    val activeStroke: Int,
-    val inactiveFill: Int,
-    val inactiveStroke: Int,
-    val backgroundFill: Int,
-    val backgroundStroke: Int,
-    val activeAlphaBoost: Float = 1f,
+    /** Fill of an idle button. */
+    val body: Int,
+    /** Fill of a pressed button. */
+    val bodyPressed: Int,
+    /** Outline of an idle button. */
+    val rim: Int,
+    /** Letter or icon on an idle button. */
+    val glyph: Int,
+    /** Letter or icon on a pressed button. */
+    val glyphPressed: Int,
+    /** Well of the sticks and plate of the d-pad. */
+    val base: Int,
+    /** Ring around pressed inputs and the stick direction marker. */
+    val glow: Int,
 ) {
     companion object {
+        /** Translucent black and white, close to the look of older versions. */
         val CLASSIC = OverlayPalette(
-            activeFill = Color.rgb(255, 255, 255),
-            activeStroke = Color.rgb(0, 0, 0),
-            inactiveFill = Color.rgb(0, 0, 0),
-            inactiveStroke = Color.rgb(255, 255, 255),
-            backgroundFill = Color.rgb(128, 128, 128),
-            backgroundStroke = Color.rgb(200, 200, 200),
+            body = Color.rgb(0, 0, 0),
+            bodyPressed = Color.rgb(255, 255, 255),
+            rim = Color.rgb(255, 255, 255),
+            glyph = Color.rgb(255, 255, 255),
+            glyphPressed = Color.rgb(0, 0, 0),
+            base = Color.rgb(90, 90, 90),
+            glow = Color.rgb(255, 255, 255),
         )
 
         val DARK = OverlayPalette(
-            activeFill = Color.rgb(235, 235, 240),
-            activeStroke = Color.rgb(16, 16, 20),
-            inactiveFill = Color.rgb(12, 12, 16),
-            inactiveStroke = Color.rgb(170, 170, 182),
-            backgroundFill = Color.rgb(40, 40, 48),
-            backgroundStroke = Color.rgb(120, 120, 132),
-            activeAlphaBoost = 1.6f,
+            body = Color.rgb(18, 18, 24),
+            bodyPressed = Color.rgb(236, 236, 242),
+            rim = Color.rgb(120, 120, 136),
+            glyph = Color.rgb(240, 240, 246),
+            glyphPressed = Color.rgb(16, 16, 20),
+            base = Color.rgb(36, 36, 46),
+            glow = Color.rgb(255, 255, 255),
         )
 
         val LIGHT = OverlayPalette(
-            activeFill = Color.rgb(26, 26, 30),
-            activeStroke = Color.rgb(255, 255, 255),
-            inactiveFill = Color.rgb(250, 250, 252),
-            inactiveStroke = Color.rgb(30, 30, 34),
-            backgroundFill = Color.rgb(215, 215, 222),
-            backgroundStroke = Color.rgb(70, 70, 78),
-            activeAlphaBoost = 1.6f,
+            body = Color.rgb(248, 248, 252),
+            bodyPressed = Color.rgb(28, 28, 34),
+            rim = Color.rgb(70, 70, 82),
+            glyph = Color.rgb(30, 30, 36),
+            glyphPressed = Color.rgb(255, 255, 255),
+            base = Color.rgb(212, 212, 222),
+            glow = Color.rgb(20, 20, 24),
         )
 
-        /** Dark inputs outlined and lit in [color]. */
+        /** Dark controls outlined and lit in [color]. */
         fun custom(color: Int): OverlayPalette {
             val rgb = color or 0xFF000000.toInt()
             return OverlayPalette(
-                activeFill = rgb,
-                activeStroke = contrastOn(rgb),
-                inactiveFill = Color.rgb(10, 10, 14),
-                inactiveStroke = rgb,
-                backgroundFill = mix(rgb, Color.BLACK, 0.6f),
-                backgroundStroke = rgb,
-                activeAlphaBoost = 1.6f,
+                body = Color.rgb(12, 12, 18),
+                bodyPressed = rgb,
+                rim = rgb,
+                glyph = mix(rgb, Color.WHITE, 0.6f),
+                glyphPressed = contrastOn(rgb),
+                base = mix(rgb, Color.BLACK, 0.78f),
+                glow = rgb,
             )
         }
 
@@ -66,13 +74,13 @@ data class OverlayPalette(
             val fg = text or 0xFF000000.toInt()
             val ac = accent or 0xFF000000.toInt()
             return OverlayPalette(
-                activeFill = ac,
-                activeStroke = onAccent or 0xFF000000.toInt(),
-                inactiveFill = bg,
-                inactiveStroke = fg,
-                backgroundFill = mix(bg, ac, 0.3f),
-                backgroundStroke = mix(fg, ac, 0.5f),
-                activeAlphaBoost = 1.6f,
+                body = bg,
+                bodyPressed = ac,
+                rim = mix(fg, ac, 0.45f),
+                glyph = fg,
+                glyphPressed = onAccent or 0xFF000000.toInt(),
+                base = mix(bg, ac, 0.22f),
+                glow = ac,
             )
         }
 
@@ -98,19 +106,60 @@ data class OverlayPalette(
     }
 }
 
-/** Colors the inputs read when they configure; set by the overlay before it (re)configures them. */
+/** Palette the inputs read when they configure; set by the overlay before it (re)configures them. */
 object Colors {
     var palette: OverlayPalette = OverlayPalette.CLASSIC
+}
+
+/**
+ * Colors of one input at one opacity. Labels stay more opaque than the body so they remain
+ * readable over a bright game, and pressed inputs light up well above the idle opacity.
+ */
+class SkinColors {
+    var body = 0
+        private set
+    var bodyTop = 0
+        private set
+    var bodyPressed = 0
+        private set
+    var bodyPressedTop = 0
+        private set
+    var rim = 0
+        private set
+    var glyph = 0
+        private set
+    var glyphPressed = 0
+        private set
+    var base = 0
+        private set
+    var baseRim = 0
+        private set
+    var glow = 0
+        private set
+    var shadow = 0
+        private set
+    var sheen = 0
+        private set
+
+    fun update(alpha: Int, palette: OverlayPalette = Colors.palette) {
+        val a = alpha.coerceIn(0, 255)
+        val pressedAlpha = scaled(a, 1.5f, 80).coerceAtMost(245)
+        body = withAlpha(palette.body, scaled(a, 0.8f))
+        bodyTop = withAlpha(OverlayPalette.mix(palette.body, palette.rim, 0.16f), scaled(a, 0.8f))
+        bodyPressed = withAlpha(palette.bodyPressed, pressedAlpha)
+        bodyPressedTop = withAlpha(OverlayPalette.mix(palette.bodyPressed, Color.WHITE, 0.22f), pressedAlpha)
+        rim = withAlpha(palette.rim, a)
+        glyph = withAlpha(palette.glyph, scaled(a, 1.6f))
+        glyphPressed = withAlpha(palette.glyphPressed, scaled(a, 1.6f, 120))
+        base = withAlpha(palette.base, scaled(a, 0.6f))
+        baseRim = withAlpha(palette.rim, scaled(a, 0.7f))
+        glow = withAlpha(palette.glow, scaled(a, 0.9f, 50))
+        shadow = withAlpha(Color.BLACK, scaled(a, 0.35f))
+        sheen = withAlpha(Color.WHITE, scaled(a, 0.22f))
+    }
+
+    private fun scaled(alpha: Int, factor: Float, floor: Int = 0): Int =
+        if (alpha == 0) 0 else (alpha * factor).toInt().coerceAtLeast(floor).coerceAtMost(255)
 
     private fun withAlpha(color: Int, alpha: Int) = (color and 0x00FFFFFF) or (alpha.coerceIn(0, 255) shl 24)
-    private fun boosted(alpha: Int) = (alpha * palette.activeAlphaBoost).toInt()
-
-    fun activeFill(alpha: Int) = withAlpha(palette.activeFill, boosted(alpha))
-    fun activeStroke(alpha: Int) = withAlpha(palette.activeStroke, boosted(alpha))
-
-    fun inactiveFill(alpha: Int) = withAlpha(palette.inactiveFill, alpha)
-    fun inactiveStroke(alpha: Int) = withAlpha(palette.inactiveStroke, alpha)
-
-    fun backgroundFill(alpha: Int) = withAlpha(palette.backgroundFill, alpha)
-    fun backgroundStroke(alpha: Int) = withAlpha(palette.backgroundStroke, alpha)
 }

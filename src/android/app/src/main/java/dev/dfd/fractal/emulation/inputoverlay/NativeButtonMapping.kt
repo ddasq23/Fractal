@@ -60,38 +60,6 @@ fun OverlayMacroInput.displayName(): String = when (this) {
     else -> name
 }
 
-/** Inputs shown on the overlay for a controller of [type], in drawing order. */
-fun overlayInputsFor(type: OverlayControllerType): List<OverlayInputConfig> = buildList {
-    add(OverlayInputConfig.BUTTON_MINUS)
-    add(OverlayInputConfig.BUTTON_PLUS)
-    add(OverlayInputConfig.DPAD)
-    add(OverlayInputConfig.BUTTON_A)
-    add(OverlayInputConfig.BUTTON_B)
-    add(OverlayInputConfig.JOYSTICK_RIGHT)
-    if (type != OverlayControllerType.WIIMOTE) {
-        add(OverlayInputConfig.BUTTON_X)
-        add(OverlayInputConfig.BUTTON_Y)
-        add(OverlayInputConfig.BUTTON_ZL)
-        add(OverlayInputConfig.BUTTON_ZR)
-        add(OverlayInputConfig.BUTTON_L)
-        add(OverlayInputConfig.BUTTON_R)
-        add(OverlayInputConfig.JOYSTICK_LEFT)
-    } else {
-        add(OverlayInputConfig.BUTTON_ONE)
-        add(OverlayInputConfig.BUTTON_TWO)
-        add(OverlayInputConfig.BUTTON_C)
-        add(OverlayInputConfig.BUTTON_Z)
-        add(OverlayInputConfig.BUTTON_HOME)
-    }
-    if (type == OverlayControllerType.VPAD || type == OverlayControllerType.PRO) {
-        add(OverlayInputConfig.BUTTON_L_STICK_CLICK)
-        add(OverlayInputConfig.BUTTON_R_STICK_CLICK)
-    }
-    if (type == OverlayControllerType.VPAD) {
-        add(OverlayInputConfig.BUTTON_BLOW_MIC)
-    }
-}
-
 private fun overlayButtonToVPADButton(button: OverlayInput): Int = when (button) {
     OverlayButton.A -> NativeInput.VPADButton.A
     OverlayButton.B -> NativeInput.VPADButton.B

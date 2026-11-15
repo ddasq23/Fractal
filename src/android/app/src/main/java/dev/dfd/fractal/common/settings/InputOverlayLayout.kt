@@ -77,6 +77,29 @@ enum class OverlayMacroInput {
     L_STICK_CLICK, R_STICK_CLICK, DPAD_UP, DPAD_DOWN, DPAD_LEFT, DPAD_RIGHT, BLOW_MIC,
 }
 
+/** The macro button that presses [this] input, null for sticks and the d-pad. */
+fun OverlayInputConfig.toMacroInput(): OverlayMacroInput? = when (this) {
+    OverlayInputConfig.BUTTON_A -> OverlayMacroInput.A
+    OverlayInputConfig.BUTTON_B -> OverlayMacroInput.B
+    OverlayInputConfig.BUTTON_X -> OverlayMacroInput.X
+    OverlayInputConfig.BUTTON_Y -> OverlayMacroInput.Y
+    OverlayInputConfig.BUTTON_ONE -> OverlayMacroInput.ONE
+    OverlayInputConfig.BUTTON_TWO -> OverlayMacroInput.TWO
+    OverlayInputConfig.BUTTON_C -> OverlayMacroInput.C
+    OverlayInputConfig.BUTTON_Z -> OverlayMacroInput.Z
+    OverlayInputConfig.BUTTON_HOME -> OverlayMacroInput.HOME
+    OverlayInputConfig.BUTTON_L -> OverlayMacroInput.L
+    OverlayInputConfig.BUTTON_R -> OverlayMacroInput.R
+    OverlayInputConfig.BUTTON_ZL -> OverlayMacroInput.ZL
+    OverlayInputConfig.BUTTON_ZR -> OverlayMacroInput.ZR
+    OverlayInputConfig.BUTTON_PLUS -> OverlayMacroInput.PLUS
+    OverlayInputConfig.BUTTON_MINUS -> OverlayMacroInput.MINUS
+    OverlayInputConfig.BUTTON_L_STICK_CLICK -> OverlayMacroInput.L_STICK_CLICK
+    OverlayInputConfig.BUTTON_R_STICK_CLICK -> OverlayMacroInput.R_STICK_CLICK
+    OverlayInputConfig.BUTTON_BLOW_MIC -> OverlayMacroInput.BLOW_MIC
+    OverlayInputConfig.JOYSTICK_LEFT, OverlayInputConfig.JOYSTICK_RIGHT, OverlayInputConfig.DPAD -> null
+}
+
 @Serializable
 enum class MacroKind {
     /** Presses all [OverlayMacro.buttons] together while the macro button is active. */
@@ -126,12 +149,58 @@ data class OverlayLayoutProfile(
     val shortcuts: List<OverlayShortcut> = emptyList(),
     /** Per input look, keyed by [styleKey] for built in inputs and by id for macros and shortcuts. */
     val styles: Map<String, OverlayInputStyle> = emptyMap(),
+    /**
+     * Version of the default layout the profile was made with. Profiles saved before the adaptive
+     * layout read as 0: if the user moved inputs on them, the inputs they didn't move keep the
+     * old default spots so the layout looks the way it did ([usesLegacyLayout]).
+     */
+    val layoutVersion: Int = 0,
+    /** Positions used while the screen is taller than wide, keyed like [styles]. */
+    val portraitRects: Map<String, NormalizedRect> = emptyMap(),
 )
+
+/** Version of the adaptive default layout; see [OverlayLayoutProfile.layoutVersion]. */
+const val OVERLAY_LAYOUT_VERSION = 2
+
+/** True when the user moved something on this profile (in either orientation). */
+val OverlayLayoutProfile.hasCustomPositions: Boolean
+    get() = rects.isNotEmpty() || portraitRects.isNotEmpty() ||
+        macros.any { it.rect != null } || shortcuts.any { it.rect != null }
+
+/** An older profile with moved inputs: the rest stays on the old default spots. */
+val OverlayLayoutProfile.usesLegacyLayout: Boolean
+    get() = layoutVersion < OVERLAY_LAYOUT_VERSION && hasCustomPositions
+
+/** Saved position of the input with [key] (see [styleKey]), or null when it sits on its default spot. */
+fun OverlayLayoutProfile.savedRect(key: String, portrait: Boolean): NormalizedRect? {
+    if (portrait) return portraitRects[key]
+    macros.firstOrNull { it.id == key }?.let { return it.rect }
+    shortcuts.firstOrNull { it.id == key }?.let { return it.rect }
+    return builtinConfigOf(key)?.let { rects[it] }
+}
+
+/** Sets ([rect] non null) or clears the saved position of the input with [key]. */
+fun OverlayLayoutProfile.withRect(key: String, rect: NormalizedRect?, portrait: Boolean): OverlayLayoutProfile {
+    if (portrait) {
+        return copy(portraitRects = if (rect == null) portraitRects - key else portraitRects + (key to rect))
+    }
+    if (macros.any { it.id == key }) {
+        return copy(macros = macros.map { if (it.id == key) it.copy(rect = rect) else it })
+    }
+    if (shortcuts.any { it.id == key }) {
+        return copy(shortcuts = shortcuts.map { if (it.id == key) it.copy(rect = rect) else it })
+    }
+    val config = builtinConfigOf(key) ?: return this
+    return copy(rects = if (rect == null) rects - config else rects + (config to rect))
+}
+
+private fun builtinConfigOf(key: String): OverlayInputConfig? =
+    OverlayInputConfig.entries.firstOrNull { styleKey(it) == key }
 
 fun defaultProfileId(type: OverlayControllerType) = "default-${type.name.lowercase()}"
 
 private fun defaultProfile(type: OverlayControllerType) =
-    OverlayLayoutProfile(id = defaultProfileId(type), controllerType = type)
+    OverlayLayoutProfile(id = defaultProfileId(type), controllerType = type, layoutVersion = OVERLAY_LAYOUT_VERSION)
 
 /** Profiles of [type], never empty: a blank default profile stands in when none was saved. */
 fun InputOverlaySettings.profilesFor(type: OverlayControllerType): List<OverlayLayoutProfile> =
@@ -175,13 +244,14 @@ fun InputOverlaySettings.createProfile(
     fun newId(old: String) = UUID.randomUUID().toString().also { newIds[old] = it }
     val macros = copyFrom?.macros?.map { it.copy(id = newId(it.id)) } ?: emptyList()
     val shortcuts = copyFrom?.shortcuts?.map { it.copy(id = newId(it.id)) } ?: emptyList()
-    val profile = (copyFrom ?: OverlayLayoutProfile(controllerType = type)).copy(
+    val profile = (copyFrom ?: OverlayLayoutProfile(controllerType = type, layoutVersion = OVERLAY_LAYOUT_VERSION)).copy(
         id = UUID.randomUUID().toString(),
         name = name,
         controllerType = type,
         macros = macros,
         shortcuts = shortcuts,
         styles = copyFrom?.styles?.mapKeys { (key, _) -> newIds[key] ?: key } ?: emptyMap(),
+        portraitRects = copyFrom?.portraitRects?.mapKeys { (key, _) -> newIds[key] ?: key } ?: emptyMap(),
     )
     return base.withProfile(profile).selectProfile(type, profile.id)
 }
@@ -200,16 +270,58 @@ fun InputOverlaySettings.deleteProfile(type: OverlayControllerType, id: String):
     return copy(profiles = remaining, activeProfileIds = newActive)
 }
 
-/** Clears positions and sizes of the active profile; behaviors, macros, shortcuts, opacity and shapes are kept. */
+/**
+ * Puts the active profile back on the adaptive default layout: positions and sizes are cleared;
+ * behaviors, macros, shortcuts, opacity and shapes are kept.
+ */
 fun InputOverlaySettings.resetActiveLayout(type: OverlayControllerType): InputOverlaySettings =
-    updateActiveProfile(type) { profile ->
-        profile.copy(
-            rects = emptyMap(),
-            macros = profile.macros.map { it.copy(rect = null) },
-            shortcuts = profile.shortcuts.map { it.copy(rect = null) },
-            styles = profile.styles.mapValues { (_, style) -> style.copy(scale = 1f) }.filterValues { !it.isDefault },
-        )
+    updateActiveProfile(type) { it.resetLayout() }
+
+fun OverlayLayoutProfile.resetLayout(): OverlayLayoutProfile = copy(
+    rects = emptyMap(),
+    portraitRects = emptyMap(),
+    macros = macros.map { it.copy(rect = null) },
+    shortcuts = shortcuts.map { it.copy(rect = null) },
+    styles = styles.mapValues { (_, style) -> style.copy(scale = 1f) }.filterValues { !it.isDefault },
+    layoutVersion = OVERLAY_LAYOUT_VERSION,
+)
+
+/** Moves (or with [rect] null, puts back on its default spot) one input of the active profile. */
+fun InputOverlaySettings.setInputRect(
+    type: OverlayControllerType,
+    key: String,
+    rect: NormalizedRect?,
+    portrait: Boolean,
+): InputOverlaySettings = updateActiveProfile(type) { it.withRect(key, rect, portrait) }
+
+fun InputOverlaySettings.setInputVisible(input: OverlayInputConfig, visible: Boolean): InputOverlaySettings =
+    copy(inputVisibilityMap = if (visible) inputVisibilityMap - input else inputVisibilityMap + (input to false))
+
+fun InputOverlaySettings.isInputVisible(input: OverlayInputConfig): Boolean = inputVisibilityMap[input] != false
+
+/**
+ * Copy of a macro or shortcut with a new id, placed at [rect] (null: a free default spot),
+ * with the same look. Returns the settings and the new id.
+ */
+fun InputOverlaySettings.duplicateExtra(
+    type: OverlayControllerType,
+    id: String,
+    rect: NormalizedRect?,
+    portrait: Boolean,
+): Pair<InputOverlaySettings, String?> {
+    val profile = activeProfile(type)
+    val newId = UUID.randomUUID().toString()
+    val macro = profile.macros.firstOrNull { it.id == id }
+    val shortcut = profile.shortcuts.firstOrNull { it.id == id }
+    var updated = when {
+        macro != null -> profile.copy(macros = profile.macros + macro.copy(id = newId, rect = null))
+        shortcut != null -> profile.copy(shortcuts = profile.shortcuts + shortcut.copy(id = newId, rect = null))
+        else -> return this to null
     }
+    profile.styles[id]?.let { updated = updated.copy(styles = updated.styles + (newId to it)) }
+    if (rect != null) updated = updated.withRect(newId, rect, portrait)
+    return withProfile(updated) to newId
+}
 
 /** Sets the look of one input of the active profile; [key] comes from [styleKey] or is a macro/shortcut id. */
 fun InputOverlaySettings.setInputStyle(
@@ -263,19 +375,6 @@ fun InputOverlaySettings.deleteMacro(type: OverlayControllerType, macroId: Strin
     updateActiveProfile(type) { profile ->
         profile.copy(macros = profile.macros.filterNot { it.id == macroId }, styles = profile.styles - macroId)
     }
-
-/** Merges positions edited on the overlay into the active profile of [type]. */
-fun InputOverlaySettings.applyEditedRects(
-    type: OverlayControllerType,
-    rects: Map<OverlayInputConfig, NormalizedRect>,
-    macroRects: Map<String, NormalizedRect>,
-): InputOverlaySettings = updateActiveProfile(type) { profile ->
-    profile.copy(
-        rects = profile.rects + rects,
-        macros = profile.macros.map { macro -> macroRects[macro.id]?.let { macro.copy(rect = it) } ?: macro },
-        shortcuts = profile.shortcuts.map { s -> macroRects[s.id]?.let { s.copy(rect = it) } ?: s },
-    )
-}
 
 /**
  * Moves the absolute pixel rectangles saved by older versions into the default profile of

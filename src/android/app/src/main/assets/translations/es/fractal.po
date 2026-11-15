@@ -2763,7 +2763,6 @@ msgstr "Filtro de ampliación: {0}"
 msgid "Uses the device's motion sensors for the GamePad gyro"
 msgstr "Usa los sensores de movimiento del dispositivo para el giroscopio del GamePad"
 
-
 msgid "Close search"
 msgstr "Cerrar búsqueda"
 
@@ -2772,7 +2771,6 @@ msgstr "Confirmar"
 
 msgid "Download"
 msgstr "Descargar"
-
 
 msgid "Section"
 msgstr "Sección"
@@ -2854,3 +2852,121 @@ msgstr "Ninguno de estos paquetes gráficos es de un juego instalado. Desactiva 
 
 msgid "No titles to show. Titles show up here as they are found in the game folders and in the MLC; install one with +, or check the filter."
 msgstr "No hay títulos para mostrar. Los títulos aparecen aquí a medida que se encuentran en las carpetas de juegos y en la MLC; instala uno con + o revisa el filtro."
+
+
+msgid "New buttons appear in a free spot; drag them where you want."
+msgstr "Los botones nuevos aparecen en un espacio libre; arrástralos a donde quieras."
+
+msgid "Snap to guides"
+msgstr "Ajustar a las guías"
+
+msgid "Inputs moved in edit mode line up with the others, the middle of the screen and the mirrored spot on the other side"
+msgstr "Los controles movidos en el modo de edición se alinean con los demás, con el centro de la pantalla y con la posición reflejada del otro lado"
+
+msgid "Pause while editing"
+msgstr "Pausar mientras se edita"
+
+msgid "The game pauses while the on-screen controls are edited from the in-game menu"
+msgstr "El juego se pausa mientras se editan los controles en pantalla desde el menú del juego"
+
+msgid "The emulated controller is disabled. Pick a controller type in Controller mapping to edit its on-screen controls."
+msgstr "El control emulado está desactivado. Elige un tipo de control en Asignación del control para editar sus controles en pantalla."
+
+msgid "Back to the automatic layout"
+msgstr "Volver a la disposición automática"
+
+msgid "Put every input of the profile \"{0}\" back on the layout made for this screen? Button options, macros and shortcuts are kept."
+msgstr "¿Devolver todos los controles del perfil \"{0}\" a la disposición hecha para esta pantalla? Se conservan las opciones de los botones, las macros y los atajos."
+
+msgid "Discard changes"
+msgstr "Descartar cambios"
+
+msgid "Leave the editor without saving the changes?"
+msgstr "¿Salir del editor sin guardar los cambios?"
+
+msgid "Discard"
+msgstr "Descartar"
+
+msgid "This profile keeps the layout of an older version. The new layout adapts to the screen and has bigger controls."
+msgstr "Este perfil conserva la disposición de una versión anterior. La nueva disposición se adapta a la pantalla y tiene controles más grandes."
+
+msgid "Use the new layout"
+msgstr "Usar la nueva disposición"
+
+msgid "Try the controls. Tap Test again to go back to editing."
+msgstr "Prueba los controles. Toca Probar otra vez para volver a editar."
+
+msgid "Tap a control to edit it. Drag to move it; pinch or drag a corner to resize it."
+msgstr "Toca un control para editarlo. Arrástralo para moverlo; pellizca o arrastra una esquina para cambiar su tamaño."
+
+msgid "Undo"
+msgstr "Deshacer"
+
+msgid "Redo"
+msgstr "Rehacer"
+
+msgid "Add"
+msgstr "Añadir"
+
+msgid "Combo macro: buttons pressed together"
+msgstr "Macro de combinación: botones pulsados a la vez"
+
+msgid "Sequence macro: buttons pressed one after another"
+msgstr "Macro de secuencia: botones pulsados uno tras otro"
+
+msgid "Turbo button"
+msgstr "Botón turbo"
+
+msgid "Toggle button"
+msgstr "Botón de alternar"
+
+msgid "Shortcut: an emulator action"
+msgstr "Atajo: una acción del emulador"
+
+msgid "Show hidden inputs ({0})"
+msgstr "Mostrar controles ocultos ({0})"
+
+msgid "Guides"
+msgstr "Guías"
+
+msgid "Test"
+msgstr "Probar"
+
+msgid "Shortcut"
+msgstr "Atajo"
+
+msgid "Hidden while playing"
+msgstr "Oculto durante el juego"
+
+msgid "Controller input"
+msgstr "Entrada del control"
+
+msgid "Show"
+msgstr "Mostrar"
+
+msgid "Default spot"
+msgstr "Posición predeterminada"
+
+msgid "Delete button"
+msgstr "Eliminar botón"
+
+msgid "Delete \"{0}\"?"
+msgstr "¿Eliminar \"{0}\"?"
+
+msgid "New turbo button"
+msgstr "Nuevo botón turbo"
+
+msgid "New toggle button"
+msgstr "Nuevo botón de alternar"
+
+msgid "An extra button that presses and releases the button you pick over and over while you hold it."
+msgstr "Un botón extra que pulsa y suelta el botón elegido una y otra vez mientras lo mantienes."
+
+msgid "An extra button that keeps the button you pick pressed until you tap it again."
+msgstr "Un botón extra que mantiene pulsado el botón elegido hasta que lo vuelvas a tocar."
+
+msgid "Each controller type has its own profiles. The layout adapts to the screen; to move, resize or add buttons, open the editor here or choose Edit on-screen controls in the in-game menu."
+msgstr "Cada tipo de control tiene sus propios perfiles. La disposición se adapta a la pantalla; para mover, cambiar el tamaño o añadir botones, abre el editor aquí o elige Editar controles en pantalla en el menú del juego."
+
+msgid "Edit layout"
+msgstr "Editar disposición"

@@ -33,6 +33,12 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".settings.inputoverlay.OverlayLayoutEditorActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
+            android:exported="false"
+            android:screenOrientation="userLandscape"
+            tools:ignore="DiscouragedApi" />
+        <activity
             android:name=".emulation.EmulationActivity"
             android:configChanges="orientation|screenSize"
             android:exported="true"
