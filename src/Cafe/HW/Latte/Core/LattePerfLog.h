@@ -78,11 +78,15 @@ namespace PerfLog
 	{
 		explicit RenderStage(const char* what, uint64 arg = 0);
 		~RenderStage();
+		bool m_active;
 		const char* m_prev;
 		uint64 m_prevArg;
 		sint64 m_prevSince;
 	};
 	std::string DescribeRenderStage();
+	// called once by the Latte thread: only that thread updates the render stage (pipeline cache loading threads also
+	// compile with isRenderThread set, and their nested scopes would leave a stale stage behind)
+	void MarkRenderThread();
 	void TextureReadbackScheduled();
 	void BufferUploadDirect(); // buffer cache upload written straight into GPU memory (no copy, no render pass end)
 	void DrawCall();

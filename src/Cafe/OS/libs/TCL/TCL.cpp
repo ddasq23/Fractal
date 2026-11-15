@@ -166,8 +166,17 @@ namespace TCL
 		TCLWriteCmd(cmd, 6);
 	}
 
+	// Submissions come from several cores at once: Watch Dogs records its streamout display lists on a job thread and
+	// submits them with GX2DirectCallDisplayList while the main thread flushes its command buffer. Unserialized, two
+	// submissions can copy their commands to the same ring position. On the console this is a kernel driver call. The lock is a flag, not a host mutex, because the
+	// holder can sleep as an emulated thread (TCLWaitForRBSpace) and another emulated thread may then run on the same host
+	// thread and try to submit too
+	static std::atomic_flag s_submitLock = ATOMIC_FLAG_INIT;
+
 	int TCLSubmitToRing(uint32be* cmd, uint32 cmdLen, betype<TCLSubmissionFlag>* controlFlags, uint64be* timestampValueOut)
 	{
+		while (s_submitLock.test_and_set(std::memory_order_acquire))
+			coreinit::OSSleepTicks(coreinit::EspressoTime::ConvertNsToTimerTicks(20000));
 		TCLSubmissionFlag flags = *controlFlags;
 		cemu_assert_debug(timestampValueOut); // handle case where this is null
 
@@ -190,6 +199,7 @@ namespace TCL
 		{
 			cemu_assert_unimplemented();
 		}
+		s_submitLock.clear(std::memory_order_release);
 		return 0;
 	}
 

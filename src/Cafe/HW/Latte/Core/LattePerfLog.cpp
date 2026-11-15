@@ -483,6 +483,23 @@ namespace PerfLog
 					Event("freeze", fmt::format("no frame for {} s, emulated threads written to log.txt", hangDumpS));
 					cemuLog_log(LogType::Force, "Perf log: no frame for {} s, GPU: {}; {}; GX2 timestamps submitted {} retired {}", hangDumpS,
 						LatteCP_DescribeWait(), DescribeRenderStage(), GX2::GX2GetLastSubmittedTimeStamp(), GX2::GX2GetRetiredTimeStamp());
+					cemuLog_log(LogType::Force, "Perf log: {}", GX2::GX2Command_DescribePending());
+					// diagnostics (perf/tuning.txt hle_syms=1): the OS functions' stub addresses, to name the import thunks a
+					// game's frozen loop calls (they jump to 0x00E0xxxx)
+					if (Tunable("hle_syms", 0))
+					{
+						std::string line;
+						auto& map = rplSymbolStorage_lockSymbolMap();
+						std::vector<std::pair<uint32, std::string>> syms;
+						for (auto& it : map)
+							if (it.first < 0x01000000 && it.second)
+								syms.emplace_back(it.first, fmt::format("{}.{}", (const char*)it.second->libName, (const char*)it.second->symbolName));
+						rplSymbolStorage_unlockSymbolMap();
+						std::sort(syms.begin(), syms.end());
+						for (auto& [a, n] : syms)
+							line += fmt::format(" {:x}={}", a, n);
+						cemuLog_log(LogType::Force, "Perf log: HLE symbols:{}", line);
+					}
 					cemuLog_log(LogType::Force, "Perf log: emulated threads:");
 					ExceptionHandler_LogThreadList(true);
 				}
@@ -496,6 +513,23 @@ namespace PerfLog
 				{
 					cemuLog_log(LogType::Force, "Perf log: thread dump at {} s, GPU: {}; {}; GX2 timestamps submitted {} retired {}", s_dumpCounter,
 						LatteCP_DescribeWait(), DescribeRenderStage(), GX2::GX2GetLastSubmittedTimeStamp(), GX2::GX2GetRetiredTimeStamp());
+					cemuLog_log(LogType::Force, "Perf log: {}", GX2::GX2Command_DescribePending());
+					// diagnostics (perf/tuning.txt hle_syms=1): the OS functions' stub addresses, to name the import thunks a
+					// game's frozen loop calls (they jump to 0x00E0xxxx)
+					if (Tunable("hle_syms", 0))
+					{
+						std::string line;
+						auto& map = rplSymbolStorage_lockSymbolMap();
+						std::vector<std::pair<uint32, std::string>> syms;
+						for (auto& it : map)
+							if (it.first < 0x01000000 && it.second)
+								syms.emplace_back(it.first, fmt::format("{}.{}", (const char*)it.second->libName, (const char*)it.second->symbolName));
+						rplSymbolStorage_unlockSymbolMap();
+						std::sort(syms.begin(), syms.end());
+						for (auto& [a, n] : syms)
+							line += fmt::format(" {:x}={}", a, n);
+						cemuLog_log(LogType::Force, "Perf log: HLE symbols:{}", line);
+					}
 					ExceptionHandler_LogThreadList(true);
 				}
 			}
@@ -765,8 +799,18 @@ namespace PerfLog
 		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 	}
 
+	static thread_local bool t_isRenderThread = false;
+
+	void MarkRenderThread()
+	{
+		t_isRenderThread = true;
+	}
+
 	RenderStage::RenderStage(const char* what, uint64 arg)
 	{
+		m_active = t_isRenderThread;
+		if (!m_active)
+			return;
 		m_prev = s_renderStage.load(std::memory_order_relaxed);
 		m_prevArg = s_renderStageArg.load(std::memory_order_relaxed);
 		m_prevSince = s_renderStageSinceMs.load(std::memory_order_relaxed);
@@ -777,6 +821,8 @@ namespace PerfLog
 
 	RenderStage::~RenderStage()
 	{
+		if (!m_active)
+			return;
 		s_renderStageArg.store(m_prevArg, std::memory_order_relaxed);
 		s_renderStageSinceMs.store(m_prevSince, std::memory_order_relaxed);
 		s_renderStage.store(m_prev, std::memory_order_release);

@@ -276,9 +276,9 @@ void ExceptionHandler_LogThreadList(bool withStacks)
         // waits: the object passed to the OS call (r3) and its first words, e.g. an OSEvent's value shows a lost wakeup
         if (threadState == OSThread_t::THREAD_STATE::STATE_WAITING && withStacks)
         {
-            const uint32 r3 = threadItrBE->context.gpr[3];
+            const uint32 r3 = _swapEndianU32(threadItrBE->context.gpr[3]);
             size_t len = strlen(dumpLine);
-            len += snprintf(dumpLine + len, sizeof(dumpLine) - len, " r3 %08x r4 %08x", r3, (uint32)threadItrBE->context.gpr[4]);
+            len += snprintf(dumpLine + len, sizeof(dumpLine) - len, " r3 %08x r4 %08x", r3, _swapEndianU32(threadItrBE->context.gpr[4]));
             if (r3 >= 0x01000000 && r3 < 0xFFFFFF00 && memory_isAddressRangeAccessible(r3, 32))
             {
                 const uint32be* w = (const uint32be*)memory_getPointerFromVirtualOffset(r3);

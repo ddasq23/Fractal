@@ -40,6 +40,7 @@ namespace GX2
 	void GX2SubmitUserTimeStamp(uint64* timestampOut, uint64 value, GX2PipeEventType eventType, uint32 triggerInterrupt)
 	{
 		GX2ReserveCmdSpace(11);
+		GX2Command_NoteUserTimeStamp(memory_getVirtualOffsetFromPointer(timestampOut), value, (uint32)eventType);
 
 		MPTR physTimestampAddr = memory_virtualToPhysical(memory_getVirtualOffsetFromPointer(timestampOut));
 		uint32 valHigh = (uint32)(value >> 32);

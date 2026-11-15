@@ -90,6 +90,15 @@ namespace GX2
 
 	uint64 GX2GetLastSubmittedTimeStamp();
 	uint64 GX2GetRetiredTimeStamp();
+	// hang dumps: per core, the words written to the current command buffer but not submitted yet; recent user timestamps
+	std::string GX2Command_DescribePending();
+	void GX2Command_NoteUserTimeStamp(MPTR addr, uint64 value, uint32 type);
+	// command processor side of the display list event ring (perf/tuning.txt cp_events=1): kind w wait passed at once,
+	// W wait passed after stalling, R wait checked again before the next packet and it had to wait, i ring indirect buffer,
+	// n nested indirect buffer, m memory write (low word)
+	bool GX2Command_CpEvents();
+	MPTR GX2Command_ReadPointerPhysAddress(); // where the GPU reports how far it read each command buffer
+	void GX2Command_NoteGpuEvent(char kind, MPTR addr, uint32 value);
 	bool GX2WaitTimeStamp(uint64 tsWait);
 
 	void GX2BeginDisplayList(MEMPTR<void> displayListAddr, uint32 size);

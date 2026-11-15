@@ -288,6 +288,8 @@ void LatteCP_itIndirectBufferDepr(LatteCMDPtr cmd, uint32 nWords)
 		LatteCP_DebugPrintCmdBuffer(MEMPTR<uint32be>(physicalAddress), displayListSize);
 #endif
 
+	if (GX2::GX2Command_CpEvents()) [[unlikely]]
+		GX2::GX2Command_NoteGpuEvent('i', memory_physicalToVirtual(physicalAddress), sizeInU32s * 4);
 	if (sizeInU32s > 0)
 	{
 		DrawPassContext drawPassCtx;
@@ -307,6 +309,8 @@ void LatteCP_itIndirectBuffer(LatteCMDPtr cmd, uint32 nWords, DrawPassContext& d
 	uint32 physicalAddress = LatteReadCMD();
 	uint32 physicalAddressHigh = LatteReadCMD(); // unused
 	uint32 sizeInDWords = LatteReadCMD();
+	if (GX2::GX2Command_CpEvents()) [[unlikely]]
+		GX2::GX2Command_NoteGpuEvent('n', memory_physicalToVirtual(physicalAddress), sizeInDWords * 4);
 	if (sizeInDWords > 0)
 	{
 		uint32 displayListSize = sizeInDWords * 4;
@@ -515,6 +519,82 @@ LatteCMDPtr LatteCP_itNumInstances(LatteCMDPtr cmd, uint32 nWords)
 	return cmd;
 }
 
+static bool LatteCP_waitConditionMet(uint32 compareOp, uint32 fenceMemValue, uint32 fenceValue)
+{
+	switch (compareOp)
+	{
+	case 0: return true; // ALWAYS
+	case 1: return fenceMemValue < fenceValue; // LESS
+	case 2: return fenceMemValue <= fenceValue; // LEQUAL
+	case 3: return fenceMemValue == fenceValue; // EQUAL
+	case 4: return fenceMemValue != fenceValue; // NOTEQUAL
+	case 5: return fenceMemValue >= fenceValue; // GEQUAL
+	case 6: return fenceMemValue > fenceValue; // GREATER
+	default:
+		cemuLog_logOnce(LogType::Force, "Latte: WAIT_MEM_OP_NEVER encountered");
+		return true;
+	}
+}
+
+// the last WAIT_REG_MEM on memory, while no packet after it has run yet
+static struct
+{
+	bool pending{false};
+	uint32 physAddr, value, mask, compareOp;
+}s_cpLastWait;
+
+static void LatteCP_waitForMemory(uint32 physAddr, uint32 fenceValue, uint32 fenceMask, uint32 compareOp)
+{
+	uint32* fencePtr = (uint32*)memory_getPointerFromPhysicalOffset(physAddr);
+	if (LatteCP_waitConditionMet(compareOp, _swapEndianU32(*(volatile uint32*)fencePtr) & fenceMask, fenceValue))
+	{
+		if (GX2::GX2Command_CpEvents()) [[unlikely]]
+			GX2::GX2Command_NoteGpuEvent(s_cpLastWait.pending ? 'r' : 'w', memory_physicalToVirtual(physAddr), _swapEndianU32(*fencePtr));
+		return;
+	}
+	s_cpWaitAddr = physAddr; s_cpWaitValue = fenceValue; s_cpWaitMask = fenceMask; s_cpWaitOp = compareOp;
+	s_cpWaitKind = 1;
+	performanceMonitor.gpuTime_fenceTime.beginMeasuring();
+	const auto fenceWaitStart = std::chrono::steady_clock::now();
+	g_renderer->NotifyLatteCommandProcessorIdle();
+	while (!LatteCP_waitConditionMet(compareOp, _swapEndianU32(*(volatile uint32*)fencePtr) & fenceMask, fenceValue))
+	{
+		// check if any GPU events happened
+		LatteTiming_HandleTimedVsync();
+		LatteAsyncCommands_checkAndExecute();
+		// perf/tuning.txt cp_fence_sleep_us=N: after a short spin, sleep N us per round so the CPU thread that
+		// writes the fence can have the core (default 0: spin)
+		static const sint64 s_fenceSleepUs = PerfLog::Tunable("cp_fence_sleep_us", 0);
+		if (s_fenceSleepUs > 0 && std::chrono::steady_clock::now() - fenceWaitStart > std::chrono::microseconds(50))
+			std::this_thread::sleep_for(std::chrono::microseconds(s_fenceSleepUs));
+	}
+	std::atomic_thread_fence(std::memory_order_acquire); // what the CPU wrote before the fence value is visible
+	if (GX2::GX2Command_CpEvents()) [[unlikely]]
+		GX2::GX2Command_NoteGpuEvent(s_cpLastWait.pending ? 'R' : 'W', memory_physicalToVirtual(physAddr), _swapEndianU32(*fencePtr));
+	s_cpWaitKind = 0;
+	performanceMonitor.gpuTime_fenceTime.endMeasuring();
+	PerfLog::GuestWaited(PerfLog::GuestWait::CpFence, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - fenceWaitStart).count());
+}
+
+// Called before each packet that has an effect (entering an indirect buffer has none; a memory write calls it right before
+// the store). A wait that passed counts as passed only once the next effect happens: on hardware the CP moves on within
+// nanoseconds, here it may idle (renderer flush, sleep) or be preempted right after the wait, for example when the wait
+// ends an indirect buffer and the ring is empty. Titles infer from timestamps around a wait that the GPU is stopped at
+// it: Watch Dogs streamout jobs clear the flag, see "timestamp before the wait written, the one after not" for 10 us and
+// then fill the slot behind the wait. If the CP had passed the wait already, it ran the slot while it was being filled
+// and the job's display list was lost (the job thread waited forever). Checking the wait again here is the same as the
+// CP reaching the wait later, which is valid timing since nothing after it has run.
+// bookkeeping: the write is the driver's own (TCL retire marker after each submission, GX2 read pointer), not a sign of
+// progress the title uses, so the wait stays open and is checked again before the next effect
+static inline void LatteCP_recheckLastWait(bool bookkeeping = false)
+{
+	if (!s_cpLastWait.pending) [[likely]]
+		return;
+	LatteCP_waitForMemory(s_cpLastWait.physAddr, s_cpLastWait.value, s_cpLastWait.mask, s_cpLastWait.compareOp);
+	if (!bookkeeping)
+		s_cpLastWait.pending = false;
+}
+
 LatteCMDPtr LatteCP_itWaitRegMem(LatteCMDPtr cmd, uint32 nWords)
 {
 	cemu_assert_debug(nWords == 6);
@@ -528,94 +608,16 @@ LatteCMDPtr LatteCP_itWaitRegMem(LatteCMDPtr cmd, uint32 nWords)
 
 	uint32 compareOp = (word0) & 7;
 	uint32 physAddr = word1 & ~3;
-	cemu_assert_debug((physAddr&3) == 0);
 	uint32 fenceValue = word3;
 	uint32 fenceMask = word4;
 
-	uint32* fencePtr = (uint32*)memory_getPointerFromPhysicalOffset(physAddr);
-
-	const uint32 GPU7_WAIT_MEM_OP_ALWAYS = 0;
-	const uint32 GPU7_WAIT_MEM_OP_LESS = 1;
-	const uint32 GPU7_WAIT_MEM_OP_LEQUAL = 2;
-	const uint32 GPU7_WAIT_MEM_OP_EQUAL = 3;
-	const uint32 GPU7_WAIT_MEM_OP_NOTEQUAL = 4;
-	const uint32 GPU7_WAIT_MEM_OP_GEQUAL = 5;
-	const uint32 GPU7_WAIT_MEM_OP_GREATER = 6;
-	const uint32 GPU7_WAIT_MEM_OP_NEVER = 7;
-
 	LatteCP_signalEnterWait();
-
-	bool stalls = false;
 	if ((word0 & 0x10) != 0)
 	{
 		// wait for memory address
-		s_cpWaitAddr = physAddr; s_cpWaitValue = fenceValue; s_cpWaitMask = fenceMask; s_cpWaitOp = compareOp;
-		s_cpWaitKind = 1;
-		performanceMonitor.gpuTime_fenceTime.beginMeasuring();
-		const auto fenceWaitStart = std::chrono::steady_clock::now();
-		while (true)
-		{
-			uint32 fenceMemValue = _swapEndianU32(*fencePtr);
-			fenceMemValue &= fenceMask;
-			if (compareOp == GPU7_WAIT_MEM_OP_LESS)
-			{
-				if (fenceMemValue < fenceValue)
-					break;
-			}
-			else if (compareOp == GPU7_WAIT_MEM_OP_LEQUAL)
-			{
-				if (fenceMemValue <= fenceValue)
-					break;
-			}
-			else if (compareOp == GPU7_WAIT_MEM_OP_EQUAL)
-			{
-				if (fenceMemValue == fenceValue)
-					break;
-			}
-			else if (compareOp == GPU7_WAIT_MEM_OP_NOTEQUAL)
-			{
-				if (fenceMemValue != fenceValue)
-					break;
-			}
-			else if (compareOp == GPU7_WAIT_MEM_OP_GEQUAL)
-			{
-				if (fenceMemValue >= fenceValue)
-					break;
-			}
-			else if (compareOp == GPU7_WAIT_MEM_OP_GREATER)
-			{
-				if (fenceMemValue > fenceValue)
-					break;
-			}
-			else if (compareOp == GPU7_WAIT_MEM_OP_ALWAYS)
-			{
-				break;
-			}
-			else if (compareOp == GPU7_WAIT_MEM_OP_NEVER)
-			{
-				cemuLog_logOnce(LogType::Force, "Latte: WAIT_MEM_OP_NEVER encountered");
-				break;
-			}
-			else
-				assert_dbg();
-			if (!stalls)
-			{
-				g_renderer->NotifyLatteCommandProcessorIdle();
-				stalls = true;
-			}
-
-			// check if any GPU events happened
-			LatteTiming_HandleTimedVsync();
-			LatteAsyncCommands_checkAndExecute();
-			// perf/tuning.txt cp_fence_sleep_us=N: after a short spin, sleep N us per round so the CPU thread that
-			// writes the fence can have the core (default 0: spin)
-			static const sint64 s_fenceSleepUs = PerfLog::Tunable("cp_fence_sleep_us", 0);
-			if (s_fenceSleepUs > 0 && std::chrono::steady_clock::now() - fenceWaitStart > std::chrono::microseconds(50))
-				std::this_thread::sleep_for(std::chrono::microseconds(s_fenceSleepUs));
-		}
-		s_cpWaitKind = 0;
-		performanceMonitor.gpuTime_fenceTime.endMeasuring();
-		PerfLog::GuestWaited(PerfLog::GuestWait::CpFence, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - fenceWaitStart).count());
+		LatteCP_waitForMemory(physAddr, fenceValue, fenceMask, compareOp);
+		s_cpLastWait.physAddr = physAddr; s_cpLastWait.value = fenceValue; s_cpLastWait.mask = fenceMask; s_cpLastWait.compareOp = compareOp;
+		s_cpLastWait.pending = true;
 	}
 	else
 	{
@@ -641,7 +643,10 @@ LatteCMDPtr LatteCP_itMemWrite(LatteCMDPtr cmd, uint32 nWords)
 	}
 	LatteStreamout_FlushReadbacks();
 	uint32be* memPtr = (uint32be*)memory_getPointerFromPhysicalOffset(valuePhysAddr);
+	LatteCP_recheckLastWait(valuePhysAddr == GX2::GX2Command_ReadPointerPhysAddress()); // right before the write, see LatteCP_recheckLastWait
 	LatteCP_logGpuWrite("MemWrite", valuePhysAddr, word1 == 0x40000 ? 4 : 8, ((uint64)word3 << 32) | word2);
+	if (GX2::GX2Command_CpEvents()) [[unlikely]]
+		GX2::GX2Command_NoteGpuEvent('m', memory_physicalToVirtual(valuePhysAddr), word2);
 
 	if (word1 == 0x40000)
 	{
@@ -679,6 +684,7 @@ LatteCMDPtr LatteCP_itEventWriteEOP(LatteCMDPtr cmd, uint32 nWords)
 	cemu_assert_debug(word2 == 0x40000000 || word2 == 0x42000000);
 	LatteStreamout_FlushReadbacks();
 
+	LatteCP_recheckLastWait(true); // GX2 only emits this as the TCL retire marker
 	if (word0 == 0x504 && (word2&0x40000000)) // todo - figure out the flags
 	{
 		stdx::atomic_ref<uint64be> atomicRef(*(uint64be*)memory_getPointerFromPhysicalOffset(word1));
@@ -1136,6 +1142,8 @@ void LatteCP_processCommandBuffer_continuousDrawPass(DrawPassContext& drawPassCt
 				uint32 nWords = ((itHeader >> 16) & 0x3FFF) + 1;
 				LatteCMDPtr cmdData = cmd;
 				cmd += nWords;
+				if (itCode != IT_INDIRECT_BUFFER_PRIV && itCode != IT_MEM_WRITE && itCode != IT_EVENT_WRITE_EOP)
+					LatteCP_recheckLastWait();
 				switch (itCode)
 				{
 				case IT_SET_RESOURCE: // attribute buffers, uniform buffers or texture units
@@ -1289,6 +1297,8 @@ void LatteCP_processCommandBuffer(DrawPassContext& drawPassCtx)
 				uint32 nWords = ((itHeader >> 16) & 0x3FFF) + 1;
 				LatteCMDPtr cmdData = cmd;
 				cmd += nWords;
+				if (itCode != IT_INDIRECT_BUFFER_PRIV && itCode != IT_MEM_WRITE && itCode != IT_EVENT_WRITE_EOP)
+					LatteCP_recheckLastWait();
 				switch (itCode)
 				{
 				case IT_SET_CONTEXT_REG:
@@ -1571,6 +1581,8 @@ void LatteCP_ProcessRingbuffer()
 				tmpBuffer[i] = word;
 			}
 			LatteCMDPtr cmd = (LatteCMDPtr)tmpBuffer;
+			if (itCode != IT_INDIRECT_BUFFER_PRIV && itCode != IT_MEM_WRITE && itCode != IT_EVENT_WRITE_EOP)
+				LatteCP_recheckLastWait();
 			switch (itCode)
 			{
 			case IT_SURFACE_SYNC:

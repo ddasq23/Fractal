@@ -21,6 +21,14 @@ bool Renderer::UseNanClamp() const
 	return m_minMaxReturnsNaN;
 }
 
+bool Renderer::UseRelativeWriteSwitch() const
+{
+	static const sint64 s_relWriteSwitch = PerfLog::Tunable("relwrite_switch", -1);
+	if (s_relWriteSwitch >= 0)
+		return s_relWriteSwitch != 0;
+	return m_relativeWriteSwitch;
+}
+
 bool Renderer::GetVRAMInfo(int& usageInMB, int& totalInMB) const
 {
 	usageInMB = totalInMB = -1;

@@ -226,6 +226,7 @@ void VulkanRenderer::DetermineVendor()
 	// Adreno (Qualcomm driver and Turnip) returns NaN from min/max/clamp with a NaN operand where the R600 returns the other
 	// operand, so a NaN the console drops reaches the framebuffer: Watch Dogs' May Stadium washed out to white on the RP5
 	m_minMaxReturnsNaN = properties.properties.vendorID == 0x5143;
+	m_relativeWriteSwitch = properties.properties.vendorID == 0x5143;
 
 	cemuLog_log(LogType::Force, "Using GPU: {}", properties.properties.deviceName);
 

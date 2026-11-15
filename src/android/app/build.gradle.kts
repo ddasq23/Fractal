@@ -32,7 +32,9 @@ fun getGitHash(): String? = "git log --format=%h -1".runCommand()?.trim()
 val versionMajor: Int? = System.getenv("EMULATOR_VERSION_MAJOR")?.toIntOrNull()
 val versionMinor: Int? = System.getenv("EMULATOR_VERSION_MINOR")?.toIntOrNull()
 
+// release builds: FRACTAL_VERSION_NAME=0.1-beta FRACTAL_VERSION_CODE=1 (the code must grow with every published APK)
 fun getVersionName(): String {
+    System.getenv("FRACTAL_VERSION_NAME")?.takeIf { it.isNotBlank() }?.let { return it }
     if (versionMajor != null && versionMinor != null)
         return "$versionMajor.$versionMinor"
     return getGitHash() ?: "1.0"
@@ -49,12 +51,14 @@ android {
         minSdk = 30
         targetSdk = 35
         versionName = getVersionName()
-        versionCode = 1
+        versionCode = System.getenv("FRACTAL_VERSION_CODE")?.toIntOrNull() ?: 1
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     androidResources {
-        ignoreAssetsPattern = "!*cemu.mo:"
+        // bin/ is also where the PC build runs: its portable/ folder (the PC's saves, shader and driver caches, dumps) and the
+        // PC executable are not data files and must not end up in the APK (the app only extracts gameProfiles/ and resources/)
+        ignoreAssetsPattern = "!*cemu.mo:!<dir>portable:!Cemu_release:!Cemu_debug"
     }
 
     sourceSets.getByName("main") {
@@ -147,6 +151,7 @@ abstract class ComputeCemuDataFilesHashTask : DefaultTask() {
     private val ignoreFilePatterns = arrayOf(
         Pattern.compile(".*cemu\\.mo"),
         Pattern.compile(".*Cemu_(?:debug|release)"),
+        Pattern.compile(".*/portable/.*"),
     )
 
     @get:InputDirectory

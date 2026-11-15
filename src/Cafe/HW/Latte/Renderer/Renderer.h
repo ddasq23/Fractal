@@ -103,6 +103,8 @@ public:
 	// Fractal: true when the shaders emulate the R600 NaN rules for MIN/MAX and the output clamp (perf/tuning.txt nan_clamp=0/1
 	// overrides; default: GPUs whose min/max/clamp return NaN for a NaN operand, see MinMaxReturnsNaN)
 	bool UseNanClamp() const;
+	// indexed GPR writes as a switch over the registers in use instead of one GPR array (see LatteDecompilerRegisterDataTypeTracker)
+	bool UseRelativeWriteSwitch() const;
 	virtual bool UseTFViaSSBO() const { return false; }
 	virtual void AppendOverlayDebugInfo() = 0;
 
@@ -196,6 +198,7 @@ protected:
 	virtual void GetVendorInformation() { }
 	RendererAPI m_rendererAPI;
 	GfxVendor m_vendor = GfxVendor::Generic;
+	bool m_relativeWriteSwitch = false; // Fractal: the Qualcomm compiler crashes on the GPR array form, Mali never finishes the switch form
 	bool m_minMaxReturnsNaN = false; // Fractal: GLSL min/max/clamp return NaN when an operand is NaN (Adreno)
 	std::string m_selectedDeviceName = "";
 

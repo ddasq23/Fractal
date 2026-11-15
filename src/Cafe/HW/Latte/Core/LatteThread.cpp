@@ -2,6 +2,7 @@
 #include "Cafe/HW/Latte/ISA/RegDefines.h"
 #include "Cafe/OS/libs/gx2/GX2.h" // todo - remove dependency
 #include "Cafe/HW/Latte/Core/Latte.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Core/LatteDraw.h"
 #include "Cafe/HW/Latte/Core/LatteShader.h"
 #include "Cafe/HW/Latte/Core/LatteAsyncCommands.h"
@@ -117,6 +118,7 @@ void LatteThread_HandleOSScreen()
 int Latte_ThreadEntry()
 {
 	SetThreadName("LatteThread");
+	PerfLog::MarkRenderThread();
 	// fast_cores bit 1: keep the GPU command thread off the slowest CPU cluster
 	if (PerfLog::Tunable("fast_cores", 0) & 2)
 		cemuLog_log(LogType::Force, "LatteThread: pinned to {} fast CPUs", PinCurrentThreadToFastCores());

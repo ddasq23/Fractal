@@ -28,12 +28,12 @@ void LatteDecompiler_analyzeDataTypes(LatteDecompilerShaderContext* shaderContex
 	// of the Qualcomm driver crashes on some of those (Tekken Tag Tournament 2: a 4x4 gather loop that fills R22..R37,
 	// SIGSEGV in vkCreateGraphicsPipelines). Without indexed reads the written registers are only read by their own
 	// index, so they stay separate variables and the indexed write becomes a switch over the registers in use, emitted at
-	// the end of the instruction group. perf/tuning.txt relwrite_switch=0 restores the array
-	static const bool s_relWriteSwitch = PerfLog::Tunable("relwrite_switch", 1) != 0;
+	// the end of the instruction group. Only on Qualcomm drivers: the Mali compiler never finished Watch Dogs' streamout
+	// shaders in the switch form (the array form takes about a minute there). perf/tuning.txt relwrite_switch=0/1 forces it
 	if (shaderContext->analyzer.usesRelativeGPRWrite)
 	{
 		const bool isMetal = g_renderer && g_renderer->GetType() == RendererAPI::Metal; // the MSL emitter only has the array form
-		if (s_relWriteSwitch && !isMetal && !shaderContext->analyzer.usesRelativeGPRRead && !shaderContext->analyzer.relativeGPRWriteNeedsArray)
+		if (g_renderer && g_renderer->UseRelativeWriteSwitch() && !isMetal && !shaderContext->analyzer.usesRelativeGPRRead && !shaderContext->analyzer.relativeGPRWriteNeedsArray)
 			shaderContext->typeTracker.switchRelativeGPRWrites = true;
 		else
 			shaderContext->typeTracker.useArrayGPRs = true;

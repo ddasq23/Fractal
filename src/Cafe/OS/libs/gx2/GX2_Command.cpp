@@ -309,6 +309,136 @@ namespace GX2
 		return _lastSubmissionTime.load();
 	}
 
+	// GX2SubmitUserTimeStamp calls per destination address, for hang dumps (a game polling a user timestamp that was never
+	// submitted). A small table, written under a spinlock by whichever core submits; read without it by the dump
+	struct UserTimeStampNote
+	{
+		MPTR addr;
+		uint32 type;
+		uint64 value;
+		uint32 core;
+		bool inDisplayList;
+		uint64 count;
+		uint64 lastCall;
+		MPTR dlBase; // display list the last call was recorded into
+	};
+	// recent display list events in call order (begin, end, call inside a list or into the command buffer, direct submit,
+	// user timestamp of type 2 recorded into a list), for hang dumps
+	struct DisplayListEvent
+	{
+		char kind; // B begin, E end, C call, D direct, T timestamp
+		uint8 core;
+		bool inDisplayList; // for C: written into the list being recorded on that core
+		MPTR addr;
+		uint32 size; // T: low word of the value
+		uint64 call;
+	};
+	static DisplayListEvent s_dlEvents[4096];
+	static uint32 s_dlEventCount = 0;
+	static UserTimeStampNote s_userTsNotes[16];
+	static std::atomic_flag s_userTsLock = ATOMIC_FLAG_INIT;
+	static uint64 s_userTsCalls = 0;
+
+	void GX2Command_NoteUserTimeStamp(MPTR addr, uint64 value, uint32 type)
+	{
+		const uint32 core = coreinit::OSGetCoreId();
+		while (s_userTsLock.test_and_set(std::memory_order_acquire)) {}
+		s_userTsCalls++;
+		UserTimeStampNote* slot = nullptr;
+		for (auto& e : s_userTsNotes)
+		{
+			if (e.addr == addr || e.addr == MPTR_NULL)
+			{
+				slot = &e;
+				break;
+			}
+		}
+		if (!slot) // table full: replace the least recently used address
+		{
+			slot = &s_userTsNotes[0];
+			for (auto& e : s_userTsNotes)
+				if (e.lastCall < slot->lastCall)
+					slot = &e;
+			slot->count = 0;
+		}
+		slot->addr = addr;
+		slot->type = type;
+		slot->value = value;
+		slot->core = core;
+		slot->inDisplayList = s_perCoreCBState[core].isDisplayList;
+		slot->count++;
+		slot->lastCall = s_userTsCalls;
+		slot->dlBase = slot->inDisplayList ? memory_getVirtualOffsetFromPointer(s_perCoreCBState[core].bufferPtr) : MPTR_NULL;
+		if (type == 2)
+			s_dlEvents[s_dlEventCount++ % 4096] = {'T', (uint8)core, slot->inDisplayList, addr, (uint32)value, s_userTsCalls};
+		s_userTsLock.clear(std::memory_order_release);
+	}
+
+	MPTR GX2Command_ReadPointerPhysAddress()
+	{
+		return s_commandState ? memory_virtualToPhysical(MEMPTR<void>(&s_commandState->gpuCommandReadPtr).GetMPTR()) : MPTR_NULL;
+	}
+
+	bool GX2Command_CpEvents()
+	{
+		static const bool s_on = PerfLog::Tunable("cp_events", 0) != 0; // read once the tuning file is loaded
+		return s_on;
+	}
+
+	void GX2Command_NoteGpuEvent(char kind, MPTR addr, uint32 value)
+	{
+		while (s_userTsLock.test_and_set(std::memory_order_acquire)) {}
+		s_userTsCalls++;
+		s_dlEvents[s_dlEventCount++ % 4096] = {kind, 9, false, addr, value, s_userTsCalls};
+		s_userTsLock.clear(std::memory_order_release);
+	}
+
+	static void GX2Command_NoteDisplayListEvent(char kind, MPTR addr, uint32 size)
+	{
+		const uint32 core = coreinit::OSGetCoreId();
+		while (s_userTsLock.test_and_set(std::memory_order_acquire)) {}
+		s_userTsCalls++;
+		s_dlEvents[s_dlEventCount++ % 4096] = {kind, (uint8)core, s_perCoreCBState[core].isDisplayList, addr, size, s_userTsCalls};
+		s_userTsLock.clear(std::memory_order_release);
+	}
+
+	std::string GX2Command_DescribePending()
+	{
+		std::string s = "GX2 unsubmitted words per core:";
+		for (uint32 c = 0; c < Espresso::CORE_COUNT; c++)
+		{
+			const auto& st = s_perCoreCBState[c];
+			s += fmt::format(" [{}{}]", st.currentWritePtr ? (uint32)(st.currentWritePtr - st.bufferPtr) : 0, st.isDisplayList ? " DL" : "");
+		}
+		s += fmt::format("; user timestamps ({} calls, value / memory as the game reads it, call age):", s_userTsCalls);
+		for (const auto& e : s_userTsNotes)
+		{
+			if (e.addr == MPTR_NULL)
+				continue;
+			uint64 mem = 0;
+			if (memory_isAddressRangeAccessible(e.addr, 8))
+			{
+				const uint32be* w = (const uint32be*)memory_getPointerFromVirtualOffset(e.addr);
+				mem = ((uint64)(uint32)w[1] << 32) | (uint32)w[0]; // IT_MEM_WRITE stores the low word first
+			}
+			s += fmt::format(" [{:08x} type {} core {}{} n {} last {:x} mem {:x} age {}", e.addr, e.type, e.core, e.inDisplayList ? " DL" : "",
+				e.count, e.value, mem, s_userTsCalls - e.lastCall);
+			if (e.dlBase != MPTR_NULL)
+				s += fmt::format(" in dl {:08x}", e.dlBase);
+			s += "]";
+		}
+		// B<core> base, E<core> base size, C<core>[>] target size ('>' = written into the list being recorded), D<core> base size,
+		// T<core> address value
+		s += "; display list events (oldest first):";
+		const uint32 shown = GX2Command_CpEvents() ? 1500 : 128;
+		for (uint32 k = s_dlEventCount > shown ? s_dlEventCount - shown : 0; k < s_dlEventCount; k++)
+		{
+			const auto& d = s_dlEvents[k % 4096];
+			s += fmt::format(" {}{}{}:{:08x}/{:x}", d.kind, d.core, (d.kind == 'C' && d.inDisplayList) ? ">" : "", d.addr, d.size);
+		}
+		return s;
+	}
+
 	uint64 GX2GetRetiredTimeStamp()
 	{
 		uint64be ts = 0;
@@ -342,9 +472,20 @@ namespace GX2
 		}
 	}
 
+	static std::string _CurrentThreadName()
+	{
+		OSThread_t* t = coreinit::OSGetCurrentThread();
+		return (t && !t->threadName.IsNull()) ? std::string(t->threadName.GetPtr()) : std::string("?");
+	}
+
 	void GX2WriteGather_beginDisplayList(PPCInterpreter_t* hCPU, MPTR buffer, uint32 maxSize)
 	{
 		uint32 coreIndex = PPCInterpreter_getCoreIndex(hCPU);
+		// diagnostics: a display list begun while another one is being recorded on the same core replaces it, and its end
+		// does not return to the outer one (job schedulers run nested jobs while they wait)
+		static std::atomic<bool> s_nestedReported{false};
+		if (s_perCoreCBState[coreIndex].isDisplayList && !s_nestedReported.exchange(true))
+			PerfLog::Event("gx2_dl_nested", fmt::format("display list begun on core {} while another is recorded ({}): the outer one loses its commands", coreIndex, _CurrentThreadName()));
 		if (coreIndex == sGX2MainCoreIndex)
 		{
 			GX2Command_PadCurrentBuffer();
@@ -352,6 +493,7 @@ namespace GX2
 			s_mainCoreLastCommandState = s_perCoreCBState[coreIndex];
 		}
 		GX2Command_SetupCoreCommandBuffer(MEMPTR<uint32be>(buffer), maxSize/4, true);
+		GX2Command_NoteDisplayListEvent('B', buffer, maxSize);
 	}
 
 	uint32 GX2WriteGather_getDisplayListWriteDistance(sint32 coreIndex)
@@ -369,6 +511,7 @@ namespace GX2
 		auto& coreCBState = s_perCoreCBState[coreIndex];
 		GX2Command_PadCurrentBuffer();
 		uint32 finalWriteIndex = coreCBState.currentWritePtr - coreCBState.bufferPtr;
+		GX2Command_NoteDisplayListEvent('E', memory_getVirtualOffsetFromPointer(coreCBState.bufferPtr), finalWriteIndex * 4);
 		cemu_assert_debug(finalWriteIndex <= coreCBState.bufferSizeInU32s);
 		// if we are on the main GX2 core then restore the GPU command buffer
 		if (coreIndex == sGX2MainCoreIndex)
@@ -419,12 +562,16 @@ namespace GX2
 	{
 		cemu_assert_debug(displayListAddr != nullptr);
 		uint32 displayListSize = GX2WriteGather_endDisplayList(PPCInterpreter_getCurrentInstance(), displayListAddr.GetMPTR());
+		// the console flushes the list to memory here; on weakly ordered hosts (ARM) a flag the title writes next must not
+		// become visible to the GPU thread before the list contents (pairs with the acquire after a CP memory wait)
+		std::atomic_thread_fence(std::memory_order_release);
 		return displayListSize;
 	}
 
 	void GX2CallDisplayList(MPTR addr, uint32 size)
 	{
 		cemu_assert_debug((size&3) == 0);
+		GX2Command_NoteDisplayListEvent('C', addr, size);
 		// write PM4 command
 		GX2ReserveCmdSpace(4);
 		gx2WriteGather_submit(pm4HeaderType3(IT_INDIRECT_BUFFER_PRIV, 3),
@@ -438,12 +585,17 @@ namespace GX2
 		// this API submits to TCL directly and bypasses write-gatherer
 		// its basically a way to manually submit a command buffer to the GPU
 		uint32 coreIndex = coreinit::OSGetCoreId();
+		GX2Command_NoteDisplayListEvent('D', memory_getVirtualOffsetFromPointer(addr), size);
 		if (coreIndex != sGX2MainCoreIndex)
 		{
 			cemuLog_logDebugOnce(LogType::Force, "GX2DirectCallDisplayList() called on non-main GX2 core");
 		}
 		if (!s_perCoreCBState[coreIndex].isDisplayList)
 		{
+			static std::atomic<bool> s_coreCommandsReported{false};
+			if (coreIndex != sGX2MainCoreIndex && s_perCoreCBState[coreIndex].currentWritePtr != s_perCoreCBState[coreIndex].bufferPtr &&
+				!s_coreCommandsReported.exchange(true))
+				PerfLog::Event("gx2_core_commands", fmt::format("GX2 commands written outside a display list on core {} ({}), submitted by GX2DirectCallDisplayList", coreIndex, _CurrentThreadName()));
 			// make sure any preceeding commands are submitted first
 			GX2Command_Flush(0x100, false);
 		}
@@ -452,6 +604,7 @@ namespace GX2
 
 	void GX2CopyDisplayList(MEMPTR<uint32be*> addr, uint32 size)
 	{
+		GX2Command_NoteDisplayListEvent('Y', addr.GetMPTR(), size);
 		// copy display list to write gather
 		uint32* displayListDWords = (uint32*)addr.GetPtr();
 		uint32 dwordCount = size / 4;
