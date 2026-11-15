@@ -50,14 +50,14 @@ recompilador (`Espresso/Recompiler`) não tem nenhum; em `Espresso` só o
 2. Resolver build (CMake, vcpkg, SDL3, fmt) e compilar só o núcleo.
 3. Resolver entrada e HLE (`swkbd`, `padscore`, `src/input`), testar teclado e controle no Odin.
 4. Resolver render (`VulkanRenderer.cpp`, `RendererOuputShader.cpp`) e conferir FSR/GSR/RCAS e drivers custom.
-5. Smoke test dos 5 jogos e comparar o fallback para o interpretador com a tabela do `ROADMAP.md`.
+5. Smoke test dos 5 jogos e comparar o fallback para o interpretador com a tabela do `ROADMAP-INTERNO.md`.
 
 ### Já trazidos
 - `c2d428e5`, `263b3510`, `d28c7654`: correções do `snd_user` (crash do Mario Kart 8).
 - `9bfdf816`: só a parte do `snd_user`. O restante (nsysnet, vpad, nn_*, rpl, swkbd, ax) vem no merge.
 
 Os commits mais relevantes para ARM64, desempenho de GPU e compatibilidade
-estão comentados no `ROADMAP.md` e marcados como "relevante" na lista abaixo.
+estão comentados no `ROADMAP-INTERNO.md` e marcados como "relevante" na lista abaixo.
 
 ## Cemu Plus
 
@@ -85,7 +85,7 @@ ao sair do jogo"): mistura interface e núcleo; avaliar só a parte nativa.
 ## Lista completa do Cemu oficial (220)
 
 Classificação pelo caminho dos arquivos (um commit entra na primeira área que
-ele toca, na ordem das seções). "relevante" = comentado no `ROADMAP.md`.
+ele toca, na ordem das seções). "relevante" = comentado no `ROADMAP-INTERNO.md`.
 
 ### CPU (Espresso): 25
 

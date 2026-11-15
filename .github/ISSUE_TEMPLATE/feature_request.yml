@@ -1,0 +1,58 @@
+# Docs: https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-githubs-form-schema
+name: Feature request
+description: Suggest a new feature or an improvement to the app
+title: "[Feature] <short description>"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [roadmap](https://github.com/dfdx047/Fractal/blob/main/docs/ROADMAP.md) and the
+        [open issues](https://github.com/dfdx047/Fractal/issues) first; your idea may already be planned.
+        "Game X doesn't work" is a **Bug report** or a **Game compatibility report**, not a feature request.
+
+        **Português:** pode escrever em português.
+
+        **Español:** puedes escribir en español.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Interface / library
+        - Controls / input
+        - GPU drivers
+        - Graphics / upscaling
+        - Performance
+        - Audio
+        - Saves / files
+        - Debugging / bug reports
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would it solve?
+      description: What you are trying to do and what gets in the way today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Your suggestion
+      description: How it could work. Mockups or examples from other apps are welcome.
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device (if relevant)
+      description: For example, if it is about a specific handheld's controls or screen size.
+      placeholder: "AYN Odin 2 Mini"
+    validations:
+      required: false

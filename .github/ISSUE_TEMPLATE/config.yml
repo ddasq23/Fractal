@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Cemu Discord
-    url: https://discord.com/invite/5psYsup
-    about: If you need technical support with Cemu or have other questions the best place to ask is on the official Cemu Discord linked here
+  - name: How to report a bug (debug report)
+    url: https://github.com/dfdx047/Fractal#reporting-bugs
+    about: How to create debug_report.zip in the app before opening a bug report. / Como gerar o relatório de depuração. / Cómo crear el informe de depuración.
+  - name: Official Cemu (PC) issues
+    url: https://github.com/cemu-project/Cemu/issues
+    about: Only for bugs you can reproduce in official Cemu on PC. Please don't report Fractal bugs to the Cemu team.

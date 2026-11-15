@@ -226,7 +226,7 @@ Essa thread disputa núcleos rápidos com o jogo.
 ### 1.6 Estudo do JIT ARM64 do Dolphin
 
 O Dolphin é GPLv2+. Você decidiu que o Fractal pode adotar GPL-2.0-or-later para reaproveitar
-código (`docs/ROADMAP.md`). Arquivos derivados manteriam o cabeçalho e o copyright do Dolphin.
+código (`docs/ROADMAP-INTERNO.md`). Arquivos derivados manteriam o cabeçalho e o copyright do Dolphin.
 
 As cinco técnicas que mais se aplicam ao Cemu num ARM fraco:
 

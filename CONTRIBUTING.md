@@ -1,20 +1,44 @@
-# Contributing
+# Contributing to Fractal
 
-Pull requests are welcome. For easier coordination you can visit the developer discussion channel on [Discord](https://discord.gg/5psYsup).
-Before submitting a pull request, please read and follow our code style guidelines listed in [CODING_STYLE.md](/CODING_STYLE.md).
+Thanks for helping! Português e español são bem-vindos nas issues / Portugués y español son bienvenidos en los issues.
 
-If coding isn't your thing, testing games and making detailed bug reports or updating the (usually outdated) compatibility wiki is also appreciated!
+## Testing and reporting
 
-Questions about Cemu's software architecture can also be answered on Discord.
+The most useful contribution right now is testing games on real devices:
 
-#### AI-generated contributions:
+- **Bug reports:** use the *Bug report* form and attach the debug report (**Options › Share debug report** in the app,
+  right after the problem). See [Reporting bugs](README.md#reporting-bugs).
+- **Compatibility reports:** use the *Game compatibility report* form, also for games that work well.
+- Always include the device, the GPU driver and the game's Title ID and version. Trying a second driver before
+  reporting saves a lot of time.
+- Never attach or link games, keys, firmware or other copyrighted files.
 
-For new contributors we ask that all code submitted is written and understood by a human. You can use AI for planning, designing, reviewing and for asking questions about the codebase, but the code itself needs to be written by you. As a small exception you can use IntelliSense-style AI code autocompletion for pure boilerplate code as long as it's only a small part of your submission. To further clarify, when we ask for "human written" that excludes letting an AI write the code and then paraphrasing it. In other words, we are asking for human effort.
+## Translations
 
-Why this policy exists:
+The app's own strings are in `src/android/app/src/main/assets/translations/<lang>/fractal.po` (English source,
+Português (Brasil) and Español today). Strings with `{0}`-style arguments are MessageFormat strings: don't use
+apostrophes in them. The emulator core strings (`cemu.po`) come from official Cemu and are generated at build time.
 
-We have relatively low reviewing capacity and requiring human-written code increases the quality and trustworthiness of submitted pull requests. There are also general concerns with AI usage in emulation:
-- LLMs tend to make up solutions that work on the surface but are generally not accurate in the emulation sense
-- There is evidence that LLMs have been trained on leaked proprietary SDKs and we cannot verify the origin of the knowledge. This is especially a problem for core emulation logic
+## Code
 
-Please keep these points in mind when contributing to Cemu. Contributions that do not follow this policy may be rejected.
+Pull requests are welcome. Before opening one:
+
+- Read [BUILD.md](BUILD.md) and [CODING_STYLE.md](CODING_STYLE.md). The Android app is in `src/android`; the emulator
+  core is shared with the PC build, which is the quickest way to compare a game against official Cemu.
+- Keep a pull request to one subject, and explain how you tested it on a device (device, GPU driver, games).
+- Renderer, recompiler and timing changes can help one game and break another. Measure before and after on the same
+  scene (`tools/perf`, see [docs/BENCHMARK.md](docs/BENCHMARK.md)), check more than one game, and keep a way to turn
+  risky changes off (a `perf/tuning.txt` tunable, like the existing ones) so they can be compared on devices.
+- New app strings go through `tr()` and need pt/es entries in `fractal.po` (or a note in the PR so someone can
+  translate them).
+- Fixes in the shared emulator core may also matter for official Cemu. If you want them upstream, open them at
+  [cemu-project/Cemu](https://github.com/cemu-project/Cemu) following
+  [their contribution guidelines](https://github.com/cemu-project/Cemu/blob/main/CONTRIBUTING.md).
+
+Do not submit code derived from leaked or proprietary SDKs, or any material you don't have the right to share.
+
+## License
+
+Fractal is licensed under the [Mozilla Public License 2.0](LICENSE.txt). By contributing you agree that your
+contribution is licensed under it. Keep the original license header in files you change; new files may carry an MPL-2.0
+header with your name. See [NOTICE.md](NOTICE.md).

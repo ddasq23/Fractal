@@ -1,0 +1,188 @@
+# Docs: https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-githubs-form-schema
+name: Bug report
+description: A crash, freeze, graphics or sound problem, or anything else that doesn't work in Fractal
+title: "[Bug] <game or area>: <short description>"
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing Fractal! A good report gets a game fixed much faster.
+
+        **Before you start**
+        - Use the [latest release](https://github.com/dfdx047/Fractal/releases) and check the
+          [open issues](https://github.com/dfdx047/Fractal/issues) and the
+          [roadmap](https://github.com/dfdx047/Fractal/blob/main/docs/ROADMAP.md) (known issues are under *In progress*).
+        - Try another GPU driver (**Options › Drivers**, or the game's own settings). Say in the report which ones you tried.
+        - Right after the problem happens, open Fractal again and use **Options › Share debug report**. Attach the
+          `debug_report.zip` below.
+        - Never attach or link games, keys, firmware or other copyrighted files.
+
+        **Português:** pode escrever em português. Depois do problema, abra **Opções › Compartilhar relatório de
+        depuração** e anexe o `debug_report.zip` no fim do formulário.
+
+        **Español:** puedes escribir en español. Después del problema, abre **Opciones › Compartir informe de
+        depuración** y adjunta `debug_report.zip` al final del formulario.
+
+  - type: input
+    id: fractal_version
+    attributes:
+      label: Fractal version
+      description: Shown in **Options › About Fractal**, or the release name you installed.
+      placeholder: v0.1-beta
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      placeholder: Retroid Pocket 5
+    validations:
+      required: true
+
+  - type: input
+    id: soc
+    attributes:
+      label: SoC and GPU
+      description: The chip and GPU, if you know them.
+      placeholder: Snapdragon 865 / Adreno 650
+    validations:
+      required: true
+
+  - type: input
+    id: android_version
+    attributes:
+      label: Android version
+      description: Add the ROM if it isn't the stock one.
+      placeholder: Android 13 (stock)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: driver
+    attributes:
+      label: GPU driver
+      description: The driver the game ran on when the problem happened.
+      options:
+        - Adreno - Qualcomm system driver
+        - Adreno - Turnip (MrPurple666)
+        - Adreno - Turnip (other build)
+        - Mali - system driver
+        - Mali - PanVK
+        - Mali - malisx2
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: driver_build
+    attributes:
+      label: Driver build and other drivers tried
+      description: For custom drivers, the name and version shown in the drivers page. Also list other drivers you tried and what happened with each.
+      placeholder: "purple-turnip T19: crash. System driver: same crash."
+    validations:
+      required: false
+
+  - type: input
+    id: game
+    attributes:
+      label: Game
+      placeholder: Watch Dogs (USA)
+    validations:
+      required: true
+
+  - type: input
+    id: title_id
+    attributes:
+      label: Title ID
+      description: 16 hex digits, shown in the game's **About title** screen (long-press the game › About title).
+      placeholder: "0005000010142000"
+    validations:
+      required: true
+
+  - type: input
+    id: game_version
+    attributes:
+      label: Game version / update
+      description: Version, DLC and region from the game's **About title** screen, and the format (.wua, .wux, .wud, .rpx, folder).
+      placeholder: "Version 32, no DLC, USA, .wua"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of problem
+      options:
+        - Crash (the game or app closes)
+        - Freeze / hang (picture stops, app still open)
+        - Graphics glitch
+        - Sound problem
+        - Controls / input
+        - Performance (much slower than expected)
+        - Interface / settings
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happens
+      description: What you see, and what you expected instead. Screenshots or a short video help a lot with graphics problems.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: From the library to the problem. Say how long into the game it happens and whether it happens every time.
+      placeholder: |
+        1. Start the game with a new save
+        2. Skip the intro, start chapter 1
+        3. About 5 minutes in, the picture freezes (every time)
+    validations:
+      required: true
+
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings you changed
+      description: Graphic packs enabled, resolution, upscale filter, per-game profile options, anything that isn't default. "None" is fine.
+    validations:
+      required: false
+
+  - type: textarea
+    id: debug_report
+    attributes:
+      label: Debug report
+      description: |
+        Drag `debug_report.zip` here (**Options › Share debug report**, right after the problem).
+        It contains `log.txt`, the previous session's log, the last two game sessions, `settings.xml` and the profiles of those games.
+        `settings.xml` lists your game folder paths; edit it out if you prefer. If you can't attach it, say why.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: official_cemu
+    attributes:
+      label: Official Cemu on PC
+      description: Only if you know. This tells us whether the bug is in the shared emulator core.
+      options:
+        - Don't know / not tested
+        - Same problem in official Cemu
+        - Works in official Cemu
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Checklist
+      options:
+        - label: I'm using the latest Fractal release and searched for existing issues.
+          required: true
+        - label: The game is a dump of a game I own, and I'm not sharing any copyrighted files.
+          required: true

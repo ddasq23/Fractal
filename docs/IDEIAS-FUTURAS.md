@@ -6,7 +6,7 @@
   commits relacionados no `android-port` deles.
 - Depende de `Lossless.dll`, arquivo proprietário que o próprio usuário
   fornece. O Fractal nunca distribui nem baixa esse arquivo.
-- Não trazido na Fase 0. Reavaliar depois da Fase 4 (ver `docs/ROADMAP.md`), já que
+- Não trazido na Fase 0. Reavaliar depois da Fase 4 (ver `docs/ROADMAP-INTERNO.md`), já que
   mexe no overlay/painel do GamePad e no fluxo de apresentação de frames.
 - O header do painel do GamePad (ícone e nome do jogo, commit `5a189b9c`) e a
   toolbar do overlay vêm junto com essa feature no Cemu Plus.

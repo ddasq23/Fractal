@@ -1,0 +1,115 @@
+# Docs: https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-githubs-form-schema
+name: Game compatibility report
+description: Tell us how a game runs on your device, whether it works well or not
+title: "[Compat] <game> on <device>: <status>"
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Compatibility reports help us pick which games to fix and tell other players what to expect.
+        One report per game and device. If the game crashes or shows a specific bug, also open a **Bug report**
+        with the debug report attached.
+
+        **Português:** pode escrever em português. Um relato por jogo e aparelho.
+
+        **Español:** puedes escribir en español. Un reporte por juego y dispositivo.
+
+  - type: input
+    id: game
+    attributes:
+      label: Game
+      placeholder: Tekken Tag Tournament 2 (USA)
+    validations:
+      required: true
+
+  - type: input
+    id: title_id
+    attributes:
+      label: Title ID
+      description: 16 hex digits, from the game's **About title** screen (long-press the game › About title).
+      placeholder: "0005000010110000"
+    validations:
+      required: true
+
+  - type: input
+    id: game_version
+    attributes:
+      label: Game version / DLC
+      placeholder: "Version 32, no DLC"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: Status
+      options:
+        - Perfect - no problems found, full speed
+        - Playable - can be finished, minor glitches or slowdowns
+        - Runs - gets in game, but with major problems
+        - Menus - reaches the menus or intro, not gameplay
+        - Boots - starts, then crashes or freezes
+        - Nothing - doesn't start
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device, SoC and Android version
+      placeholder: "Retroid Pocket 5, Snapdragon 865 / Adreno 650, Android 13"
+    validations:
+      required: true
+
+  - type: input
+    id: fractal_version
+    attributes:
+      label: Fractal version
+      placeholder: v0.1-beta
+    validations:
+      required: true
+
+  - type: input
+    id: driver
+    attributes:
+      label: GPU driver
+      description: System driver, or the custom driver name and version from the drivers page.
+      placeholder: "Turnip (MrPurple666) T19"
+    validations:
+      required: true
+
+  - type: input
+    id: performance
+    attributes:
+      label: Performance
+      description: Typical FPS (turn on the FPS counter in the in-game menu) and where you measured it.
+      placeholder: "37-40 fps in fights"
+    validations:
+      required: false
+
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings and graphic packs
+      description: Resolution, FPS packs, upscale filter, other non-default options.
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: What you played (how far, how long), problems you saw, other drivers you tried. Screenshots welcome.
+    validations:
+      required: false
+
+  - type: textarea
+    id: debug_report
+    attributes:
+      label: Debug report (optional)
+      description: |
+        `debug_report.zip` from **Options › Share debug report** after playing. Useful even when the game works:
+        it has the frame times of the session. `settings.xml` inside lists your game folder paths.
+    validations:
+      required: false
