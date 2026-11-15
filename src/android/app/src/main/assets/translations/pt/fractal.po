@@ -158,7 +158,7 @@ msgid "Bilinear"
 msgstr "Bilinear"
 
 msgid "Birthday"
-msgstr "Aniversário"
+msgstr "Data de nascimento"
 
 msgid "Blow mic"
 msgstr "Soprar mic"
@@ -173,7 +173,7 @@ msgid "Boot sound"
 msgstr "Som de inicialização"
 
 msgid "Bottom center"
-msgstr "Inferior centralizada"
+msgstr "Inferior central"
 
 msgid "Bottom left"
 msgstr "Inferior esquerda"
@@ -266,7 +266,7 @@ msgid "Console language"
 msgstr "Idioma do console"
 
 msgid "Controller"
-msgstr "Controles"
+msgstr "Controle"
 
 msgid "Controller has no motion sensors"
 msgstr "O controle não tem sensores de movimento"
@@ -359,7 +359,7 @@ msgid "Custom drivers are not supported on this GPU; the system driver is used"
 msgstr "Drivers personalizados não são compatíveis com esta GPU; é usado o driver do sistema"
 
 msgid "D-pad"
-msgstr "Botões digitais"
+msgstr "Direcional"
 
 msgid "Deadzone"
 msgstr "Zona morta"
@@ -963,7 +963,7 @@ msgid "Install GPU drivers and switch between them"
 msgstr "Instalar drivers de GPU e alternar entre eles"
 
 msgid "Installed"
-msgstr "Instalado"
+msgstr "Instalados"
 
 msgid "Installed only"
 msgstr "Só instalados"
@@ -1014,7 +1014,7 @@ msgid "Japanese"
 msgstr "Japonês"
 
 msgid "Keep aspect ratio"
-msgstr "Manter taxa de proporção"
+msgstr "Manter proporção"
 
 msgid "Keys and files"
 msgstr "Chaves e arquivos"
@@ -1041,7 +1041,7 @@ msgid "Last played"
 msgstr "Última vez jogado"
 
 msgid "Last played: {0}"
-msgstr "Jogou por último: {0}"
+msgstr "Última vez: {0}"
 
 msgid "Latency"
 msgstr "Latência"
@@ -1278,7 +1278,7 @@ msgid "Now using {0}"
 msgstr "Usando {0} agora"
 
 msgid "Nunchuck"
-msgstr "Nunchuck"
+msgstr "Nunchuk"
 
 msgid "NUS"
 msgstr "NUS"
@@ -1482,7 +1482,7 @@ msgid "Pretendo"
 msgstr "Pretendo"
 
 msgid "PrincipalId missing"
-msgstr "PrincipalId está faltando"
+msgstr "Falta o PrincipalId"
 
 msgid "Processing..."
 msgstr "Processando..."
@@ -1692,7 +1692,7 @@ msgid "Shader compiler"
 msgstr "Compilação de shaders"
 
 msgid "Shader multiplication accuracy"
-msgstr "Precisão da multip. de shaders"
+msgstr "Precisão da multiplicação nos shaders"
 
 msgid "Shaders, VSync, scaling filters and gamma"
 msgstr "Shaders, VSync, filtros de escala e gama"
@@ -1962,7 +1962,7 @@ msgid "Toggle screen"
 msgstr "Alternar tela"
 
 msgid "Top center"
-msgstr "Superior centralizada"
+msgstr "Superior central"
 
 msgid "Top left"
 msgstr "Superior esquerda"
@@ -2239,7 +2239,7 @@ msgid "Resolution & FPS"
 msgstr "Resolução e FPS"
 
 msgid "The community graphic packs add resolution and FPS options for most games"
-msgstr "Os packs gráficos da comunidade adicionam opções de resolução e FPS para a maioria dos jogos"
+msgstr "Os graphic packs da comunidade adicionam opções de resolução e FPS para a maioria dos jogos"
 
 msgid "A shortcut is an on-screen button that runs an emulator action, the same ones controller hotkeys can run."
 msgstr "Um atalho é um botão na tela que executa uma ação do emulador, as mesmas que as hotkeys do controle executam."
@@ -2305,13 +2305,13 @@ msgid "Filter"
 msgstr "Filtro"
 
 msgid "Filters and VSync apply right away and are kept for every game. Resolution and other graphic packs are set in the game's settings in the library and apply the next time the game starts."
-msgstr "Filtros e VSync valem na hora e ficam salvos para todos os jogos. A resolução e outros packs gráficos são definidos nas configurações do jogo na biblioteca e valem na próxima vez que o jogo abrir."
+msgstr "Filtros e VSync valem na hora e ficam salvos para todos os jogos. A resolução e outros graphic packs são definidos nas configurações do jogo na biblioteca e valem na próxima vez que o jogo abrir."
 
 msgid "Follow app theme"
 msgstr "Seguir o tema do app"
 
 msgid "Frame rate in the corner of the screen. More counters are in the overlay settings"
-msgstr "Taxa de quadros no canto da tela. Mais contadores ficam nas configurações do overlay"
+msgstr "Taxa de quadros no canto da tela. Mais contadores ficam nas configurações de sobreposição"
 
 msgid "Game menu"
 msgstr "Menu do jogo"
@@ -2350,7 +2350,7 @@ msgid "New shortcuts appear at the top of the screen; move them in edit mode."
 msgstr "Os atalhos novos aparecem no topo da tela; mova-os no modo de edição."
 
 msgid "Next upscale filter"
-msgstr "Próximo filtro de upscale"
+msgstr "Próximo filtro de ampliação"
 
 msgid "Off follows the opacity of the whole overlay"
 msgstr "Desligado segue a opacidade do overlay inteiro"
@@ -2464,7 +2464,7 @@ msgid "Unpause"
 msgstr "Despausar"
 
 msgid "Upscale filter: {0}"
-msgstr "Filtro de upscale: {0}"
+msgstr "Filtro de ampliação: {0}"
 
 msgid "Uses the device's motion sensors for the GamePad gyro"
 msgstr "Usa os sensores de movimento do aparelho para o giroscópio do GamePad"
@@ -2533,3 +2533,30 @@ msgstr "Mostrar todas as versões ({0})"
 
 msgid "The system driver works on every device. On Adreno, a Turnip driver often runs games faster or fixes graphics: pick a developer and download one below. You can change it later in Settings > Drivers."
 msgstr "O driver do sistema funciona em qualquer aparelho. Nas Adreno, um driver Turnip costuma rodar os jogos mais rápido ou corrigir gráficos: escolha um desenvolvedor e baixe um abaixo. Dá para trocar depois em Configurações > Drivers."
+
+msgid "GamePad"
+msgstr "GamePad"
+
+msgid "GamePad channels"
+msgstr "Canais do GamePad"
+
+msgid "GamePad volume"
+msgstr "Volume do GamePad"
+
+msgid "Enable audio output for the Wii U GamePad"
+msgstr "Ativa a saída de áudio do GamePad do Wii U"
+
+msgid "This folder is already in the list"
+msgstr "Esta pasta já está na lista"
+
+msgid "No graphic packs match \"{0}\""
+msgstr "Nenhum graphic pack corresponde a \"{0}\""
+
+msgid "No graphic packs yet. Download the community graphic packs with the download button (X)."
+msgstr "Nenhum graphic pack ainda. Baixe os graphic packs da comunidade com o botão de download (X)."
+
+msgid "None of these graphic packs is for an installed game. Turn off \"Installed only\" (Select) to see them all."
+msgstr "Nenhum destes graphic packs é de um jogo instalado. Desligue \"Só instalados\" (Select) para ver todos."
+
+msgid "No titles to show. Titles show up here as they are found in the game folders and in the MLC; install one with +, or check the filter."
+msgstr "Nenhum título para mostrar. Os títulos aparecem aqui conforme são encontrados nas pastas de jogos e na MLC; instale um com + ou confira o filtro."

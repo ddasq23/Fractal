@@ -158,7 +158,7 @@ msgid "Bilinear"
 msgstr "Bilineal"
 
 msgid "Birthday"
-msgstr "Cumpleaños"
+msgstr "Fecha de nacimiento"
 
 msgid "Blow mic"
 msgstr "Soplar al micrófono"
@@ -869,10 +869,10 @@ msgid "home"
 msgstr "home"
 
 msgid "Hotkey settings"
-msgstr "Configuración de atajos"
+msgstr "Configuración de teclas rápidas"
 
 msgid "Hotkeys"
-msgstr "Atajos"
+msgstr "Teclas rápidas"
 
 msgid "ID"
 msgstr "ID"
@@ -1623,7 +1623,7 @@ msgid "Saves & cache"
 msgstr "Guardados y caché"
 
 msgid "Every game session already keeps a light log (FPS, frametimes, problems found) for the debug report. This adds GPU timings and recompiler data, which cost a little performance. Folders in Android/data/{0}/files/perf"
-msgstr "Cada sesión de juego ya guarda un registro ligero (FPS, tiempos de fotograma, problemas encontrados) para el informe de depuración. Esta opción añade tiempos de la GPU y datos del recompilador, que cuestan algo de rendimiento. Carpetas en Android/data/{0}/files/perf"
+msgstr "Cada sesión de juego ya guarda un registro ligero (FPS, tiempos de fotograma, problemas encontrados) para el informe de depuración. Esta opción agrega tiempos de la GPU y datos del recompilador, que cuestan algo de rendimiento. Carpetas en Android/data/{0}/files/perf"
 
 msgid "Scale"
 msgstr "Tamaño"
@@ -2239,13 +2239,13 @@ msgid "Resolution & FPS"
 msgstr "Resolución y FPS"
 
 msgid "The community graphic packs add resolution and FPS options for most games"
-msgstr "Los paquetes gráficos de la comunidad añaden opciones de resolución y FPS para la mayoría de los juegos"
+msgstr "Los paquetes gráficos de la comunidad agregan opciones de resolución y FPS para la mayoría de los juegos"
 
 msgid "A shortcut is an on-screen button that runs an emulator action, the same ones controller hotkeys can run."
-msgstr "Un atajo es un botón en pantalla que ejecuta una acción del emulador, las mismas que ejecutan los atajos del control."
+msgstr "Un atajo es un botón en pantalla que ejecuta una acción del emulador, las mismas que ejecutan las teclas rápidas del control."
 
 msgid "Add shortcut"
-msgstr "Añadir atajo"
+msgstr "Agregar atajo"
 
 msgid "Aspect"
 msgstr "Proporción"
@@ -2305,13 +2305,13 @@ msgid "Filter"
 msgstr "Filtro"
 
 msgid "Filters and VSync apply right away and are kept for every game. Resolution and other graphic packs are set in the game's settings in the library and apply the next time the game starts."
-msgstr "Los filtros y el VSync se aplican al instante y se guardan para todos los juegos. La resolución y otros paquetes gráficos se configuran en los ajustes del juego en la biblioteca y se aplican la próxima vez que el juego inicie."
+msgstr "Los filtros y el VSync se aplican al instante y se guardan para todos los juegos. La resolución y otros paquetes gráficos se configuran en la configuración del juego en la biblioteca y se aplican la próxima vez que el juego inicie."
 
 msgid "Follow app theme"
 msgstr "Seguir el tema de la app"
 
 msgid "Frame rate in the corner of the screen. More counters are in the overlay settings"
-msgstr "Velocidad de fotogramas en la esquina de la pantalla. Hay más contadores en los ajustes del overlay"
+msgstr "Velocidad de fotogramas en la esquina de la pantalla. Hay más contadores en la configuración de superposición"
 
 msgid "Game menu"
 msgstr "Menú del juego"
@@ -2341,7 +2341,7 @@ msgid "Motion enabled"
 msgstr "Movimiento activado"
 
 msgid "Move, resize, add macros and shortcuts, per button opacity and shape"
-msgstr "Mover, cambiar tamaño, añadir macros y atajos, opacidad y forma por botón"
+msgstr "Mover, cambiar tamaño, agregar macros y atajos, opacidad y forma por botón"
 
 msgid "New shortcut"
 msgstr "Nuevo atajo"
@@ -2350,7 +2350,7 @@ msgid "New shortcuts appear at the top of the screen; move them in edit mode."
 msgstr "Los atajos nuevos aparecen en la parte superior de la pantalla; muévelos en el modo de edición."
 
 msgid "Next upscale filter"
-msgstr "Siguiente filtro de escalado"
+msgstr "Siguiente filtro de ampliación"
 
 msgid "Off follows the opacity of the whole overlay"
 msgstr "Desactivado sigue la opacidad de todo el overlay"
@@ -2452,7 +2452,7 @@ msgid "Take screenshot"
 msgstr "Tomar captura"
 
 msgid "Tap an action and hold the controller buttons of its combo together. Long press an action to clear it. To get the same actions as buttons on the touch screen, add a shortcut while editing the on-screen controls."
-msgstr "Toca una acción y mantén juntos los botones del control de la combinación. Mantén pulsada una acción para borrarla. Para tener las mismas acciones como botones en la pantalla táctil, añade un atajo al editar los controles en pantalla."
+msgstr "Toca una acción y mantén juntos los botones del control de la combinación. Mantén presionada una acción para borrarla. Para tener las mismas acciones como botones en la pantalla táctil, agrega un atajo al editar los controles en pantalla."
 
 msgid "Triple buffering"
 msgstr "Búfer triple"
@@ -2464,7 +2464,7 @@ msgid "Unpause"
 msgstr "Quitar pausa"
 
 msgid "Upscale filter: {0}"
-msgstr "Filtro de escalado: {0}"
+msgstr "Filtro de ampliación: {0}"
 
 msgid "Uses the device's motion sensors for the GamePad gyro"
 msgstr "Usa los sensores de movimiento del dispositivo para el giroscopio del GamePad"
@@ -2532,4 +2532,31 @@ msgid "Show all versions ({0})"
 msgstr "Mostrar todas las versiones ({0})"
 
 msgid "The system driver works on every device. On Adreno, a Turnip driver often runs games faster or fixes graphics: pick a developer and download one below. You can change it later in Settings > Drivers."
-msgstr "El driver del sistema funciona en cualquier dispositivo. En Adreno, un driver Turnip suele ejecutar los juegos más rápido o corregir gráficos: elige un desarrollador y descarga uno abajo. Puedes cambiarlo después en Ajustes > Drivers."
+msgstr "El driver del sistema funciona en cualquier dispositivo. En Adreno, un driver Turnip suele ejecutar los juegos más rápido o corregir gráficos: elige un desarrollador y descarga uno abajo. Puedes cambiarlo después en Configuración > Drivers."
+
+msgid "GamePad"
+msgstr "GamePad"
+
+msgid "GamePad channels"
+msgstr "Canales del GamePad"
+
+msgid "GamePad volume"
+msgstr "Volumen del GamePad"
+
+msgid "Enable audio output for the Wii U GamePad"
+msgstr "Activa la salida de audio del GamePad de Wii U"
+
+msgid "This folder is already in the list"
+msgstr "Esta carpeta ya está en la lista"
+
+msgid "No graphic packs match \"{0}\""
+msgstr "Ningún paquete gráfico coincide con \"{0}\""
+
+msgid "No graphic packs yet. Download the community graphic packs with the download button (X)."
+msgstr "Aún no hay paquetes gráficos. Descarga los paquetes gráficos de la comunidad con el botón de descarga (X)."
+
+msgid "None of these graphic packs is for an installed game. Turn off \"Installed only\" (Select) to see them all."
+msgstr "Ninguno de estos paquetes gráficos es de un juego instalado. Desactiva \"Solo instalados\" (Select) para verlos todos."
+
+msgid "No titles to show. Titles show up here as they are found in the game folders and in the MLC; install one with +, or check the filter."
+msgstr "No hay títulos para mostrar. Los títulos aparecen aquí a medida que se encuentran en las carpetas de juegos y en la MLC; instala uno con + o revisa el filtro."
