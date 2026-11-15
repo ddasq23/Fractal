@@ -27,6 +27,7 @@ import dev.dfd.fractal.common.settings.GuiSettings
 import dev.dfd.fractal.common.ui.theme.BackdropHost
 import dev.dfd.fractal.common.ui.theme.BackgroundKind
 import dev.dfd.fractal.common.ui.theme.FractalTheme
+import dev.dfd.fractal.common.ui.theme.WallpaperId
 import dev.dfd.fractal.common.ui.theme.rememberGuiSettings
 import dev.dfd.fractal.common.ui.wallpaper.Wallpaper
 
@@ -76,12 +77,19 @@ fun ThemedContent(
                 background = {
                     when (tokens.background) {
                         BackgroundKind.GAME_ART -> GameArtBackground(focusedArt.image, tokens.colors.background)
-                        BackgroundKind.WALLPAPER -> Wallpaper(
-                            id = gui.wallpaper ?: tokens.defaultWallpaper,
-                            customImagePath = gui.customWallpaperPath,
-                            economy = gui.animationEconomy,
-                            fallback = tokens.colors.background,
-                        )
+                        BackgroundKind.WALLPAPER -> {
+                            val wallpaper = gui.wallpaper ?: tokens.defaultWallpaper
+                            Wallpaper(
+                                id = wallpaper,
+                                customImagePath = gui.customWallpaperPath,
+                                economy = gui.animationEconomy,
+                                fallback = tokens.colors.background,
+                            )
+                            // the wallpapers are dark: a light theme (Material You in light mode) puts its
+                            // dark titles and hints straight on them, so wash them out to keep those readable
+                            if (!tokens.isDark && wallpaper != WallpaperId.NONE)
+                                Box(Modifier.fillMaxSize().background(tokens.colors.background.copy(alpha = 0.72f)))
+                        }
                     }
                     tokens.colors.backgroundBrush?.let {
                         if (gui.wallpaper == null && tokens.background == BackgroundKind.WALLPAPER)

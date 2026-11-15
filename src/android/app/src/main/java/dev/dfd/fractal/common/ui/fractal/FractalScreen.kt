@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.dfd.fractal.common.ui.icons.FractalIcons
 import dev.dfd.fractal.common.ui.localization.tr
@@ -60,7 +61,13 @@ fun FractalScreen(
         ) {
             FractalIconButton(FractalIcons.Back, tr("Back"), onBack)
             Spacer(Modifier.width(12.dp))
-            Text(title, style = MaterialTheme.typography.titleLarge, color = FractalTheme.colors.text)
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                color = FractalTheme.colors.text,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         CompositionLocalProvider(LocalScreenFocus provides focus) {
             Column(

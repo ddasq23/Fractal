@@ -7,6 +7,7 @@
 package dev.dfd.fractal.games.library
 
 import dev.dfd.fractal.common.settings.LibrarySort
+import dev.dfd.fractal.common.ui.localization.currentLocale
 import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
 import java.time.LocalDate
@@ -38,7 +39,7 @@ fun formatLastPlayed(date: LocalDate?, today: LocalDate = LocalDate.now()): Stri
         days <= 0L -> tr("Today")
         days == 1L -> tr("Yesterday")
         days < 7L -> tr("{0} days ago", days)
-        else -> ShortDate.format(date)
+        else -> ShortDate.withLocale(currentLocale).format(date)
     }
 }
 

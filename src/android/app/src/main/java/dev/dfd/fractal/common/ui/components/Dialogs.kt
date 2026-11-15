@@ -112,7 +112,13 @@ fun FractalAlertDialog(
                 if (text != null) {
                     CompositionLocalProvider(LocalContentColor provides AlertDialogDefaults.textContentColor) {
                         ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
-                            Box(Modifier.weight(1f, fill = false).padding(bottom = 24.dp)) { text() }
+                            // long messages scroll on short landscape screens instead of pushing the buttons out
+                            Box(
+                                Modifier
+                                    .weight(1f, fill = false)
+                                    .padding(bottom = 24.dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) { text() }
                         }
                     }
                 }

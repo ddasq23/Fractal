@@ -44,6 +44,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -78,6 +79,8 @@ fun FractalButton(
     icon: ImageVector? = null,
     primary: Boolean = false,
     enabled: Boolean = true,
+    /** Long labels (choices in a sheet) may wrap; one line ends with an ellipsis when it doesn't fit. */
+    maxLines: Int = 1,
 ) {
     val colors = FractalTheme.colors
     val shapes = FractalTheme.shapes
@@ -117,7 +120,13 @@ fun FractalButton(
                     Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
                 }
-                Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                Text(
+                    text,
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = maxLines,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = if (maxLines > 1) TextAlign.Center else TextAlign.Start,
+                )
             }
         }
     }

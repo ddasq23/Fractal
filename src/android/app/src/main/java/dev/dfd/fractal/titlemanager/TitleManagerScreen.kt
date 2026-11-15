@@ -140,9 +140,6 @@ fun TitleManagerScreen(
                 context = context,
                 uri = uri,
                 onResult = { result ->
-                    {
-                        val x = 20
-                    }
                     when (result) {
                         CompressResult.FINISHED -> showNotificationMessage(tr("Finished converting"))
                         CompressResult.ERROR -> showNotificationMessage(tr("Error while converting"))
@@ -170,23 +167,33 @@ fun TitleManagerScreen(
             }) {
                 Icon(
                     painter = painterResource(R.drawable.ic_refresh),
-                    contentDescription = null
+                    contentDescription = tr("Refresh")
                 )
             }
             IconButton(onClick = { showFilterSheet = true }) {
                 Icon(
                     painter = painterResource(R.drawable.ic_filter),
-                    contentDescription = null
+                    contentDescription = tr("Filter")
                 )
             }
             IconButton(onClick = { installTitleLauncher.launch(null) }) {
                 Icon(
                     painter = painterResource(R.drawable.ic_add),
-                    contentDescription = null
+                    contentDescription = tr("Install")
                 )
             }
         }
     ) {
+        if (titleEntries.isEmpty()) {
+            item {
+                Text(
+                    tr("No titles to show. Titles show up here as they are found in the game folders and in the MLC; install one with +, or check the filter."),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(8.dp),
+                )
+            }
+        }
         items(items = titleEntries, key = { it.locationUID }) {
             TitleEntryListItem(
                 titleEntry = it,
@@ -354,11 +361,7 @@ private fun TitleCompressConfirmationDialog(
     FractalAlertDialog(
         title = { Text(tr("Confirmation")) },
         text = {
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 8.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
+            Column(modifier = Modifier.padding(horizontal = 8.dp)) {
                 Text(
                     modifier = Modifier.padding(vertical = 8.dp),
                     fontSize = 16.sp,
@@ -689,7 +692,7 @@ private fun TitleDropDownMenu(
         IconButton(onClick = { expandMenu = true }) {
             Icon(
                 painter = painterResource(R.drawable.ic_more_vert),
-                contentDescription = null
+                contentDescription = tr("More")
             )
         }
         DropdownMenu(

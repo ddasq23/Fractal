@@ -106,7 +106,9 @@ private fun FractalTokens.toMaterialColorScheme(): ColorScheme {
         surfaceDim = c.background,
         inverseSurface = c.text,
         inverseOnSurface = c.background,
-        outline = c.border,
+        // outline draws the unchecked switch's thumb and border, outlined fields and buttons: the
+        // themes' border colors are too faint on their dark surfaces for that, so secondary text
+        outline = c.textSecondary.copy(alpha = c.textSecondary.alpha * 0.8f),
         outlineVariant = c.border,
     )
 }

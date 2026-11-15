@@ -296,12 +296,15 @@ fun ButtonGlyph(button: PadButton, size: Dp = 20.dp) {
     val fill = tokens.colors.text
     val ink = if (tokens.isDark) Color(0xFF111116) else Color.White
     val labelStyle = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = ink)
+    // the glyph is sized in dp: its letter must not grow with the system font size, or it spills out
+    val density = LocalDensity.current
+    fun glyphSp(fraction: Float) = with(density) { (size * fraction).toSp() }
     when (button) {
         PadButton.A, PadButton.B, PadButton.X, PadButton.Y -> Box(
             Modifier.size(size).clip(CircleShape).background(fill),
             contentAlignment = Alignment.Center,
         ) {
-            Text(button.label, style = labelStyle.copy(fontSize = (size.value * 0.55f).sp, lineHeight = (size.value * 0.55f).sp))
+            Text(button.label, style = labelStyle.copy(fontSize = glyphSp(0.55f), lineHeight = glyphSp(0.55f)))
         }
 
         PadButton.L1, PadButton.R1, PadButton.L2, PadButton.R2 -> Box(
@@ -313,7 +316,7 @@ fun ButtonGlyph(button: PadButton, size: Dp = 20.dp) {
                 .padding(horizontal = 4.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(button.label, style = labelStyle.copy(fontSize = (size.value * 0.55f).sp, lineHeight = (size.value * 0.55f).sp))
+            Text(button.label, style = labelStyle.copy(fontSize = glyphSp(0.55f), lineHeight = glyphSp(0.55f)))
         }
 
         PadButton.START, PadButton.SELECT -> Box(
@@ -324,7 +327,7 @@ fun ButtonGlyph(button: PadButton, size: Dp = 20.dp) {
                 .padding(horizontal = 5.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(button.label, style = labelStyle.copy(fontSize = (size.value * 0.45f).sp, lineHeight = (size.value * 0.45f).sp, letterSpacing = 0.4.sp))
+            Text(button.label, style = labelStyle.copy(fontSize = glyphSp(0.45f), lineHeight = glyphSp(0.45f), letterSpacing = 0.4.sp))
         }
 
         PadButton.DPAD -> Canvas(Modifier.size(size)) {

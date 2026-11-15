@@ -92,6 +92,9 @@ private var CurrentLanguage by mutableStateOf(SupportedLanguages.first())
 /** Code of the language in use; observable from composition. */
 val currentLanguageCode: String get() = CurrentLanguage.code
 
+/** Locale of the language in use, for dates and numbers in the app's language rather than the device's. */
+val currentLocale: Locale get() = CurrentLanguage.locale
+
 val LocalLocale = staticCompositionLocalOf { Locale.forLanguageTag(DEFAULT_LANGUAGE) }
 
 @Composable

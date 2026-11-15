@@ -5,7 +5,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -18,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -54,8 +57,10 @@ fun Slider(
         Column(Modifier.weight(1f)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) { SettingsRowTitle(label) }
+                Spacer(Modifier.width(12.dp))
                 Text(
                     text = labelFormatter(sliderValue.roundToInt()),
+                    maxLines = 1,
                     style = MaterialTheme.typography.labelLarge,
                     color = colors.accent,
                 )
@@ -82,7 +87,8 @@ fun Slider(
                     thumbColor = colors.accent,
                     activeTrackColor = colors.accent,
                     activeTickColor = colors.onAccent.copy(alpha = 0.6f),
-                    inactiveTrackColor = colors.border,
+                    // the border color is too faint on the dark themes' cards to show the track
+                    inactiveTrackColor = colors.textSecondary.copy(alpha = 0.3f),
                     inactiveTickColor = colors.textSecondary.copy(alpha = 0.6f),
                 ),
             )

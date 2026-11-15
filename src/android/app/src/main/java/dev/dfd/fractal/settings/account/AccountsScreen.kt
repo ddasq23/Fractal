@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import dev.dfd.fractal.common.ui.components.FractalAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -233,7 +231,7 @@ private fun OnlineErrorsDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(tr("Online status")) },
         text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            Column {
                 validationErrors.forEachIndexed { index, error ->
                     Text(
                         modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp),
