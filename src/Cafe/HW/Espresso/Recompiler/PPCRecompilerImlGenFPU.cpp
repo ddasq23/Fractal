@@ -692,6 +692,12 @@ bool PPCRecompilerImlGen_FSEL(ppcImlGenContext_t* ppcImlGenContext, uint32 opcod
 	DefinePS0(fprB, frB);
 	DefinePS0(fprC, frC);
 	DefinePS0(fprD, frD);
+	// fsel copies the whole selected register, ps1 too, as the interpreter does. With only ps0 the jungle of AC IV's
+	// first island went black every time (a stale ps1 reached the game's culling). ps1 first, frD may be frA
+	DefinePS1(fprBps1, frB);
+	DefinePS1(fprCps1, frC);
+	DefinePS1(fprDps1, frD);
+	ppcImlGenContext->emitInst().make_fpr_r_r_r_r(IMLOperation::OP_FPR_SELECT, fprDps1, fprA, fprBps1, fprCps1);
 	ppcImlGenContext->emitInst().make_fpr_r_r_r_r(IMLOperation::OP_FPR_SELECT, fprD, fprA, fprB, fprC);
 	return true;
 }
