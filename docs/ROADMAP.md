@@ -57,6 +57,7 @@ identified which change makes the difference.
 | Ninja Gaiden 3: Razor's Edge | Crash: functions of more than 1 MB of ARM64 code put branches out of range | Cold code emitted between segments; an encoding error leaves the function interpreted instead of aborting | [`a26051bf`](https://github.com/dfdx047/Fractal/commit/a26051bf) |
 | Ninja Gaiden 3: Razor's Edge | Turnip: the whole picture blurred by the depth of field reading a stale depth buffer | Barrier at the end of each render pass on Turnip | [`64c4b75c`](https://github.com/dfdx047/Fractal/commit/64c4b75c) |
 | Ninja Gaiden 3: Razor's Edge | Crash in its own allocator with zlib-ng as the host zlib | zlib state allocated from the default heap | [`8eaae97a`](https://github.com/dfdx047/Fractal/commit/8eaae97a) |
+| Assassin's Creed IV: Black Flag | Black world (HUD only) in the jungle, near the bridge: the recompiler's `fsel` copied only the first half of the register and the game read garbage in the second half in a frame time routine | `fsel` copies the whole register, like the interpreter. The blackouts are much rarer but not gone (see In progress) | [`b8d27fdf`](https://github.com/dfdx047/Fractal/commit/b8d27fdf) |
 | Tekken Tag Tournament 2 | Qualcomm system driver crashed compiling a 4x4 gather shader on the first fight | Indexed GPR writes emitted as a switch instead of a dynamically indexed GPR array | [`1293cd7d`](https://github.com/dfdx047/Fractal/commit/1293cd7d) |
 | Assassin's Creed IV: Black Flag | Qualcomm system driver: green/magenta/blue blocks over particles, loading screens and cutscenes. The bloom samples the texture it renders to, which is undefined without `VK_EXT_attachment_feedback_loop_layout` | Such draws sample a copy of the texture | [`64c4b75c`](https://github.com/dfdx047/Fractal/commit/64c4b75c) |
 | Watch Dogs | White stadium and bloom on Adreno: Adreno returns NaN from min/max/clamp when one operand is NaN | NaN-safe min/max/clamp on by default on Qualcomm GPUs | [`f8dbb223`](https://github.com/dfdx047/Fractal/commit/f8dbb223) |
@@ -141,6 +142,11 @@ Adreno and Mali store and reload every attachment when a render pass ends, so mo
 - English, Português (Brasil) and Español for every app string
   ([`c9d8a940`](https://github.com/dfdx047/Fractal/commit/c9d8a940), [`a74e2a35`](https://github.com/dfdx047/Fractal/commit/a74e2a35)).
 
+- **GamePad on the second screen:** dual-screen handhelds (AYN Thor) and external displays get the GamePad screen with
+  touch; its own scaling and size in the in-game menu; choices saved between games (based on SapphireRhodonite's
+  `android-port-dual` branch) ([`f29f2800`](https://github.com/dfdx047/Fractal/commit/f29f2800)).
+- The back button of handhelds whose controller sends it (AYN Odin 3) opens the in-game menu ([`026b580a`](https://github.com/dfdx047/Fractal/commit/026b580a)).
+
 ### GPU drivers
 
 - Driver catalog from GitHub releases, one-tap install, per-driver cache clearing
@@ -163,6 +169,14 @@ Adreno and Mali store and reload every attachment when a render pass ends, so mo
 
 - AMD FSR 1 and Snapdragon GSR, RCAS sharpening (from Cemu Plus)
   ([`2c5dba03`](https://github.com/dfdx047/Fractal/commit/2c5dba03), [`8328081a`](https://github.com/dfdx047/Fractal/commit/8328081a)).
+
+### Frame generation
+
+- Lossless Scaling frame generation (from Cemu Plus, which took it from lsfg-vk and Eden) with the user's own
+  `Lossless.dll`: fixed 2x/3x/4x multiplier or adaptive up to 60/90/120 FPS, motion estimation resolution, import and
+  options in the settings and in the in-game menu. When off, it changes nothing in Vulkan device creation
+  ([`0a4f24ce`](https://github.com/dfdx047/Fractal/commit/0a4f24ce), [`1fa22cec`](https://github.com/dfdx047/Fractal/commit/1fa22cec), [`eb14d852`](https://github.com/dfdx047/Fractal/commit/eb14d852)).
+- Releasing the GamePad swapchain while the game is paused no longer hangs the interface ([`2171c12e`](https://github.com/dfdx047/Fractal/commit/2171c12e)).
 
 ### Debugging
 
@@ -201,8 +215,14 @@ between commits (driver, CPU profile), so compare rows only within themselves.
   shaders, skipped draws during async pipeline compilation and texture readback.
 - **Watch Dogs on Mali** (RG Cube): the render thread gets stuck compiling the very large streamout shaders; blocky menu
   and black intro.
-- **Assassin's Creed IV:** comparing cutscenes with the PC build; the long swords hang straight down the same way on PC
+- **Assassin's Creed IV, jungle blackout:** after the `fsel` fix the world still turns black in about 4 out of 10 passes
+  over the bridge (PC and Android). Ruled out so far: the frame time function in the interpreter, 25-bit rounding of
+  `frC` in multiplications and the linear reinterpretation of the occlusion map. Next step: capture the occlusion map
+  frame by frame around the blackout.
+- **Assassin's Creed IV, cutscenes:** comparing with the PC build; the long swords hang straight down the same way on PC
   and on the RP5, not yet confirmed as a bug.
+- **Odin 2 Mini on Turnip:** Tekken Tag Tournament 2 is black at the opening with MrPurple T30; Batman and Watch Dogs
+  hung in some of the runs. StevenMXZ's Turnip 27.0 R2 crashes inside the driver compiling Ninja Gaiden 3 pipelines.
 - **Ninja Gaiden 3 on Turnip:** dark floating heads and a blown-out sky remain after the depth of field fix.
 - **Need for Speed: Most Wanted U:** finding the root cause of the white foliage (the community pack hides it).
 - **Xenoblade Chronicles X on the Qualcomm system driver:** characters drawn as white silhouettes (driver bug); use
@@ -211,6 +231,8 @@ between commits (driver, CPU profile), so compare rows only within themselves.
 
 ## Planned
 
+- Fixed-scene measurements on the Odin 3 and the AYN Thor, and tests on a newer Mali (Dimensity 8300 / Mali-G615).
+- Frame generation on the GamePad screen too, and a quick button for it in the in-game menu.
 - Wider compatibility testing on the main Wii U games and a public compatibility list.
 - An in-game "mark a problem" button that saves a screenshot and a marker in the log for bug reports.
 - Streamout on Mali drivers without vertex pipeline stores (for example through a compute pass).

@@ -36,6 +36,10 @@
 - [Instalação](#instalação)
 - [Primeiros passos](#primeiros-passos)
 - [Drivers de GPU](#drivers-de-gpu)
+- [Geração de quadros](#geração-de-quadros)
+- [Segunda tela (GamePad)](#segunda-tela-gamepad)
+- [Desempenho](#desempenho)
+- [Problemas conhecidos](#problemas-conhecidos)
 - [Controles](#controles)
 - [O que o Fractal corrige](#o-que-o-fractal-corrige)
 - [Como reportar bugs](#como-reportar-bugs)
@@ -56,6 +60,10 @@
 - **Drivers de GPU com um toque:** catálogo de builds do Turnip para Adreno (MrPurple666, StevenMXZ, faux123, K11MCH1 e
   outros) e drivers experimentais para Mali, escolhidos no geral ou por jogo, com volta automática ao driver do sistema
   se um driver não conseguir abrir o jogo.
+- **GamePad na segunda tela:** nos portáteis de duas telas (AYN Thor) ou com um monitor externo, a tela do GamePad vai
+  para o outro display e aceita toque. Escala e tamanho da imagem do GamePad são ajustáveis no menu do jogo.
+- **Geração de quadros (Lossless Scaling):** com o **seu** `Lossless.dll`, multiplica a taxa de quadros (2x, 3x, 4x) ou
+  completa até 60, 90 ou 120 FPS. Liga, desliga e ajusta pelo menu do jogo.
 - **Renderizador ajustado para GPUs de celular:** menos quebras de render pass nas GPUs por blocos (tile-based),
   compressão de framebuffer (UBWC/AFBC) mantida, contornos para bugs do driver da Qualcomm e correção das esperas
   bloqueantes de fence no Turnip.
@@ -128,6 +136,9 @@ O Fractal é desenvolvido e testado em:
 - **Retroid Pocket 5**: Snapdragon 865, Adreno 650, Android 13
 - **Anbernic RG Cube**: Unisoc T820, Mali-G57 MC4, Android 13
 - **Xiaomi Mi A3**: Snapdragon 665, Adreno 610 (referência de celular de entrada)
+- **AYN Odin 2 Mini**: Snapdragon 8 Gen 2, Adreno 740, Android 13
+- **AYN Odin 3**: Snapdragon 8 Elite, Adreno 830, Android 15
+- **AYN Thor**: Snapdragon 8 Gen 2, Adreno 740, Android 13, duas telas (GamePad na tela de baixo)
 
 Emular o Wii U é pesado. Espere velocidade cheia nos jogos mais leves em aparelhos da classe do Snapdragon 865 e
 taxas de quadros menores nos mais pesados (Breath of the Wild, Xenoblade Chronicles X). GPUs mais fracas, em especial
@@ -201,6 +212,78 @@ de pipelines daquele driver; o seu cache de shaders fica.
 Se um jogo aparecer com gráficos quebrados ou fechar sozinho, a primeira coisa a fazer é testar outro driver, e o
 driver usado é a informação mais útil num relato de bug.
 
+## Geração de quadros
+
+A geração de quadros cria quadros intermediários entre os quadros do jogo, com os shaders do
+[Lossless Scaling](https://store.steampowered.com/app/993090/Lossless_Scaling/) (portado do Cemu Plus, que veio do
+lsfg-vk e do Eden). O Fractal **não** inclui nem baixa o Lossless Scaling: você importa o `Lossless.dll` da **sua**
+cópia (fica na pasta de instalação dele no Windows). O arquivo só é lido, nunca executado.
+
+1. Copie o `Lossless.dll` para o aparelho.
+2. Importe em **Configurações › Gráficos › Geração de quadros** ou no **menu do jogo › Geração de quadros**. Ele vale
+   para todos os jogos.
+3. Ligue a geração de quadros e reabra o jogo (os recursos de Vulkan que ela usa são ativados quando o jogo abre).
+
+Ajustes, todos também no menu do jogo e aplicados na hora:
+
+- **Modo:** *multiplicador fixo* (2x, 3x ou 4x cada quadro) ou *adaptativo* (gera só o que falta para chegar a 60, 90 ou
+  120 FPS).
+- **Resolução da estimativa de movimento:** automática, 50 %, 75 % ou 100 %. Menor pesa menos na GPU.
+
+Ela funciona só na tela da TV e força o VSync enquanto está ligada. Precisa de um driver com Vulkan memory model, float16
+e null descriptors; o status no menu diz se o seu driver tem. O contador de FPS mostra os quadros
+exibidos, o multiplicador e o FPS base do jogo. Exemplo: The Wind Waker HD no AYN Thor, 30 FPS base → 60 FPS com 2x.
+
+Os quadros gerados não mudam a resposta dos controles nem a velocidade do jogo: um jogo a 20 FPS continua respondendo
+como 20 FPS.
+
+## Segunda tela (GamePad)
+
+Com **Mostrar tela do GamePad** ligado no menu do jogo, o GamePad aparece:
+
+- **na outra tela**, se houver uma (AYN Thor, monitor ou TV ligados por cabo). A opção **GamePad na segunda tela** aparece
+  quando o Fractal acha esse display, e dá para desligá-la para ver o GamePad ao lado da TV;
+- **ao lado da TV** na mesma tela, na posição escolhida em **Configurações › Configurações gerais**.
+
+**Escala da tela do GamePad** (manter proporção ou esticar) e **Tamanho da tela do GamePad** (25 % a 100 %) ficam no
+menu do jogo, e o toque acompanha a imagem. **Trocar TV e GamePad** coloca a imagem da TV na tela do GamePad e vice-versa.
+As escolhas ficam salvas para os próximos jogos.
+
+## Desempenho
+
+FPS médio / 1 % low numa cena fixa de cada jogo (roteiro de entradas repetido, cache de shaders quente, resolução
+nativa, build final de 15/11/2026). O RP5 fica num perfil de clock travado e o RG Cube no modo econômico de CPU, para as
+medições serem comparáveis; na configuração de fábrica eles rodam mais rápido.
+
+| Jogo | RP5, Turnip (MrPurple T19) | RP5, driver do sistema | RG Cube, Mali | Odin 2 Mini, Turnip (MrPurple T30) |
+|---|---|---|---|---|
+| Ninja Gaiden 3: Razor's Edge | 38,6 / 23,8 | 41,7 / 27,8 | 32,2 / 13,0 | 60,0 / 57,5 |
+| The Amazing Spider-Man 2 | 36,9 / 22,0 | 38,1 / 21,7 | 15,0 / 11,5 | 60,0 / 57,6 |
+| Tekken Tag Tournament 2 | 46,6 / 15,8 | 41,9 / 10,3 | | |
+| Batman: Arkham Origins | 25,9 / 16,0 | 28,3 / 18,4 | | |
+| Watch Dogs | 25,9 / 10,9 | 24,3 / 9,0 | trava | |
+| Assassin's Creed IV: Black Flag (abertura) | 22,1 / 13,1 | 23,1 / 13,8 | | |
+
+- **Odin 2 Mini** (Snapdragon 8 Gen 2) segura 60 FPS em Ninja Gaiden 3 e Spider-Man 2. Tekken, Batman e Watch Dogs
+  ainda travaram ou fecharam em parte das runs com o Turnip, por isso ficam fora da tabela.
+- **Odin 3** (Snapdragon 8 Elite): Ninja Gaiden 3 (Turnip) e Assassin's Creed IV (driver do sistema) ficam em 60 FPS na
+  maior parte do tempo. As medições com cena fixa ainda vão ser feitas.
+- **AYN Thor:** The Wind Waker HD a 30 FPS (o limite do jogo), 60 com geração de quadros 2x.
+- **Mi A3** (Adreno 610): Shovel Knight a 52 FPS. Jogos 3D pesados ficam lentos.
+- **PC** (build de Linux do Fractal, NVIDIA): Watch Dogs 42,6 / 28,0.
+
+## Problemas conhecidos
+
+- **Assassin's Creed IV:** na selva (a missão de achar o assassino, perto da ponte e da cachoeira) o mundo pode ficar
+  preto, só com o HUD. A correção do `fsel` do recompilador deixou isso bem mais raro, mas ainda acontece. Também no PC.
+- **Watch Dogs no Android:** a partir da sala do Maurice a imagem pode ficar clara demais em cerca de metade das sessões.
+  No Turnip uma falha de página da GPU pode travar o jogo depois de uns 25 minutos. Na Mali a abertura fica preta.
+- **Ninja Gaiden 3 no Turnip:** algumas cabeças escuras e o céu estourado em certas fases.
+- **Xenoblade Chronicles X no driver do sistema da Qualcomm:** personagens viram silhuetas brancas; use o Turnip.
+- **Mali:** mais lenta e com mais problemas que a Adreno; drivers customizados para Mali são experimentais.
+
+A lista completa, com o que está em andamento, está no [roadmap](docs/ROADMAP.pt-BR.md#em-andamento).
+
 ## Controles
 
 - **Controles na tela** aparecem por padrão quando nenhum controle está conectado. No menu do jogo dá para editar:
@@ -212,12 +295,12 @@ driver usado é a informação mais útil num relato de bug.
   mudados em **Configurações › Controles**, e o botão HOME do Wii U fica no botão Mode/Guide do controle.
 - **Atalhos (hotkeys):** pausar, capturar a tela, trocar tela da TV/GamePad, mostrar ou esconder os controles na tela,
   contador de FPS, proporção da tela, filtro de upscaling e movimento.
-- **Menu no jogo:** tela do GamePad, troca TV/GamePad, escala, contador de FPS, filtro de upscaling e nitidez, VSync,
+- **Menu no jogo:** tela do GamePad (na segunda tela, com escala e tamanho próprios), troca TV/GamePad, escala, geração de quadros, contador de FPS, filtro de upscaling e nitidez, VSync,
   controles na tela, mapeamento de controle, atalhos, pausa e capturas de tela (salvas em `Pictures/Fractal`).
 
 ## O que o Fractal corrige
 
-O Fractal começou a partir do port de Android do Cemu feito pelo SSimco e desde então ganhou cerca de 160 commits
+O Fractal começou a partir do port de Android do Cemu feito pelo SSimco e desde então ganhou mais de 180 commits
 próprios, além de um merge do branch `main` do Cemu oficial. Parte das correções está no núcleo do emulador que a
 versão de PC também usa, então também resolve problemas que existem no Cemu oficial:
 
@@ -269,8 +352,12 @@ O Fractal se apoia no trabalho de:
 - **[Port de Android do Cemu](https://github.com/SSimco/Cemu)**, do SSimco: a build de Android, a camada JNI, o app em
   Kotlin/Jetpack Compose e o trabalho de ARM64 de onde o Fractal saiu.
 - **[Cemu Plus](https://github.com/danielcamilo1/cemu-plus)**, do danielcamilo1: upscaling AMD FSR 1 e Snapdragon GSR com
-  nitidez RCAS, a correção de atômicos de 64 bits desalinhados (Star Fox Zero), detalhes de crash no log e duas
-  correções de texturas e de log.
+  nitidez RCAS, a geração de quadros com Lossless Scaling, a correção de atômicos de 64 bits desalinhados (Star Fox
+  Zero), detalhes de crash no log e duas correções de texturas e de log.
+- **[lsfg-vk](https://github.com/PancakeTAS/lsfg-vk)** e **[Eden](https://git.eden-emu.dev/eden-emu/eden)**: a
+  implementação de Vulkan da geração de quadros do Lossless Scaling que o Cemu Plus portou.
+- **[SapphireRhodonite](https://github.com/SapphireRhodonite/Cemu)**: a base do GamePad na segunda tela
+  (branch `android-port-dual`).
 - **Projetos de drivers de GPU** listados na página de drivers do app, cada um com nome e link. O Fractal não inclui
   nenhum driver.
 - Comunidade dos **[graphic packs do Cemu](https://github.com/cemu-project/cemu_graphic_packs)**.
@@ -281,7 +368,9 @@ Detalhes no [NOTICE.md](NOTICE.md).
 ## Licença
 
 O Fractal usa a [Mozilla Public License 2.0](LICENSE.txt), como o Cemu. Os arquivos em `dependencies/` e alguns
-arquivos em `src/` mantêm as licenças indicadas nos seus cabeçalhos. Veja o [NOTICE.md](NOTICE.md).
+arquivos em `src/` mantêm as licenças indicadas nos seus cabeçalhos. A geração de quadros
+(`src/Cafe/HW/Latte/Renderer/Vulkan/FrameGen/`) é **GPL-3.0 ou posterior**, então o APK, que a inclui, também segue os
+termos da GPL-3.0. Veja o [NOTICE.md](NOTICE.md).
 
 O Fractal não tem relação com a Nintendo nem é endossado por ela. Wii U é marca registrada da Nintendo. O Fractal não é
 uma versão oficial do Cemu.

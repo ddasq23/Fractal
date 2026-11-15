@@ -36,6 +36,10 @@
 - [Installation](#installation)
 - [Getting started](#getting-started)
 - [GPU drivers](#gpu-drivers)
+- [Frame generation](#frame-generation)
+- [Second screen (GamePad)](#second-screen-gamepad)
+- [Performance](#performance)
+- [Known issues](#known-issues)
 - [Controls](#controls)
 - [What Fractal fixes](#what-fractal-fixes)
 - [Reporting bugs](#reporting-bugs)
@@ -55,6 +59,10 @@
 - **GPU drivers in one tap:** a catalog of Turnip builds for Adreno (MrPurple666, StevenMXZ, faux123, K11MCH1 and more)
   and experimental Mali drivers, selectable globally or per game, with automatic fallback to the system driver if a
   driver fails to start.
+- **GamePad on the second screen:** on dual-screen handhelds (AYN Thor) or with an external display, the GamePad screen
+  moves to the other display and takes touch. GamePad image scaling and size can be adjusted in the in-game menu.
+- **Frame generation (Lossless Scaling):** with **your own** `Lossless.dll`, multiplies the frame rate (2x, 3x, 4x) or
+  fills in up to 60, 90 or 120 FPS. Turn it on, off and adjust it from the in-game menu.
 - **A renderer tuned for mobile GPUs:** fewer render pass breaks on tile-based GPUs, framebuffer compression (UBWC/AFBC)
   kept on, workarounds for Qualcomm driver bugs and a fix for Turnip's blocking fence checks.
 - **Faster ARM64 recompiler:** more PowerPC instructions recompiled instead of interpreted, and less overhead per block.
@@ -127,6 +135,9 @@ Fractal is developed and tested on:
 - **Retroid Pocket 5**: Snapdragon 865, Adreno 650, Android 13
 - **Anbernic RG Cube**: Unisoc T820, Mali-G57 MC4, Android 13
 - **Xiaomi Mi A3**: Snapdragon 665, Adreno 610 (low-end phone reference)
+- **AYN Odin 2 Mini**: Snapdragon 8 Gen 2, Adreno 740, Android 13
+- **AYN Odin 3**: Snapdragon 8 Elite, Adreno 830, Android 15
+- **AYN Thor**: Snapdragon 8 Gen 2, Adreno 740, Android 13, dual screen (GamePad on the bottom screen)
 
 Wii U emulation is heavy. Expect full speed in lighter games on Snapdragon 865-class devices and lower frame rates in the
 heaviest ones (Breath of the Wild, Xenoblade Chronicles X). Weaker GPUs, Mali in particular, will be slower.
@@ -198,6 +209,79 @@ cache; your shader cache is kept.
 If a game shows broken graphics or crashes, trying another driver is the first thing to do, and the driver you used is
 the most useful detail in a bug report.
 
+## Frame generation
+
+Frame generation creates in-between frames between the game's frames, using the shaders of
+[Lossless Scaling](https://store.steampowered.com/app/993090/Lossless_Scaling/) (ported from Cemu Plus, which took it
+from lsfg-vk and Eden). Fractal does **not** include or download Lossless Scaling: you import `Lossless.dll` from **your
+own** copy (it is in its installation folder on Windows). The file is only read, never run.
+
+1. Copy `Lossless.dll` to the device.
+2. Import it in **Settings › Graphics › Frame generation** or in the **in-game menu › Frame generation**. It applies to
+   every game.
+3. Turn frame generation on and reopen the game (the Vulkan features it uses are enabled when the game starts).
+
+Options, all also in the in-game menu and applied immediately:
+
+- **Mode:** *Fixed multiplier* (2x, 3x or 4x every frame) or *Adaptive* (generates only what is missing to reach 60, 90
+  or 120 FPS).
+- **Motion estimation resolution:** Auto, 50%, 75% or 100%. Lower is lighter on the GPU.
+
+It only works on the TV screen and forces VSync while it is on. It needs a driver with Vulkan memory model, float16 and
+null descriptors; the status in the menu tells you whether your driver has them. The FPS counter shows the displayed
+frames, the multiplier and the game's base FPS. Example: The Wind Waker HD on the AYN Thor, 30 FPS base → 60 FPS with
+2x.
+
+Generated frames do not change controller response or game speed: a game running at 20 FPS still responds like 20 FPS.
+
+## Second screen (GamePad)
+
+With **Show GamePad screen** on in the in-game menu, the GamePad shows:
+
+- **on the other screen**, if there is one (AYN Thor, a monitor or TV connected by cable). The **GamePad on the second
+  screen** option appears when Fractal finds that display, and you can turn it off to see the GamePad next to the TV;
+- **next to the TV** on the same screen, in the position chosen in **Settings › General settings**.
+
+**GamePad screen scaling** (Keep aspect ratio or Stretch) and **GamePad screen size** (25% to 100%) are in the in-game
+menu, and touch follows the image. **Swap TV and GamePad** puts the TV image on the GamePad screen and vice versa. Your
+choices are saved for the next games.
+
+## Performance
+
+Average FPS / 1% low in a fixed scene of each game (repeated input script, warm shader cache, native resolution, final
+build of 2026-11-15). The RP5 runs a locked clock profile and the RG Cube the economy CPU mode, so the measurements are
+comparable; with factory settings they run faster.
+
+| Game | RP5, Turnip (MrPurple T19) | RP5, system driver | RG Cube, Mali | Odin 2 Mini, Turnip (MrPurple T30) |
+|---|---|---|---|---|
+| Ninja Gaiden 3: Razor's Edge | 38.6 / 23.8 | 41.7 / 27.8 | 32.2 / 13.0 | 60.0 / 57.5 |
+| The Amazing Spider-Man 2 | 36.9 / 22.0 | 38.1 / 21.7 | 15.0 / 11.5 | 60.0 / 57.6 |
+| Tekken Tag Tournament 2 | 46.6 / 15.8 | 41.9 / 10.3 | | |
+| Batman: Arkham Origins | 25.9 / 16.0 | 28.3 / 18.4 | | |
+| Watch Dogs | 25.9 / 10.9 | 24.3 / 9.0 | hangs | |
+| Assassin's Creed IV: Black Flag (opening) | 22.1 / 13.1 | 23.1 / 13.8 | | |
+
+- **Odin 2 Mini** (Snapdragon 8 Gen 2) holds 60 FPS in Ninja Gaiden 3 and Spider-Man 2. Tekken, Batman and Watch Dogs
+  still hung or crashed in some of the runs on Turnip, so they are left out of the table.
+- **Odin 3** (Snapdragon 8 Elite): Ninja Gaiden 3 (Turnip) and Assassin's Creed IV (system driver) stay at 60 FPS most
+  of the time. Fixed-scene measurements are still to be done.
+- **AYN Thor:** The Wind Waker HD at 30 FPS (the game's cap), 60 with 2x frame generation.
+- **Mi A3** (Adreno 610): Shovel Knight at 52 FPS. Heavy 3D games are slow.
+- **PC** (Fractal's Linux build, NVIDIA): Watch Dogs 42.6 / 28.0.
+
+## Known issues
+
+- **Assassin's Creed IV:** in the jungle (the mission to find the assassin, near the bridge and the waterfall) the world
+  can turn black, with only the HUD left. The recompiler `fsel` fix made this much rarer, but it still happens. Also on
+  PC.
+- **Watch Dogs on Android:** from the Maurice room on, the picture can get too bright in about half of the sessions. On
+  Turnip a GPU page fault can hang the game after about 25 minutes. On Mali the opening is black.
+- **Ninja Gaiden 3 on Turnip:** some dark heads and a blown-out sky in certain stages.
+- **Xenoblade Chronicles X on the Qualcomm system driver:** characters turn into white silhouettes; use Turnip.
+- **Mali:** slower and with more issues than Adreno; custom Mali drivers are experimental.
+
+The full list, with what is being worked on, is in the [roadmap](docs/ROADMAP.md#in-progress).
+
 ## Controls
 
 - **On-screen controls** show by default when no controller is connected. In the in-game menu you can edit them:
@@ -208,12 +292,12 @@ the most useful detail in a bug report.
   **Settings › Controls**, and the Wii U HOME button maps to the controller's Mode/Guide button.
 - **Hotkeys:** pause, screenshot, swap TV/GamePad screen, show or hide the on-screen controls, FPS counter, aspect ratio,
   upscale filter and motion.
-- **In-game menu:** GamePad screen, TV/GamePad swap, scaling, FPS counter, upscale filter and sharpness, VSync,
+- **In-game menu:** GamePad screen (on the second screen, with its own scaling and size), TV/GamePad swap, scaling, frame generation, FPS counter, upscale filter and sharpness, VSync,
   on-screen controls, controller mapping, hotkeys, pause and screenshots (saved to `Pictures/Fractal`).
 
 ## What Fractal fixes
 
-Fractal started from SSimco's Android port of Cemu and has since added about 160 commits of its own, plus a merge of
+Fractal started from SSimco's Android port of Cemu and has since added more than 180 commits of its own, plus a merge of
 the official Cemu `main` branch. Some fixes are in the emulator core that the PC version shares, so they also
 address problems that exist in official Cemu:
 
@@ -264,8 +348,12 @@ Fractal stands on the work of:
 - **[Cemu Android port](https://github.com/SSimco/Cemu)** by SSimco: the Android build, JNI layer, Kotlin/Jetpack
   Compose app and ARM64 work that Fractal is forked from.
 - **[Cemu Plus](https://github.com/danielcamilo1/cemu-plus)** by danielcamilo1: AMD FSR 1 and Snapdragon GSR upscaling
-  with RCAS sharpening, the misaligned 64-bit atomics fix (Star Fox Zero), crash details in the log, and two texture
-  and logging fixes.
+  with RCAS sharpening, Lossless Scaling frame generation, the misaligned 64-bit atomics fix (Star Fox Zero), crash
+  details in the log, and two texture and logging fixes.
+- **[lsfg-vk](https://github.com/PancakeTAS/lsfg-vk)** and **[Eden](https://git.eden-emu.dev/eden-emu/eden)**: the
+  Vulkan implementation of Lossless Scaling frame generation that Cemu Plus ported.
+- **[SapphireRhodonite](https://github.com/SapphireRhodonite/Cemu)**: the base for the GamePad on the second screen
+  (`android-port-dual` branch).
 - **GPU driver projects** listed in the app's drivers page, each credited with its name and link. Fractal does not
   bundle any driver.
 - **[Cemu graphic packs](https://github.com/cemu-project/cemu_graphic_packs)** community.
@@ -276,7 +364,9 @@ Details are in [NOTICE.md](NOTICE.md).
 ## License
 
 Fractal is licensed under the [Mozilla Public License 2.0](LICENSE.txt), like Cemu. Files in `dependencies/` and some
-files in `src/` keep the licenses stated in their headers. See [NOTICE.md](NOTICE.md).
+files in `src/` keep the licenses stated in their headers. Frame generation
+(`src/Cafe/HW/Latte/Renderer/Vulkan/FrameGen/`) is **GPL-3.0 or later**, so the APK, which includes it, also follows the
+terms of the GPL-3.0. See [NOTICE.md](NOTICE.md).
 
 Fractal is not affiliated with or endorsed by Nintendo. Wii U is a trademark of Nintendo. Fractal is not an official
 Cemu release.

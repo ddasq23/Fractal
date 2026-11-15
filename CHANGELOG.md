@@ -6,6 +6,32 @@ All notable changes to Fractal. Commit references point to `github.com/dfdx047/F
 Translations: [Português (Brasil)](docs/release-notes/v0.1-beta.md#português-brasil) ·
 [Español](docs/release-notes/v0.1-beta.md#español) (release notes).
 
+## v0.1-beta, updated build (2026-11-15, version code 2)
+
+### Added
+
+- **GamePad screen on a second display:** dual screen handhelds (AYN Thor) and external monitors get the GamePad screen
+  through a Presentation, with touch; GamePad screen scaling (keep aspect ratio / stretch) and size (25-100%) in the
+  in-game menu; GamePad choices remembered between games. Based on SapphireRhodonite's `android-port-dual` (`f29f2800`).
+- **Frame generation** (Lossless Scaling, ported from Cemu Plus, from lsfg-vk and Eden) with the user's own
+  `Lossless.dll`: fixed 2x/3x/4x or adaptive to 60/90/120 FPS, motion estimation resolution, import and settings in
+  Settings and in the in-game menu. Off by default; when off the Vulkan device is created as before
+  (`0a4f24ce`, `1fa22cec`, `eb14d852`).
+- Perf tools from the AC IV investigation, all off by default (`c23ca3b5`).
+
+### Fixed
+
+- **Assassin's Creed IV:** the recompiler's `fsel` copied only ps0, leaving garbage in ps1 that a frame time routine read;
+  the jungle blackout is much rarer, not gone (`b8d27fdf`).
+- Back button on handhelds whose gamepad sends it (AYN Odin 3) opens the in-game menu (`026b580a`).
+- Releasing the GamePad swapchain while paused no longer hangs the UI (`2171c12e`).
+- A GamePad surface created before the renderer (shown from the start, second display) no longer crashes (`f29f2800`).
+
+### License
+
+- The frame generation code (`src/Cafe/HW/Latte/Renderer/Vulkan/FrameGen/`) is GPL-3.0-or-later; builds that include it
+  follow the GPL-3.0 terms (see `NOTICE.md`).
+
 ## v0.1-beta (2026-11-15) - first public beta
 
 Based on SSimco's Android port of Cemu (`8759323e`) with official Cemu `main` merged up to `3b103161` (2026-11-04).

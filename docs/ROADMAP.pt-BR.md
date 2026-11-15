@@ -57,6 +57,7 @@ Ainda não identificamos qual mudança faz a diferença.
 | Ninja Gaiden 3: Razor's Edge | Fechamento: funções com mais de 1 MB de código ARM64 deixavam desvios fora de alcance | Código frio emitido entre segmentos; um erro de codificação deixa a função interpretada em vez de abortar | [`a26051bf`](https://github.com/dfdx047/Fractal/commit/a26051bf) |
 | Ninja Gaiden 3: Razor's Edge | Turnip: imagem toda borrada pela profundidade de campo lendo um depth buffer desatualizado | Barreira no fim de cada render pass no Turnip | [`64c4b75c`](https://github.com/dfdx047/Fractal/commit/64c4b75c) |
 | Ninja Gaiden 3: Razor's Edge | Fechamento no próprio alocador com o zlib-ng como zlib do host | Estado do zlib alocado no heap padrão | [`8eaae97a`](https://github.com/dfdx047/Fractal/commit/8eaae97a) |
+| Assassin's Creed IV: Black Flag | Mundo preto (só o HUD) na selva, perto da ponte: o `fsel` do recompilador copiava só a primeira metade do registrador e o jogo lia lixo na segunda numa rotina de tempo de quadro | `fsel` copia o registrador inteiro, como o interpretador. Os apagões ficaram bem mais raros mas não sumiram (ver Em andamento) | [`b8d27fdf`](https://github.com/dfdx047/Fractal/commit/b8d27fdf) |
 | Tekken Tag Tournament 2 | O driver do sistema da Qualcomm fechava ao compilar um shader de gather 4x4 na primeira luta | Escritas indexadas em GPR geradas como switch em vez de um array de GPRs com índice dinâmico | [`1293cd7d`](https://github.com/dfdx047/Fractal/commit/1293cd7d) |
 | Assassin's Creed IV: Black Flag | Driver do sistema da Qualcomm: blocos verdes/magenta/azuis sobre partículas, telas de carregamento e cutscenes. O bloom amostra a textura em que desenha, o que é indefinido sem `VK_EXT_attachment_feedback_loop_layout` | Esses draws amostram uma cópia da textura | [`64c4b75c`](https://github.com/dfdx047/Fractal/commit/64c4b75c) |
 | Watch Dogs | Estádio e bloom brancos na Adreno: a Adreno devolve NaN em min/max/clamp quando um operando é NaN | min/max/clamp seguros contra NaN ligados por padrão nas GPUs Qualcomm | [`f8dbb223`](https://github.com/dfdx047/Fractal/commit/f8dbb223) |
@@ -142,6 +143,11 @@ trabalho evita quebrar passes.
 - English, Português (Brasil) e Español em todos os textos do app
   ([`c9d8a940`](https://github.com/dfdx047/Fractal/commit/c9d8a940), [`a74e2a35`](https://github.com/dfdx047/Fractal/commit/a74e2a35)).
 
+- **GamePad na segunda tela:** portáteis de duas telas (AYN Thor) e monitores externos recebem a tela do GamePad com
+  toque; escala e tamanho próprios no menu do jogo; escolhas salvas entre jogos (base do branch `android-port-dual` do
+  SapphireRhodonite) ([`f29f2800`](https://github.com/dfdx047/Fractal/commit/f29f2800)).
+- Botão voltar dos portáteis cujo controle o envia (AYN Odin 3) abre o menu do jogo ([`026b580a`](https://github.com/dfdx047/Fractal/commit/026b580a)).
+
 ### Drivers de GPU
 
 - Catálogo de drivers a partir dos releases do GitHub, instalação com um toque, limpeza de cache por driver
@@ -164,6 +170,14 @@ trabalho evita quebrar passes.
 
 - AMD FSR 1 e Snapdragon GSR, nitidez RCAS (do Cemu Plus)
   ([`2c5dba03`](https://github.com/dfdx047/Fractal/commit/2c5dba03), [`8328081a`](https://github.com/dfdx047/Fractal/commit/8328081a)).
+
+### Geração de quadros
+
+- Geração de quadros do Lossless Scaling (do Cemu Plus, que veio do lsfg-vk e do Eden) com o `Lossless.dll` do próprio
+  usuário: multiplicador fixo 2x/3x/4x ou adaptativo até 60/90/120 FPS, resolução da estimativa de movimento,
+  importação e ajustes pelas configurações e pelo menu do jogo. Desligada, não muda nada na criação do device Vulkan
+  ([`0a4f24ce`](https://github.com/dfdx047/Fractal/commit/0a4f24ce), [`1fa22cec`](https://github.com/dfdx047/Fractal/commit/1fa22cec), [`eb14d852`](https://github.com/dfdx047/Fractal/commit/eb14d852)).
+- Liberar o swapchain do GamePad com o jogo pausado não trava mais a interface ([`2171c12e`](https://github.com/dfdx047/Fractal/commit/2171c12e)).
 
 ### Depuração
 
@@ -202,8 +216,15 @@ entre commits (driver, perfil de CPU), então compare cada linha só com ela mes
   pixel shaders, draws pulados durante a compilação assíncrona de pipelines e readback de texturas.
 - **Watch Dogs na Mali** (RG Cube): a thread de renderização fica presa compilando os shaders de streamout enormes; menu
   em blocos e abertura preta.
-- **Assassin's Creed IV:** comparando as cutscenes com a build de PC; as espadas compridas ficam penduradas retas do
-  mesmo jeito no PC e no RP5, ainda não confirmado como bug.
+- **Assassin's Creed IV, apagão na selva:** depois da correção do `fsel` o mundo ainda fica preto em cerca de 4 de cada
+  10 passagens pela ponte (PC e Android). Já descartados: a função de tempo de quadro no interpretador, arredondamento
+  de 25 bits do `frC` nas multiplicações e a reinterpretação linear do mapa de oclusão. Próximo passo: gravar o mapa de
+  oclusão quadro a quadro em volta do apagão.
+- **Assassin's Creed IV, cutscenes:** comparando com a build de PC; as espadas compridas ficam penduradas retas do mesmo
+  jeito no PC e no RP5, ainda não confirmado como bug.
+- **Odin 2 Mini no Turnip:** Tekken Tag Tournament 2 fica preto na abertura com o MrPurple T30; Batman e Watch Dogs
+  travaram em parte das runs. O Turnip 27.0 R2 do StevenMXZ fecha dentro do driver ao compilar pipelines do Ninja
+  Gaiden 3.
 - **Ninja Gaiden 3 no Turnip:** cabeças escuras flutuando e céu estourado continuam depois da correção da profundidade
   de campo.
 - **Need for Speed: Most Wanted U:** achar a causa raiz da folhagem branca (o pack da comunidade esconde o problema).
@@ -213,6 +234,8 @@ entre commits (driver, perfil de CPU), então compare cada linha só com ela mes
 
 ## Planejado
 
+- Medições com cena fixa no Odin 3 e no AYN Thor, e testes em Mali mais nova (Dimensity 8300 / Mali-G615).
+- Geração de quadros também na tela do GamePad e um botão rápido para ela no menu do jogo.
 - Testes de compatibilidade nos principais jogos de Wii U e uma lista pública de compatibilidade.
 - Um botão "marcar problema" dentro do jogo que salva uma captura e uma marca no log para os relatos de bug.
 - Streamout em drivers Mali sem stores no pipeline de vértices (por exemplo com um passe de compute).
