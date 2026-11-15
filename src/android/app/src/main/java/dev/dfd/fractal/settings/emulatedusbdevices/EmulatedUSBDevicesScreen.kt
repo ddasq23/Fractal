@@ -9,7 +9,7 @@ import dev.dfd.fractal.nativeinterface.NativeSettings
 @Composable
 fun EmulatedUSBDevicesSettingsScreen(navigateBack: () -> Unit) {
     ScreenContent(
-        appBarText = tr("Emulated USB Devices settings"),
+        appBarText = tr("Emulated USB devices"),
         navigateBack = navigateBack,
     ) {
         Toggle(

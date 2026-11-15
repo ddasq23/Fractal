@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -139,15 +142,16 @@ private fun SettingsSection(title: String, vararg entries: SettingsEntry) {
         val columns = if (maxWidth >= TwoColumnMinWidth) 2 else 1
         Column {
             entries.toList().chunked(columns).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // the cards of a row share their height, so a description on two lines doesn't make them uneven
+                Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { entry ->
                         SettingsNavRow(
                             title = entry.title,
                             description = entry.description,
                             icon = entry.icon,
                             onClick = entry.onClick,
-                            singleLineDescription = true,
-                            modifier = Modifier.weight(1f),
+                            descriptionMaxLines = 2,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                     }
                     // keep the last entry of an odd row at column width

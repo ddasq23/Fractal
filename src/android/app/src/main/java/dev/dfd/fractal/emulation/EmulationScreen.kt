@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import dev.dfd.fractal.common.ui.fractal.dialogHints
+import dev.dfd.fractal.common.ui.fractal.PadButton
+import dev.dfd.fractal.common.ui.fractal.ButtonHint
+import dev.dfd.fractal.common.ui.components.FractalAlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ModalDrawerSheet
@@ -666,7 +670,8 @@ private fun EmulationSurface(
 
 @Composable
 private fun EmulationQuitConfirmationDialog(onQuit: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+    FractalAlertDialog(
+        hints = dialogHints(confirm = tr("Yes"), cancel = tr("No")),
         title = { Text(tr("Exit confirmation")) },
         text = { Text(tr("Are you sure you want to exit?")) },
         confirmButton = { TextButton(onClick = onQuit) { Text(tr("Yes")) } },
@@ -705,7 +710,8 @@ private fun EmulationErrorDialog(error: NativeError, onQuit: () -> Unit) {
             NativeError.LaunchingTitleError -> tr("Failed to launch title")
         }
     }
-    AlertDialog(
+    FractalAlertDialog(
+        hints = listOf(ButtonHint(PadButton.A, tr("Quit"))),
         title = { Text(tr("Error")) },
         text = { Text(errorMessage) },
         confirmButton = { TextButton(onClick = onQuit) { Text(tr("Quit")) } },

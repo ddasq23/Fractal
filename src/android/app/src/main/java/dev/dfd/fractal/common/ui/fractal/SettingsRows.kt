@@ -139,7 +139,7 @@ fun SettingsNavRow(
     description: String? = null,
     icon: ImageVector? = null,
     enabled: Boolean = true,
-    singleLineDescription: Boolean = false,
+    descriptionMaxLines: Int = Int.MAX_VALUE,
 ) {
     SettingsCard(modifier = modifier, onClick = onClick, enabled = enabled, role = Role.Button) {
         if (icon != null) SettingsIconBadge(icon)
@@ -150,7 +150,7 @@ fun SettingsNavRow(
                     description,
                     style = MaterialTheme.typography.bodySmall,
                     color = FractalTheme.colors.textSecondary,
-                    maxLines = if (singleLineDescription) 1 else Int.MAX_VALUE,
+                    maxLines = descriptionMaxLines,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

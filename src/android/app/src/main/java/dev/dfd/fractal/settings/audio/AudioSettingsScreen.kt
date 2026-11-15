@@ -26,7 +26,7 @@ fun AudioSettingsScreen(navigateBack: () -> Unit) {
             steps = AUDIO_LATENCY_STEPS,
             valueTo = NativeSettings.AUDIO_LATENCY_MS_MAX,
             onValueChange = NativeSettings::setAudioLatency,
-            labelFormatter = { "${it}ms" }
+            labelFormatter = { "$it ms" }
         )
         Toggle(
             label = tr("Boot sound"),
@@ -61,15 +61,15 @@ fun AudioSettingsScreen(navigateBack: () -> Unit) {
             onValueChange = { NativeSettings.setAudioDeviceVolume(it, true) },
             labelFormatter = { "$it%" }
         )
-        Header(tr("Gamepad"))
+        Header(tr("GamePad"))
         Toggle(
             label = tr("Audio output"),
-            description = tr("Enable audio output for the Wii U Gamepad"),
+            description = tr("Enable audio output for the Wii U GamePad"),
             initialCheckedState = { NativeSettings.getAudioDeviceEnabled(false) },
             onCheckedChanged = { NativeSettings.setAudioDeviceEnabled(it, false) }
         )
         SingleSelection(
-            label = tr("Gamepad channels"),
+            label = tr("GamePad channels"),
             initialChoice = { NativeSettings.getAudioDeviceChannels(false) },
             onChoiceChanged = { NativeSettings.setAudioDeviceChannels(it, false) },
             choiceToString = { channelsToString(it) },
@@ -78,7 +78,7 @@ fun AudioSettingsScreen(navigateBack: () -> Unit) {
             ),
         )
         Slider(
-            label = tr("Gamepad volume"),
+            label = tr("GamePad volume"),
             initialValue = { NativeSettings.getAudioDeviceVolume(false) },
             valueFrom = NativeSettings.AUDIO_MIN_VOLUME,
             steps = AUDIO_VOLUME_STEPS,

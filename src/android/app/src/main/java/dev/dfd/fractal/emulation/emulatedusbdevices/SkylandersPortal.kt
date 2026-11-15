@@ -3,7 +3,6 @@ package dev.dfd.fractal.emulation.emulatedusbdevices
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
@@ -14,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,15 +49,14 @@ fun SkylandersPortalTab(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(
                         text = tr("Skylander {0}", i + 1),
                         fontWeight = FontWeight.Medium,
                         fontSize = 18.sp
                     )
-                    Text(text = slot ?: tr("None"), fontSize = 16.sp)
+                    Text(text = slot ?: tr("None"), fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-                Spacer(modifier = Modifier.weight(1f))
                 Button(onClick = { selectForSlot = i }) { Text(tr("Select")) }
                 Button(enabled = slot != null, onClick = { onClear(i) }) { Text(tr("Clear")) }
             }

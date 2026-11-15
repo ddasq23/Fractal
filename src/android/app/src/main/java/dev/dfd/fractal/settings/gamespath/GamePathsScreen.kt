@@ -58,7 +58,7 @@ fun GamePathsScreen(
                 DocumentFile.fromTreeUri(context, uri) ?: return@rememberLauncherForActivityResult
             val gamesPath = documentFile.uri.toString()
             if (gamesPaths.contains(gamesPath)) {
-                message = tr("Games path already added")
+                message = tr("This folder is already in the list")
                 return@rememberLauncherForActivityResult
             }
             message = null
@@ -66,7 +66,7 @@ fun GamePathsScreen(
         }
 
     FractalScreen(
-        title = tr("Game paths"),
+        title = tr("Game folders"),
         onBack = navigateBack,
         extraHints = listOf(ButtonHint(PadButton.X, tr("Add folder")) { launcher.launch(null) }),
     ) {

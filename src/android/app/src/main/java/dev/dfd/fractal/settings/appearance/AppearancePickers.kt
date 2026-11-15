@@ -269,9 +269,10 @@ private suspend fun copyWallpaper(context: Context, uri: Uri): String? = withCon
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LibraryViewPicker(current: LibraryView, onSelect: (LibraryView) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         LibraryView.entries.forEach { view ->
             PickerTile(selected = view == current, onClick = { onSelect(view) }) {
                 Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {

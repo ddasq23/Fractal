@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -190,7 +191,7 @@ private fun GpuCard(gpu: Gpu?, supportsCustomDrivers: Boolean) {
                 StatusChip(tr("Experimental"))
                 Spacer(Modifier.width(8.dp))
             }
-            gpu?.renderer?.takeIf { it.isNotBlank() }?.let { StatusChip(it) }
+            gpu?.renderer?.takeIf { it.isNotBlank() }?.let { StatusChip(it, Modifier.widthIn(max = 160.dp)) }
         }
     }
 }

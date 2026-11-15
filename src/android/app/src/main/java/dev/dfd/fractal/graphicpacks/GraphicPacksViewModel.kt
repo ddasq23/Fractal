@@ -272,6 +272,9 @@ class GraphicPacksViewModel(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
     )
 
+    /** Whether any graphic pack is installed (the downloaded collection or the user's own). */
+    val hasGraphicPacks: Boolean get() = rootNode.children.isNotEmpty()
+
     private fun refreshGraphicPacks() {
         rootNode = GraphicPackSectionNode().apply {
             NativeGraphicPacks.getGraphicPackBasicInfos().forEach {

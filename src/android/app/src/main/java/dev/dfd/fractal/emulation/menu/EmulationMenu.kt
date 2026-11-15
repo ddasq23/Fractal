@@ -11,6 +11,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
@@ -156,7 +159,8 @@ fun EmulationMenuContent(
             if (state.isPaused) StatusChip(tr("Paused"), icon = MenuIcons.Pause, highlight = true)
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+        // the tiles share their height: "Captura de tela" and "Despausar" take two lines in a narrow menu
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp).height(IntrinsicSize.Min)) {
             QuickTile(FractalIcons.Play, tr("Resume"), actions::resume, primary = true, modifier = Modifier.focusRequester(firstItem))
             if (state.isPaused) {
                 QuickTile(FractalIcons.Play, tr("Unpause"), { actions.setPaused(false) })
@@ -293,7 +297,7 @@ fun EmulationMenuContent(
         MenuSection(tr("Devices"))
         MenuActionRow(
             icon = FractalIcons.Usb,
-            title = tr("Emulated USB Devices"),
+            title = tr("Emulated USB devices"),
             onClick = actions::emulatedUsbDevices,
         )
         Spacer(Modifier.padding(bottom = 8.dp))
@@ -443,6 +447,7 @@ private fun RowScope.QuickTile(
     Column(
         modifier
             .weight(1f)
+            .fillMaxHeight()
             .focusRing(focused, shape, gap = 2.dp)
             .clip(shape)
             .then(
@@ -460,7 +465,7 @@ private fun RowScope.QuickTile(
             label,
             style = MaterialTheme.typography.labelSmall,
             color = content,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
         )

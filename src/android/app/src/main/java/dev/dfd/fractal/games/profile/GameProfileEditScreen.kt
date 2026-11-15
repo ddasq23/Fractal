@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -268,38 +269,59 @@ fun GameProfileEditScreen(
 @Composable
 private fun GameHeader(game: Game, onPlay: ((Game) -> Unit)?) {
     val colors = FractalTheme.colors
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .themedPanel()
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        GameArt(game, Modifier.size(88.dp).clip(FractalTheme.shapes.cover))
-        Spacer(Modifier.width(16.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                game.name ?: "",
-                style = MaterialTheme.typography.titleLarge,
-                color = colors.text,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                StatusChip(regionName(game.region), icon = FractalIcons.Globe)
-                StatusChip("v${game.version}" + if (game.dlc > 0) " + DLC" else "")
-                StatusChip(tr("{0} played", formatPlaytime(game.minutesPlayed)), icon = GameIcons.Clock)
-                StatusChip(tr("Last played: {0}", formatLastPlayed(game.lastPlayedDate)))
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        // portrait phones: the Play button goes under the title, beside it the title had ~120 dp
+        val stacked = maxWidth < 520.dp
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .themedPanel()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GameArt(game, Modifier.size(if (stacked) 72.dp else 88.dp).clip(FractalTheme.shapes.cover))
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        game.name ?: "",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = colors.text,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        StatusChip(regionName(game.region), icon = FractalIcons.Globe)
+                        StatusChip("v${game.version}" + if (game.dlc > 0) " + DLC" else "")
+                        // "Never played" once, not inside "{0} played" and "Last played: {0}"
+                        val lastPlayed = game.lastPlayedDate
+                        if (game.minutesPlayed > 0)
+                            StatusChip(tr("{0} played", formatPlaytime(game.minutesPlayed)), icon = GameIcons.Clock)
+                        if (lastPlayed != null)
+                            StatusChip(tr("Last played: {0}", formatLastPlayed(lastPlayed)))
+                        if (game.minutesPlayed <= 0 && lastPlayed == null)
+                            StatusChip(tr("Never played"), icon = GameIcons.Clock)
+                    }
+                    Text(
+                        "%016X".format(game.titleId),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.textSecondary,
+                    )
+                }
+                if (onPlay != null && !stacked) {
+                    Spacer(Modifier.width(12.dp))
+                    FractalButton(tr("Play"), onClick = { onPlay(game) }, icon = FractalIcons.Play, primary = true)
+                }
             }
-            Text(
-                "%016X".format(game.titleId),
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.textSecondary,
-            )
-        }
-        if (onPlay != null) {
-            Spacer(Modifier.width(12.dp))
-            FractalButton(tr("Play"), onClick = { onPlay(game) }, icon = FractalIcons.Play, primary = true)
+            if (onPlay != null && stacked) {
+                FractalButton(
+                    tr("Play"),
+                    onClick = { onPlay(game) },
+                    icon = FractalIcons.Play,
+                    primary = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }

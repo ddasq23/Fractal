@@ -22,6 +22,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -189,29 +190,34 @@ fun WelcomeScreen(navigation: WelcomeNavigation) {
                     primary = true,
                 )
             }
-            // phones in portrait: four buttons don't fit one row, so "Skip setup" gets a row of its own
-            val compactFooter = LocalConfiguration.current.screenWidthDp < 480
-            if (compactFooter && step != Step.DONE) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (stepIndex > 0) FractalIconButton(FractalIcons.Back, tr("Back"), { stepIndex-- })
-                    Spacer(Modifier.weight(1f))
-                    FractalButton(tr("Skip setup"), onClick = { finish() })
-                }
-                Spacer(Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Spacer(Modifier.weight(1f))
-                    FractalButton(tr("Skip"), onClick = { next() })
-                    nextButton()
-                }
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (stepIndex > 0) FractalIconButton(FractalIcons.Back, tr("Back"), { stepIndex-- })
-                    Spacer(Modifier.weight(1f))
-                    if (step != Step.DONE) {
-                        FractalButton(tr("Skip setup"), onClick = { finish() })
-                        FractalButton(tr("Skip"), onClick = { next() })
+            // phones in portrait and the panel next to the steps on ~700-800 dp wide handhelds: four
+            // buttons in Portuguese or Spanish don't fit one row, so "Skip setup" gets a row of its own
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val compactFooter = maxWidth < 560.dp
+                if (compactFooter && step != Step.DONE) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            if (stepIndex > 0) FractalIconButton(FractalIcons.Back, tr("Back"), { stepIndex-- })
+                            Spacer(Modifier.weight(1f))
+                            FractalButton(tr("Skip setup"), onClick = { finish() })
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Spacer(Modifier.weight(1f))
+                            FractalButton(tr("Skip"), onClick = { next() })
+                            nextButton()
+                        }
                     }
-                    nextButton()
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (stepIndex > 0) FractalIconButton(FractalIcons.Back, tr("Back"), { stepIndex-- })
+                        Spacer(Modifier.weight(1f))
+                        if (step != Step.DONE) {
+                            FractalButton(tr("Skip setup"), onClick = { finish() })
+                            FractalButton(tr("Skip"), onClick = { next() })
+                        }
+                        nextButton()
+                    }
                 }
             }
         }
@@ -446,8 +452,9 @@ private fun InfoPanel(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 private fun InfoLine(label: String, value: String) {
-    Row {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = FractalTheme.colors.textSecondary, modifier = Modifier.width(200.dp))
-        Text(value, style = MaterialTheme.typography.bodySmall, color = FractalTheme.colors.text)
+    // shares instead of a fixed label width: on a portrait phone 200 dp left the value a few words a line
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = FractalTheme.colors.textSecondary, modifier = Modifier.weight(0.4f))
+        Text(value, style = MaterialTheme.typography.bodySmall, color = FractalTheme.colors.text, modifier = Modifier.weight(0.6f))
     }
 }

@@ -150,6 +150,8 @@ fun GraphicPacksScreen(
         contentKey = currentNode,
     ) {
         if (showGraphicPackSearch && currentNode.isRoot()) {
+            if (graphicPackDataNodes.isEmpty() && query.isNotBlank())
+                emptyListHint(tr("No graphic packs match \"{0}\"", query))
             graphicPackDataSearchItems(
                 nodes = graphicPackDataNodes,
                 onClick = { graphicPacksViewModel.navigateTo(it) },
@@ -158,6 +160,11 @@ fun GraphicPacksScreen(
         }
 
         if (currentNode is GraphicPackSectionNode) {
+            if (currentNode.isRoot() && !graphicPacksViewModel.hasGraphicPacks) {
+                emptyListHint(tr("No graphic packs yet. Download the community graphic packs with the download button (X)."))
+            } else if (installedOnly && currentNode.children.isNotEmpty() && currentNode.children.none { it.titleIdInstalled }) {
+                emptyListHint(tr("None of these graphic packs is for an installed game. Turn off \"Installed only\" (Select) to see them all."))
+            }
             graphicPackSectionItems(
                 installedOnly = installedOnly,
                 nodes = currentNode.children,
@@ -249,7 +256,7 @@ private fun GraphicPacksRootSectionActions(
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_search),
-                contentDescription = null
+                contentDescription = tr("Search")
             )
         }
         IconButton(
@@ -257,7 +264,7 @@ private fun GraphicPacksRootSectionActions(
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_download),
-                contentDescription = null
+                contentDescription = tr("Download")
             )
         }
     }
@@ -267,7 +274,7 @@ private fun GraphicPacksRootSectionActions(
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_more_vert),
-            contentDescription = null
+            contentDescription = tr("More")
         )
     }
     DropdownMenu(
@@ -287,6 +294,17 @@ private fun GraphicPacksRootSectionActions(
                     onCheckedChange = null
                 )
             }
+        )
+    }
+}
+
+private fun LazyListScope.emptyListHint(text: String) {
+    item {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(8.dp),
         )
     }
 }

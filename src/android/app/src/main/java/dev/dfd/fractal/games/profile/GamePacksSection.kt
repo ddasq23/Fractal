@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +27,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import dev.dfd.fractal.common.ui.fractal.PadButton
+import dev.dfd.fractal.common.ui.fractal.ButtonHint
+import dev.dfd.fractal.common.ui.components.FractalAlertDialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import dev.dfd.fractal.common.ui.fractal.FractalButton
 import dev.dfd.fractal.common.ui.fractal.SectionTitle
@@ -285,8 +288,10 @@ private fun PackItem(pack: GamePack, actions: PackActions, showGroup: Boolean) {
 /** Progress while the community graphic packs download; [onCancel] stops it. */
 @Composable
 fun PacksDownloadDialog(status: GraphicPacksDownloadStatus, onCancel: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = {},
+    FractalAlertDialog(
+        onDismissRequest = onCancel,
+        properties = DialogProperties(dismissOnClickOutside = false),
+        hints = listOf(ButtonHint(PadButton.A, tr("Cancel")), ButtonHint(PadButton.B, tr("Cancel"))),
         title = { Text(tr("Graphic packs download")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -300,7 +305,6 @@ fun PacksDownloadDialog(status: GraphicPacksDownloadStatus, onCancel: () -> Unit
                 LinearProgressIndicator(color = FractalTheme.colors.accent, modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onCancel) { Text(tr("Cancel")) } },
+        confirmButton = { TextButton(onClick = onCancel) { Text(tr("Cancel")) } },
     )
 }

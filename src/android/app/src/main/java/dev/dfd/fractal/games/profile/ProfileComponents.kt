@@ -32,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -118,7 +120,8 @@ fun <T> ChoiceRow(
             color = FractalTheme.colors.accent,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.widthIn(max = 220.dp),
+            // a long value (a preset name) must leave the title room on a portrait screen
+            modifier = Modifier.widthAtMost(fraction = 0.45f, max = 220.dp),
         )
         Icon(FractalIcons.Next, null, tint = FractalTheme.colors.textSecondary, modifier = Modifier.padding(start = 6.dp).size(18.dp))
     }
@@ -145,6 +148,7 @@ fun <T> ChoiceSheet(
                 primary = choice == value,
                 // with a gamepad the sheet opens on the current value
                 modifier = Modifier.fillMaxWidth().focusOnOpen(choice == value),
+                maxLines = 2,
             )
         }
     }
@@ -199,4 +203,12 @@ fun HintText(text: String, modifier: Modifier = Modifier) {
         color = FractalTheme.colors.textSecondary,
         modifier = modifier.padding(horizontal = 4.dp),
     )
+}
+
+/** Wraps its content but takes at most [fraction] of the width left in the row, and never more than [max]. */
+private fun Modifier.widthAtMost(fraction: Float, max: Dp): Modifier = layout { measurable, constraints ->
+    val limit = if (constraints.hasBoundedWidth) minOf((constraints.maxWidth * fraction).toInt(), max.roundToPx())
+    else max.roundToPx()
+    val placeable = measurable.measure(constraints.copy(minWidth = 0, maxWidth = limit.coerceAtLeast(0)))
+    layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
 }
