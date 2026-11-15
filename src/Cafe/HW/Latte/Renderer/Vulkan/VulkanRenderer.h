@@ -9,6 +9,7 @@
 #include "Cafe/HW/Latte/Renderer/Vulkan/CachedFBOVk.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VKRMemoryManager.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/SwapchainInfoVk.h"
+#include "Cafe/HW/Latte/Renderer/Vulkan/FrameGen/FrameGenVk.h"
 #include "util/math/vector2.h"
 #include "util/helpers/Semaphore.h"
 #include "util/containers/flat_hash_map.hpp"
@@ -536,6 +537,9 @@ private:
 			bool attachment_feedback_loop_dynamic_state = false; // VK_EXT_attachment_feedback_loop_dynamic_state (this is forced to false if VK_EXT_attachment_feedback_loop_layout is not supported)
 			bool load_store_op_none = false; // VK_EXT_load_store_op_none
 			bool qcom_render_pass_store_ops = false; // VK_QCOM_render_pass_store_ops (VK_ATTACHMENT_STORE_OP_NONE_QCOM)
+			bool vulkan_memory_model = false; // VK_KHR_vulkan_memory_model (frame generation)
+			bool shader_float16_int8 = false; // VK_KHR_shader_float16_int8 (frame generation)
+			bool robustness2 = false; // VK_EXT_robustness2 (frame generation, null descriptors)
 		}deviceExtensions;
 
 		struct
@@ -547,6 +551,20 @@ private:
 			bool depth_clamp;
 			bool vertex_pipeline_stores_and_atomics;
 		} deviceFeatures;
+
+		// Lossless Scaling frame generation. Its extensions and features are only enabled on the device when frame
+		// generation was turned on before the game started, so with it off the device is created exactly as before
+		struct
+		{
+			bool supported = false; // all features required by the Lossless Scaling shaders are available
+			bool enabled_on_device = false; // the features below were enabled when the device was created
+			bool vulkan_memory_model_device_scope = false;
+			bool shader_int8 = false;
+			bool shader_int16 = false;
+			bool shader_storage_image_extended_formats = false;
+			bool shader_storage_image_read_without_format = false;
+			bool shader_storage_image_write_without_format = false;
+		}frameGen;
 
 		struct
 		{
@@ -576,6 +594,11 @@ private:
 
 	bool UpdateSwapchainProperties(bool mainWindow);
 	void SwapBuffer(bool mainWindow);
+	void PresentSwapchainImage(SwapchainInfoVk& chainInfo, bool isGeneratedFrame);
+
+	// frame generation (TV only)
+	std::unique_ptr<FrameGenVk> m_frameGen;
+	uint32 m_tvSourceWidth = 0; // width of the image last drawn to the TV backbuffer
 
 	VkDescriptorSetLayout m_swapchainDescriptorSetLayout;
 
