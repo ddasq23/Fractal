@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -53,6 +54,7 @@ import dev.dfd.fractal.common.ui.theme.fractalSurface
 import dev.dfd.fractal.emulation.input.displayName
 import dev.dfd.fractal.emulation.input.shortLabel
 import dev.dfd.fractal.emulation.inputoverlay.OverlayPalette
+import dev.dfd.fractal.emulation.inputoverlay.SkinColors
 import kotlin.math.roundToInt
 
 /** Colors the overlay draws with: the chosen style, or the current app theme. */
@@ -121,33 +123,38 @@ fun OverlayStyleOptions(
     }
 }
 
-/** An idle button, a pressed one and a stick, drawn the way the overlay draws them. */
+/** A stick, an idle button, a pressed one and a trigger, drawn the way the overlay draws them. */
 @Composable
 fun OverlayStylePreview(palette: OverlayPalette, alpha: Int) {
-    Canvas(Modifier.fillMaxWidth().height(64.dp)) {
+    val colors = remember(palette, alpha) { SkinColors().apply { update(alpha.coerceAtLeast(60), palette) } }
+    Canvas(Modifier.fillMaxWidth().height(72.dp)) {
         val r = size.height * 0.36f
         val cy = size.height / 2f
-        fun c(color: Int, a: Int) = Color(color).copy(alpha = (a.coerceIn(0, 255)) / 255f)
-        val boosted = (alpha * palette.activeAlphaBoost).toInt()
-        val baseAlpha = alpha.coerceAtLeast(40)
-        val boostedAlpha = boosted.coerceAtLeast(70)
-        // stick: base and knob
+        val rim = 2.dp.toPx()
+        // stick: well, gate chevrons and knob
         val stickX = r * 1.4f
-        drawCircle(c(palette.backgroundFill, baseAlpha), r * 1.25f, Offset(stickX, cy))
-        drawButton(c(palette.inactiveFill, baseAlpha), c(palette.inactiveStroke, baseAlpha), Offset(stickX + r * 0.3f, cy - r * 0.2f), r * 0.8f)
+        drawCircle(Color(colors.base), r * 1.25f, Offset(stickX, cy))
+        drawCircle(Color(colors.baseRim), r * 1.25f, Offset(stickX, cy), style = Stroke(rim))
+        drawCircle(Color(colors.body), r * 0.6f, Offset(stickX + r * 0.3f, cy - r * 0.2f))
+        drawCircle(Color(colors.rim), r * 0.6f, Offset(stickX + r * 0.3f, cy - r * 0.2f), style = Stroke(rim))
         // idle and pressed buttons
-        drawButton(c(palette.inactiveFill, baseAlpha), c(palette.inactiveStroke, baseAlpha), Offset(stickX + r * 3.4f, cy), r)
-        drawButton(c(palette.activeFill, boostedAlpha), c(palette.activeStroke, boostedAlpha), Offset(stickX + r * 5.8f, cy), r)
-        // shoulder button
-        val left = stickX + r * 7.6f
-        drawRoundRect(c(palette.inactiveFill, baseAlpha), Offset(left, cy - r * 0.6f), Size(r * 3f, r * 1.2f), CornerRadius(8f))
-        drawRoundRect(c(palette.inactiveStroke, baseAlpha), Offset(left, cy - r * 0.6f), Size(r * 3f, r * 1.2f), CornerRadius(8f), style = Stroke(3f))
+        drawPreviewButton(Color(colors.bodyTop), Color(colors.body), Color(colors.rim), Offset(stickX + r * 3.4f, cy), r, rim)
+        drawCircle(Color(colors.glow), r * 1.1f, Offset(stickX + r * 5.8f, cy), style = Stroke(rim * 2f))
+        drawPreviewButton(Color(colors.bodyPressedTop), Color(colors.bodyPressed), Color(colors.glow), Offset(stickX + r * 5.8f, cy), r * 0.94f, rim)
+        // trigger
+        val left = stickX + r * 7.8f
+        val top = cy - r * 0.6f
+        drawRoundRect(
+            Brush.verticalGradient(listOf(Color(colors.bodyTop), Color(colors.body)), top, top + r * 1.2f),
+            Offset(left, top), Size(r * 3f, r * 1.2f), CornerRadius(r * 0.6f),
+        )
+        drawRoundRect(Color(colors.rim), Offset(left, top), Size(r * 3f, r * 1.2f), CornerRadius(r * 0.6f), style = Stroke(rim))
     }
 }
 
-private fun DrawScope.drawButton(fill: Color, stroke: Color, center: Offset, radius: Float) {
-    drawCircle(fill, radius, center)
-    drawCircle(stroke, radius, center, style = Stroke(3f))
+private fun DrawScope.drawPreviewButton(top: Color, bottom: Color, rim: Color, center: Offset, radius: Float, rimWidth: Float) {
+    drawCircle(Brush.verticalGradient(listOf(top, bottom), center.y - radius, center.y + radius), radius, center)
+    drawCircle(rim, radius, center, style = Stroke(rimWidth))
 }
 
 /**
@@ -287,7 +294,7 @@ fun ShortcutEditorDialog(
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            tr("New shortcuts appear at the top of the screen; move them in edit mode."),
+            tr("New buttons appear in a free spot; drag them where you want."),
             style = MaterialTheme.typography.bodySmall,
             color = FractalTheme.colors.textSecondary,
         )

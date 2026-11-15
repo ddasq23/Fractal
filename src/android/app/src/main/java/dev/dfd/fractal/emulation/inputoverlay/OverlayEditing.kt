@@ -17,7 +17,7 @@ sealed interface OverlayTarget {
     data class Shortcut(val id: String) : OverlayTarget
 }
 
-/** Key of the target in [dev.dfd.fractal.common.settings.OverlayLayoutProfile.styles]. */
+/** Key of the target in [dev.dfd.fractal.common.settings.OverlayLayoutProfile.styles] and saved positions. */
 val OverlayTarget.styleKey: String
     get() = when (this) {
         is OverlayTarget.Builtin -> styleKey(config)
@@ -25,38 +25,44 @@ val OverlayTarget.styleKey: String
         is OverlayTarget.Shortcut -> id
     }
 
-/** Positions changed in one edit session, to be merged into the active profile of [controllerType]. */
-data class OverlayEditResult(
-    val controllerType: OverlayControllerType,
-    val rects: Map<OverlayInputConfig, NormalizedRect>,
-    val macroRects: Map<String, NormalizedRect>,
-) {
-    val isEmpty: Boolean get() = rects.isEmpty() && macroRects.isEmpty()
-}
-
-/** Lets Compose UI talk to the overlay view: edit commands, live previews, controller type. */
+/** Lets Compose UI talk to the overlay view: selection, live previews, controller type. */
 @Stable
 class InputOverlayController {
-    internal var view: InputOverlaySurfaceView? = null
+    internal var view: InputOverlayView? = null
 
     /** Emulated controller type the overlay shows, null while unknown or disabled. */
     var controllerType by mutableStateOf<OverlayControllerType?>(null)
         internal set
 
-    /** Saves the moves and resizes made so far, e.g. before switching profiles. */
-    fun commitEdits() {
-        view?.commitEdits()
+    /** The overlay is taller than wide: edits go to the portrait layout. */
+    var isPortrait by mutableStateOf(false)
+        internal set
+
+    /** Input selected in edit mode. */
+    var selected by mutableStateOf<OverlayTarget?>(null)
+        private set
+
+    /** The selected input is on the left half: panels go to the right. */
+    var selectedOnLeft by mutableStateOf(false)
+        private set
+
+    internal fun onSelection(target: OverlayTarget?, onLeft: Boolean) {
+        selected = target
+        if (target != null) selectedOnLeft = onLeft
     }
 
-    /** Throws away moves and resizes not saved yet. */
-    fun discardEdits() {
-        view?.discardEdits()
+    /** Selects [target] on the overlay (null clears the selection). */
+    fun select(target: OverlayTarget?) {
+        val view = view
+        if (view == null) {
+            selected = target
+        } else {
+            view.selectTarget(target)
+        }
     }
 
-    /** Shows the default layout right away; the caller resets the saved one. */
-    fun showDefaultLayout() {
-        view?.showDefaultLayout()
-    }
+    /** Where [target] is now, in the saved form. */
+    fun currentLayoutOf(target: OverlayTarget): NormalizedRect? = view?.currentLayoutOf(target)
 
     /** Applies opacity/size without saving, while a slider is dragged. Null keeps the saved value. */
     fun previewAppearance(alpha: Int? = null, scale: Float? = null) {

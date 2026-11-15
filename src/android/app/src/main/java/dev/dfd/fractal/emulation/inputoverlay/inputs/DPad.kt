@@ -1,139 +1,165 @@
 package dev.dfd.fractal.emulation.inputoverlay.inputs
 
 import android.graphics.Canvas
-import android.graphics.Paint
+import android.graphics.LinearGradient
 import android.graphics.Path
-import android.graphics.PointF
-import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.Shader
 import android.view.MotionEvent
 import dev.dfd.fractal.emulation.inputoverlay.OverlayDpad
-import dev.dfd.fractal.emulation.inputoverlay.Colors
-import dev.dfd.fractal.emulation.inputoverlay.LineBounds
-import dev.dfd.fractal.emulation.inputoverlay.drawLine
-import dev.dfd.fractal.emulation.inputoverlay.fillPathWithStroke
-import dev.dfd.fractal.emulation.inputoverlay.fitInsideRectangle
-import dev.dfd.fractal.emulation.inputoverlay.rotate
-import kotlin.math.atan2
+import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
 
+fun interface DPadListener {
+    fun onDirection(direction: OverlayDpad, pressed: Boolean)
+}
+
+/** Cross pad on a round plate; diagonals press two directions. */
 class DPad(
-    private val onButtonStateChange: (button: OverlayDpad, state: Boolean) -> Unit,
+    private val listener: DPadListener,
     alpha: Int,
-    rect: Rect,
-) : Input(rect, alpha) {
-    private var backgroundFillColor: Int = 0
-    private var backgroundStrokeColor: Int = 0
-
-    private val markerPaint = Paint().apply { strokeWidth = MARKER_WIDTH }
-    private val upMarker = LineBounds()
-    private val downMarker = LineBounds()
-    private val leftMarker = LineBounds()
-    private val rightMarker = LineBounds()
-
+) : Input(alpha) {
     private var dpadState: Int = NONE
+    private var centerX = 0f
+    private var centerY = 0f
+    private var radius = 0f
+    private var radius2 = 0f
+    private var currentPointerId = -1
 
-    private var centerX: Float = 0f
-    private var centerY: Float = 0f
-    private var radius2: Float = 0f
-    private var radius: Float = 0f
-    private var currentPointerId: Int = -1
+    private val crossPath = Path()
+    private val armPaths = Array(4) { Path() }
+    private val arrowPaths = Array(4) { Path() }
+    private var crossShader: Shader? = null
+    private var pressedShader: Shader? = null
+    private var dimpleRadius = 0f
 
-    private var crossPath = Path()
-
-    override fun configure() {
-        backgroundFillColor = Colors.backgroundFill(alpha)
-        backgroundStrokeColor = Colors.backgroundStroke(alpha)
-        configureColors(alpha)
-
-        centerX = rect.exactCenterX()
-        centerY = rect.exactCenterY()
-        radius = min(rect.width(), rect.height()) * 0.5f
-        radius2 = radius * radius
-
-        val markerSize = radius * 0.35f
-        val offset = radius * 0.375f
-
-        fun configureMarker(angleDegrees: Float, lineBounds: LineBounds) {
-            val start = PointF(centerX + offset, centerY)
-            val stop = PointF(start.x + markerSize, centerY)
-            start.rotate(centerX, centerY, angleDegrees)
-            stop.rotate(centerX, centerY, angleDegrees)
-            lineBounds.setFromPoints(start, stop)
-        }
-
-
-        configureMarker(0f, rightMarker)
-        configureMarker(90f, downMarker)
-        configureMarker(180f, leftMarker)
-        configureMarker(270f, upMarker)
-
-        crossPath = Path(OriginalCrossPath)
-        crossPath.fitInsideRectangle(rect, CROSS_PATH_CANVAS_SIZE)
-    }
+    private val fill = fillPaint()
+    private val stroke = strokePaint()
+    private val arrowPaint = fillPaint()
 
     init {
         configure()
     }
 
+    override fun configure() {
+        colors.update(effectiveAlpha)
+        centerX = rect.exactCenterX()
+        centerY = rect.exactCenterY()
+        radius = min(rect.width(), rect.height()) * 0.5f
+        radius2 = radius * radius
+        val rimWidth = max(1.5f * density, radius * 0.04f)
+        stroke.strokeWidth = rimWidth
+
+        val arm = radius * 0.68f
+        val armHalfWidth = radius * 0.3f
+        val corner = armHalfWidth * 0.45f
+        crossPath.reset()
+        val horizontal = Path().apply {
+            addRoundRect(RectF(centerX - arm, centerY - armHalfWidth, centerX + arm, centerY + armHalfWidth), corner, corner, Path.Direction.CW)
+        }
+        val vertical = Path().apply {
+            addRoundRect(RectF(centerX - armHalfWidth, centerY - arm, centerX + armHalfWidth, centerY + arm), corner, corner, Path.Direction.CW)
+        }
+        crossPath.op(horizontal, vertical, Path.Op.UNION)
+
+        // one lit arm per direction: up, down, left, right
+        val inner = armHalfWidth * 0.35f
+        val armRects = arrayOf(
+            RectF(centerX - armHalfWidth, centerY - arm, centerX + armHalfWidth, centerY - inner),
+            RectF(centerX - armHalfWidth, centerY + inner, centerX + armHalfWidth, centerY + arm),
+            RectF(centerX - arm, centerY - armHalfWidth, centerX - inner, centerY + armHalfWidth),
+            RectF(centerX + inner, centerY - armHalfWidth, centerX + arm, centerY + armHalfWidth),
+        )
+        for (i in 0 until 4) {
+            armPaths[i].reset()
+            armPaths[i].addRoundRect(armRects[i], corner, corner, Path.Direction.CW)
+        }
+
+        // arrows two thirds out on each arm
+        val tip = arm * 0.78f
+        val back = arm * 0.48f
+        val half = armHalfWidth * 0.42f
+        for (i in 0 until 4) {
+            val p = arrowPaths[i]
+            p.reset()
+            when (i) {
+                UP_INDEX -> {
+                    p.moveTo(centerX, centerY - tip)
+                    p.lineTo(centerX + half, centerY - back)
+                    p.lineTo(centerX - half, centerY - back)
+                }
+
+                DOWN_INDEX -> {
+                    p.moveTo(centerX, centerY + tip)
+                    p.lineTo(centerX - half, centerY + back)
+                    p.lineTo(centerX + half, centerY + back)
+                }
+
+                LEFT_INDEX -> {
+                    p.moveTo(centerX - tip, centerY)
+                    p.lineTo(centerX - back, centerY - half)
+                    p.lineTo(centerX - back, centerY + half)
+                }
+
+                else -> {
+                    p.moveTo(centerX + tip, centerY)
+                    p.lineTo(centerX + back, centerY + half)
+                    p.lineTo(centerX + back, centerY - half)
+                }
+            }
+            p.close()
+        }
+        dimpleRadius = armHalfWidth * 0.42f
+
+        crossShader = LinearGradient(0f, centerY - arm, 0f, centerY + arm, colors.bodyTop, colors.body, Shader.TileMode.CLAMP)
+        pressedShader = LinearGradient(
+            0f, centerY - arm, 0f, centerY + arm, colors.bodyPressedTop, colors.bodyPressed, Shader.TileMode.CLAMP,
+        )
+    }
+
     private fun updateState(nextDpadState: Int) {
         if (nextDpadState == dpadState) return
-        updateState(dpadState and nextDpadState.inv(), false)
-        updateState(nextDpadState and dpadState.inv(), true)
+        notify(dpadState and nextDpadState.inv(), false)
+        notify(nextDpadState and dpadState.inv(), true)
         dpadState = nextDpadState
     }
 
-    private fun updateState(dpadState: Int, pressed: Boolean) {
-        if (dpadState == NONE) return
-        if ((dpadState and UP) != 0) {
-            onButtonStateChange(OverlayDpad.DPAD_UP, pressed)
-        }
-        if ((dpadState and DOWN) != 0) {
-            onButtonStateChange(OverlayDpad.DPAD_DOWN, pressed)
-        }
-        if ((dpadState and LEFT) != 0) {
-            onButtonStateChange(OverlayDpad.DPAD_LEFT, pressed)
-        }
-        if ((dpadState and RIGHT) != 0) {
-            onButtonStateChange(OverlayDpad.DPAD_RIGHT, pressed)
-        }
+    private fun notify(changed: Int, pressed: Boolean) {
+        if (changed == NONE) return
+        if ((changed and UP) != 0) listener.onDirection(OverlayDpad.DPAD_UP, pressed)
+        if ((changed and DOWN) != 0) listener.onDirection(OverlayDpad.DPAD_DOWN, pressed)
+        if ((changed and LEFT) != 0) listener.onDirection(OverlayDpad.DPAD_LEFT, pressed)
+        if ((changed and RIGHT) != 0) listener.onDirection(OverlayDpad.DPAD_RIGHT, pressed)
     }
 
-    private fun getStateByPosition(x: Float, y: Float): Int {
+    /** Eight sectors of 45°; the dead zone in the middle presses nothing. */
+    private fun stateAt(x: Float, y: Float): Int {
         val dx = x - centerX
         val dy = y - centerY
-        val norm2 = dx * dx + dy * dy
-
-        if (norm2 <= radius2 * 0.1f) {
-            return NONE
-        }
-
-        val angle = atan2(dy, dx)
-
-        return when (angle) {
-            in -0.875 * Math.PI..<-0.625 * Math.PI -> UP or LEFT
-            in -0.625 * Math.PI..<-0.375 * Math.PI -> UP
-            in -0.375 * Math.PI..<-0.125 * Math.PI -> UP or RIGHT
-            in -0.125 * Math.PI..<0.125 * Math.PI -> RIGHT
-            in 0.125 * Math.PI..<0.375 * Math.PI -> DOWN or RIGHT
-            in 0.375 * Math.PI..<0.625 * Math.PI -> DOWN
-            in 0.625 * Math.PI..<0.875 * Math.PI -> DOWN or LEFT
-            else -> LEFT // in [-pi, -0.875*pi) or [0.875*pi, pi]
+        if (dx * dx + dy * dy <= radius2 * DEAD_ZONE) return NONE
+        val ax = abs(dx)
+        val ay = abs(dy)
+        val vertical = if (dy < 0) UP else DOWN
+        val horizontal = if (dx < 0) LEFT else RIGHT
+        // within 22.5° of an axis the touch is a straight direction, otherwise a diagonal
+        return when {
+            ay <= ax * TAN_22_5 -> horizontal
+            ax <= ay * TAN_22_5 -> vertical
+            else -> vertical or horizontal
         }
     }
 
     override fun onTouch(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-                if (currentPointerId != -1) {
-                    return false
-                }
+                if (currentPointerId != -1) return false
                 val pointerIndex = event.actionIndex
                 val x = event.getX(pointerIndex)
                 val y = event.getY(pointerIndex)
-                val pointerId = event.getPointerId(pointerIndex)
                 if (isInside(x, y)) {
-                    currentPointerId = pointerId
-                    updateState(getStateByPosition(x, y))
+                    currentPointerId = event.getPointerId(pointerIndex)
+                    updateState(stateAt(x, y))
                     return true
                 }
             }
@@ -147,8 +173,7 @@ class DPad(
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
-                val pointerId = event.getPointerId(event.actionIndex)
-                if (pointerId == currentPointerId) {
+                if (event.getPointerId(event.actionIndex) == currentPointerId) {
                     currentPointerId = -1
                     updateState(NONE)
                     return true
@@ -156,18 +181,12 @@ class DPad(
             }
 
             MotionEvent.ACTION_MOVE -> {
-                if (currentPointerId == -1) {
-                    return false
-                }
-                for (i in 0 until event.pointerCount) {
-                    if (currentPointerId != event.getPointerId(i)) {
-                        continue
-                    }
-                    val x = event.getX(i)
-                    val y = event.getY(i)
-                    updateState(getStateByPosition(x, y))
-                    return true
-                }
+                if (currentPointerId == -1) return false
+                val index = event.findPointerIndex(currentPointerId)
+                if (index < 0) return false
+                val before = dpadState
+                updateState(stateAt(event.getX(index), event.getY(index)))
+                return before != dpadState
             }
         }
         return false
@@ -184,49 +203,51 @@ class DPad(
         return dx * dx + dy * dy <= radius2
     }
 
-    override fun drawInput(canvas: Canvas) {
-        canvas.fillPathWithStroke(crossPath, paint, backgroundFillColor, backgroundStrokeColor)
+    override fun draw(canvas: Canvas) {
+        // plate
+        fill.shader = null
+        fill.color = colors.base
+        canvas.drawCircle(centerX, centerY, radius - stroke.strokeWidth, fill)
+        stroke.color = colors.baseRim
+        canvas.drawCircle(centerX, centerY, radius - stroke.strokeWidth, stroke)
 
-        drawMarker(canvas, upMarker, dpadState and UP)
-        drawMarker(canvas, downMarker, dpadState and DOWN)
-        drawMarker(canvas, leftMarker, dpadState and LEFT)
-        drawMarker(canvas, rightMarker, dpadState and RIGHT)
-    }
-
-    private fun drawMarker(canvas: Canvas, bounds: LineBounds, state: Int) {
-        if (state != 0) {
-            markerPaint.color = activeStrokeColor
-        } else {
-            markerPaint.color = inactiveStrokeColor
+        // cross with its shadow
+        fill.color = colors.shadow
+        canvas.save()
+        canvas.translate(0f, stroke.strokeWidth * 1.5f)
+        canvas.drawPath(crossPath, fill)
+        canvas.restore()
+        fill.shader = crossShader
+        canvas.drawPath(crossPath, fill)
+        fill.shader = pressedShader
+        for (i in 0 until 4) {
+            if ((dpadState and DIRECTION_BITS[i]) != 0) canvas.drawPath(armPaths[i], fill)
         }
+        fill.shader = null
+        stroke.color = colors.rim
+        canvas.drawPath(crossPath, stroke)
 
-        canvas.drawLine(bounds, markerPaint)
+        for (i in 0 until 4) {
+            arrowPaint.color = if ((dpadState and DIRECTION_BITS[i]) != 0) colors.glyphPressed else colors.glyph
+            canvas.drawPath(arrowPaths[i], arrowPaint)
+        }
+        fill.color = colors.shadow
+        canvas.drawCircle(centerX, centerY, dimpleRadius, fill)
     }
 
     companion object {
-        private const val CROSS_PATH_CANVAS_SIZE = 100F
-        private val OriginalCrossPath by lazy(LazyThreadSafetyMode.NONE) {
-            Path().apply {
-                moveTo(0f, -65f)
-                lineTo(35f, -65f)
-                lineTo(35f, -100f)
-                rLineTo(30f, 0f)
-                rLineTo(0f, 35f)
-                rLineTo(35f, 0f)
-                lineTo(100f, -35f)
-                lineTo(65f, -35f)
-                rLineTo(0f, 35f)
-                lineTo(35f, 0f)
-                lineTo(35f, -35f)
-                lineTo(0f, -35f)
-                close()
-            }
-        }
-        private const val MARKER_WIDTH = 15f
         private const val NONE = 0
         private const val UP = 1 shl 0
         private const val DOWN = 1 shl 1
         private const val LEFT = 1 shl 2
         private const val RIGHT = 1 shl 3
+        private const val UP_INDEX = 0
+        private const val DOWN_INDEX = 1
+        private const val LEFT_INDEX = 2
+        private val DIRECTION_BITS = intArrayOf(UP, DOWN, LEFT, RIGHT)
+
+        /** Fraction of the squared radius in the middle that presses nothing. */
+        private const val DEAD_ZONE = 0.04f
+        private const val TAN_22_5 = 0.41421357f
     }
 }

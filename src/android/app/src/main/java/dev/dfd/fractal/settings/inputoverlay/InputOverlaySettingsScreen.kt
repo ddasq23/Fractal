@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.dfd.fractal.common.settings.OverlayControllerType
@@ -83,6 +84,7 @@ fun InputOverlaySettingsScreen(
     navigateBack: () -> Unit,
 ) {
     val overlaySettings by viewModel.overlaySettings.collectAsState()
+    val context = LocalContext.current
     var layoutType by rememberSaveable { mutableStateOf(OverlayControllerType.VPAD) }
     var macroEditing by remember { mutableStateOf<MacroEditing?>(null) }
     var shortcutEditing by remember { mutableStateOf<OverlayShortcut?>(null) }
@@ -116,7 +118,7 @@ fun InputOverlaySettingsScreen(
 
         SectionTitle(tr("Layout profiles"))
         Text(
-            tr("Each controller type has its own profiles. Positions, sizes and button options (toggle, turbo) are edited on the overlay: open the menu while playing and choose Edit inputs, then long press an input."),
+            tr("Each controller type has its own profiles. The layout adapts to the screen; to move, resize or add buttons, open the editor here or choose Edit on-screen controls in the in-game menu."),
             style = MaterialTheme.typography.bodySmall,
             color = FractalTheme.colors.textSecondary,
         )
@@ -125,6 +127,11 @@ fun InputOverlaySettingsScreen(
                 OverlayChip(type.displayName(), selected = layoutType == type, onClick = { layoutType = type })
             }
         }
+        FractalButton(
+            tr("Edit layout"),
+            onClick = { OverlayLayoutEditorActivity.start(context, layoutType) },
+            icon = FractalIcons.Grid,
+        )
         ProfileList(
             settings = overlaySettings,
             controllerType = layoutType,

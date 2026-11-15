@@ -2533,3 +2533,120 @@ msgstr "Mostrar todas as versões ({0})"
 
 msgid "The system driver works on every device. On Adreno, a Turnip driver often runs games faster or fixes graphics: pick a developer and download one below. You can change it later in Settings > Drivers."
 msgstr "O driver do sistema funciona em qualquer aparelho. Nas Adreno, um driver Turnip costuma rodar os jogos mais rápido ou corrigir gráficos: escolha um desenvolvedor e baixe um abaixo. Dá para trocar depois em Configurações > Drivers."
+
+msgid "New buttons appear in a free spot; drag them where you want."
+msgstr "Os botões novos aparecem num espaço livre; arraste para onde quiser."
+
+msgid "Snap to guides"
+msgstr "Alinhar às guias"
+
+msgid "Inputs moved in edit mode line up with the others, the middle of the screen and the mirrored spot on the other side"
+msgstr "Controles movidos no modo de edição se alinham aos outros, ao meio da tela e à posição espelhada do outro lado"
+
+msgid "Pause while editing"
+msgstr "Pausar durante a edição"
+
+msgid "The game pauses while the on-screen controls are edited from the in-game menu"
+msgstr "O jogo pausa enquanto os controles na tela são editados pelo menu do jogo"
+
+msgid "The emulated controller is disabled. Pick a controller type in Controller mapping to edit its on-screen controls."
+msgstr "O controle emulado está desativado. Escolha um tipo de controle em Mapeamento do controle para editar os controles na tela."
+
+msgid "Back to the automatic layout"
+msgstr "Voltar ao layout automático"
+
+msgid "Put every input of the profile \"{0}\" back on the layout made for this screen? Button options, macros and shortcuts are kept."
+msgstr "Colocar todos os controles do perfil \"{0}\" de volta no layout feito para esta tela? Opções dos botões, macros e atalhos são mantidos."
+
+msgid "Discard changes"
+msgstr "Descartar alterações"
+
+msgid "Leave the editor without saving the changes?"
+msgstr "Sair do editor sem salvar as alterações?"
+
+msgid "Discard"
+msgstr "Descartar"
+
+msgid "This profile keeps the layout of an older version. The new layout adapts to the screen and has bigger controls."
+msgstr "Este perfil mantém o layout de uma versão antiga. O layout novo se adapta à tela e tem controles maiores."
+
+msgid "Use the new layout"
+msgstr "Usar o layout novo"
+
+msgid "Try the controls. Tap Test again to go back to editing."
+msgstr "Experimente os controles. Toque em Testar de novo para voltar à edição."
+
+msgid "Tap a control to edit it. Drag to move it; pinch or drag a corner to resize it."
+msgstr "Toque num controle para editá-lo. Arraste para mover; faça pinça ou arraste um canto para mudar o tamanho."
+
+msgid "Undo"
+msgstr "Desfazer"
+
+msgid "Redo"
+msgstr "Refazer"
+
+msgid "Add"
+msgstr "Adicionar"
+
+msgid "Combo macro: buttons pressed together"
+msgstr "Macro de combinação: botões apertados juntos"
+
+msgid "Sequence macro: buttons pressed one after another"
+msgstr "Macro de sequência: botões apertados um após o outro"
+
+msgid "Turbo button"
+msgstr "Botão turbo"
+
+msgid "Toggle button"
+msgstr "Botão de alternar"
+
+msgid "Shortcut: an emulator action"
+msgstr "Atalho: uma ação do emulador"
+
+msgid "Show hidden inputs ({0})"
+msgstr "Mostrar controles ocultos ({0})"
+
+msgid "Guides"
+msgstr "Guias"
+
+msgid "Test"
+msgstr "Testar"
+
+msgid "Shortcut"
+msgstr "Atalho"
+
+msgid "Hidden while playing"
+msgstr "Oculto durante o jogo"
+
+msgid "Controller input"
+msgstr "Entrada do controle"
+
+msgid "Show"
+msgstr "Mostrar"
+
+msgid "Default spot"
+msgstr "Posição padrão"
+
+msgid "Delete button"
+msgstr "Apagar botão"
+
+msgid "Delete \"{0}\"?"
+msgstr "Apagar \"{0}\"?"
+
+msgid "New turbo button"
+msgstr "Novo botão turbo"
+
+msgid "New toggle button"
+msgstr "Novo botão de alternar"
+
+msgid "An extra button that presses and releases the button you pick over and over while you hold it."
+msgstr "Um botão extra que aperta e solta o botão escolhido repetidamente enquanto você o segura."
+
+msgid "An extra button that keeps the button you pick pressed until you tap it again."
+msgstr "Um botão extra que mantém o botão escolhido apertado até você tocar nele de novo."
+
+msgid "Each controller type has its own profiles. The layout adapts to the screen; to move, resize or add buttons, open the editor here or choose Edit on-screen controls in the in-game menu."
+msgstr "Cada tipo de controle tem seus próprios perfis. O layout se adapta à tela; para mover, redimensionar ou adicionar botões, abra o editor aqui ou escolha Editar controles na tela no menu do jogo."
+
+msgid "Edit layout"
+msgstr "Editar layout"

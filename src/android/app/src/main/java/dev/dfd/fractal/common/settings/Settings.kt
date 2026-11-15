@@ -59,6 +59,7 @@ data class InputOverlayRect(
     val bottom: Int,
 )
 
+const val DEFAULT_OVERLAY_ALPHA = 150
 const val OVERLAY_SCALE_MIN = 0.5f
 const val OVERLAY_SCALE_MAX = 2.0f
 
@@ -72,13 +73,18 @@ data class InputOverlaySettings(
     /** null until the user picks: the overlay then shows only when no game controller is connected (phones). */
     val isOverlayEnabled: Boolean? = null,
     val controllerIndex: Int = 0,
-    val alpha: Int = 64,
+    /** Opacity of the inputs, 0..255. */
+    val alpha: Int = DEFAULT_OVERLAY_ALPHA,
     /** Size multiplier applied to every input on top of its own size. */
     val scale: Float = 1f,
     /** A finger moving from a button onto another releases the first and presses the second. */
     val slideBetweenButtons: Boolean = false,
     /** Inputs moved or resized in edit mode snap to a grid. */
     val snapToGrid: Boolean = false,
+    /** Inputs moved in edit mode snap to the edges and centers of the others, the middle of the screen and mirrored spots. */
+    val snapToGuides: Boolean = true,
+    /** The game pauses while the on-screen controls are edited from the in-game menu. */
+    val pauseWhileEditing: Boolean = true,
     val inputVisibilityMap: Map<OverlayInputConfig, Boolean> = emptyMap(),
     /** Legacy absolute pixel layout; moved into [profiles] by the overlay on first load. */
     val inputOverlayRectMap: Map<OverlayInputConfig, InputOverlayRect> = emptyMap(),

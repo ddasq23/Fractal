@@ -18,11 +18,9 @@ import dev.dfd.fractal.common.settings.AppSettings
 import dev.dfd.fractal.common.settings.AppSettingsStore
 import dev.dfd.fractal.common.settings.InputOverlaySettings
 import dev.dfd.fractal.common.settings.OverlayControllerType
-import dev.dfd.fractal.common.settings.applyEditedRects
 import dev.dfd.fractal.common.settings.isOverlayShown
 import dev.dfd.fractal.common.settings.migrateLegacyRects
 import dev.dfd.fractal.common.settings.resetActiveLayout
-import dev.dfd.fractal.emulation.inputoverlay.OverlayEditResult
 import dev.dfd.fractal.nativeinterface.NativeEmulation
 import dev.dfd.fractal.nativeinterface.NativeEmulation.PrepareTitleResult
 import dev.dfd.fractal.nativeinterface.NativeException
@@ -133,13 +131,6 @@ class EmulationViewModel(
             dataStore.updateData {
                 it.copy(inputOverlaySettings = transform(it.inputOverlaySettings))
             }
-        }
-    }
-
-    fun saveInputOverlayEdits(result: OverlayEditResult) {
-        if (result.isEmpty) return
-        updateInputOverlaySettings {
-            it.applyEditedRects(result.controllerType, result.rects, result.macroRects)
         }
     }
 

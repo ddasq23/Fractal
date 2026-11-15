@@ -46,41 +46,29 @@ import dev.dfd.fractal.emulation.emulatedusbdevices.EmulatedUSBDevicesDialog
 import dev.dfd.fractal.emulation.input.HotkeyManager
 import dev.dfd.fractal.common.settings.InputOverlaySettings
 import dev.dfd.fractal.common.settings.OverlayControllerType
-import dev.dfd.fractal.common.settings.OverlayMacro
 import dev.dfd.fractal.common.settings.activeProfile
 import dev.dfd.fractal.common.settings.createProfile
-import dev.dfd.fractal.common.settings.deleteMacro
 import dev.dfd.fractal.common.settings.deleteProfile
 import dev.dfd.fractal.common.settings.renameProfile
 import dev.dfd.fractal.common.settings.selectProfile
-import dev.dfd.fractal.common.settings.setBehavior
-import dev.dfd.fractal.common.settings.upsertMacro
 import dev.dfd.fractal.emulation.inputoverlay.InputOverlayController
 import dev.dfd.fractal.emulation.inputoverlay.InputOverlaySurface
-import dev.dfd.fractal.emulation.inputoverlay.OverlayTarget
+import dev.dfd.fractal.emulation.inputoverlay.InputOverlayView.InputMode
+import dev.dfd.fractal.emulation.inputoverlay.ui.OverlayEditor
+import dev.dfd.fractal.emulation.inputoverlay.ui.OverlayEditorSession
+import dev.dfd.fractal.common.settings.setInputRect
 import dev.dfd.fractal.emulation.inputoverlay.ui.ConfirmDialog
-import dev.dfd.fractal.emulation.inputoverlay.ui.InputOptionsDialog
-import dev.dfd.fractal.emulation.inputoverlay.ui.MacroEditorDialog
 import dev.dfd.fractal.emulation.inputoverlay.ui.OverlayAppearanceDialog
-import dev.dfd.fractal.emulation.inputoverlay.ui.OverlayEditToolbar
 import dev.dfd.fractal.emulation.inputoverlay.ui.ProfilesDialog
 import dev.dfd.fractal.emulation.inputoverlay.ui.displayName
-import dev.dfd.fractal.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.DEFAULT
-import dev.dfd.fractal.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.EDIT_POSITION
-import dev.dfd.fractal.emulation.inputoverlay.InputOverlaySurfaceView.InputMode.EDIT_SIZE
 import dev.dfd.fractal.nativeinterface.NativeEmulation
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
-import dev.dfd.fractal.common.settings.OverlayShortcut
-import dev.dfd.fractal.common.settings.deleteShortcut
-import dev.dfd.fractal.common.settings.setInputStyle
-import dev.dfd.fractal.common.settings.upsertShortcut
 import dev.dfd.fractal.common.ui.theme.FractalTheme
 import dev.dfd.fractal.emulation.inputoverlay.styleKey
-import dev.dfd.fractal.emulation.inputoverlay.ui.ShortcutEditorDialog
 import dev.dfd.fractal.emulation.inputoverlay.ui.overlayPaletteFor
 import dev.dfd.fractal.emulation.menu.EmulationMenuActions
 import dev.dfd.fractal.emulation.menu.EmulationMenuContent
@@ -108,7 +96,9 @@ fun EmulationScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var showQuitConfirmationDialog by remember { mutableStateOf(false) }
-    var inputOverlayInputMode by rememberSaveable { mutableStateOf(DEFAULT) }
+    var editorSession by remember { mutableStateOf<OverlayEditorSession?>(null) }
+    var editorTesting by remember { mutableStateOf(false) }
+    var pausedBeforeEditing by remember { mutableStateOf(false) }
     var showEmulatedUSBDevices by remember { mutableStateOf(false) }
     val overlayController = remember { InputOverlayController() }
     var overlayDialog by remember { mutableStateOf<OverlayDialogState?>(null) }
@@ -225,6 +215,26 @@ fun EmulationScreen(
         }
     }
 
+    /** Opens the editor of the on-screen controls over the game. */
+    fun startEditing() {
+        val settings = viewModel.inputOverlaySettings.value
+        editorSession = OverlayEditorSession(settings)
+        editorTesting = false
+        pausedBeforeEditing = viewModel.sideMenuState.value.isPaused
+        if (settings.pauseWhileEditing) viewModel.setPaused(true)
+    }
+
+    fun finishEditing(saved: InputOverlaySettings?) {
+        if (saved != null) {
+            viewModel.updateInputOverlaySettings { saved }
+            snackbarHostState.showMessage(scope, tr("Layout saved"))
+        }
+        overlayController.select(null)
+        editorSession = null
+        editorTesting = false
+        viewModel.setPaused(pausedBeforeEditing)
+    }
+
     BackHandler {
         if (drawerState.isAnimationRunning) {
             return@BackHandler
@@ -232,6 +242,16 @@ fun EmulationScreen(
 
         scope.launch {
             toggleMenu()
+        }
+    }
+
+    // while editing, back leaves the editor (the editor asks before dropping changes)
+    BackHandler(enabled = editorSession != null && drawerState.isClosed) {
+        val session = editorSession ?: return@BackHandler
+        if (session.isDirty) {
+            overlayDialog = OverlayDialogState.ConfirmDiscardEdits
+        } else {
+            finishEditing(null)
         }
     }
 
@@ -264,8 +284,7 @@ fun EmulationScreen(
             override fun updateMenuState(transform: (SideMenuState) -> SideMenuState) = applyMenuState(transform)
             override fun updateDisplay(transform: (DisplayOptions) -> DisplayOptions) = viewModel.updateDisplayOptions(transform)
             override fun editOverlay() {
-                snackbarHostState.showMessage(scope, tr("Edit input positions"))
-                inputOverlayInputMode = EDIT_POSITION
+                startEditing()
                 closeDrawer()
             }
 
@@ -333,41 +352,32 @@ fun EmulationScreen(
             onMainSurfaceView = { mainSurface.view = it },
         )
 
+        val session = editorSession
+        val shownOverlaySettings = session?.working ?: inputOverlaySettings
         InputOverlaySurface(
-            isVisible = isInputOverlayVisible,
-            inputOverlaySettings = inputOverlaySettings,
-            inputMode = inputOverlayInputMode,
+            isVisible = isInputOverlayVisible || session != null,
+            inputOverlaySettings = shownOverlaySettings,
+            inputMode = if (session != null && !editorTesting) InputMode.EDIT else InputMode.DEFAULT,
             controller = overlayController,
-            onEditFinished = viewModel::saveInputOverlayEdits,
-            onInputLongPress = { overlayDialog = OverlayDialogState.InputOptions(it) },
+            palette = overlayPaletteFor(shownOverlaySettings),
             onLegacyLayout = viewModel::migrateLegacyInputOverlayLayout,
-            palette = overlayPaletteFor(inputOverlaySettings),
             onShortcut = HotkeyManager::trigger,
+            onInputMoved = { target, rect, portrait ->
+                val type = overlayController.controllerType
+                if (type != null) session?.update { it.setInputRect(type, target.styleKey, rect, portrait) }
+            },
         )
 
-        if (inputOverlayInputMode != DEFAULT) {
-            val controllerType = overlayController.controllerType
-            OverlayEditToolbar(
-                inputMode = inputOverlayInputMode,
-                profileName = controllerType?.let { inputOverlaySettings.activeProfile(it).displayName() } ?: "",
-                snapToGrid = inputOverlaySettings.snapToGrid,
-                onMove = { inputOverlayInputMode = EDIT_POSITION },
-                onResize = { inputOverlayInputMode = EDIT_SIZE },
-                onToggleSnap = { viewModel.updateInputOverlaySettings { it.copy(snapToGrid = !it.snapToGrid) } },
-                onAddMacro = { overlayDialog = OverlayDialogState.MacroEditor(null) },
-                onAddShortcut = { overlayDialog = OverlayDialogState.ShortcutEditor(null) },
-                onProfiles = { overlayDialog = OverlayDialogState.Profiles },
-                onOptions = { overlayDialog = OverlayDialogState.Options },
-                onReset = { overlayDialog = OverlayDialogState.ConfirmReset },
-                onCancel = {
-                    overlayController.discardEdits()
-                    snackbarHostState.showMessage(scope, tr("Changes discarded"))
-                    inputOverlayInputMode = DEFAULT
-                },
-                onDone = {
-                    snackbarHostState.showMessage(scope, tr("Layout saved"))
-                    inputOverlayInputMode = DEFAULT
-                },
+        if (session != null) {
+            OverlayEditor(
+                session = session,
+                controller = overlayController,
+                onSave = { finishEditing(it) },
+                onCancel = { finishEditing(null) },
+                testing = editorTesting,
+                onTestingChange = { editorTesting = it },
+                paused = sideMenuState.isPaused,
+                onPausedChange = viewModel::setPaused,
             )
         }
     }
@@ -423,10 +433,8 @@ fun EmulationScreen(
             controllerType = controllerType,
             controller = overlayController,
             onUpdate = viewModel::updateInputOverlaySettings,
-            onReset = {
-                overlayController.showDefaultLayout()
-                viewModel.resetInputOverlayLayout(controllerType)
-            },
+            onReset = { viewModel.resetInputOverlayLayout(controllerType) },
+            onDiscardEdits = { finishEditing(null) },
             onStateChange = { overlayDialog = it },
         )
     }
@@ -434,14 +442,12 @@ fun EmulationScreen(
     EmulationTextInputDialog()
 }
 
-/** Dialogs opened from the overlay edit mode and the side menu. */
+/** Overlay dialogs opened from the side menu. */
 private sealed interface OverlayDialogState {
-    data class InputOptions(val target: OverlayTarget) : OverlayDialogState
-    data class MacroEditor(val macro: OverlayMacro?) : OverlayDialogState
-    data class ShortcutEditor(val shortcut: OverlayShortcut?) : OverlayDialogState
     data object Profiles : OverlayDialogState
     data object Options : OverlayDialogState
     data object ConfirmReset : OverlayDialogState
+    data object ConfirmDiscardEdits : OverlayDialogState
 }
 
 @Composable
@@ -452,78 +458,17 @@ private fun InputOverlayDialogs(
     controller: InputOverlayController,
     onUpdate: ((InputOverlaySettings) -> InputOverlaySettings) -> Unit,
     onReset: () -> Unit,
+    onDiscardEdits: () -> Unit,
     onStateChange: (OverlayDialogState?) -> Unit,
 ) {
     val dismiss = { onStateChange(null) }
     when (state) {
         null -> {}
-        is OverlayDialogState.InputOptions -> InputOptionsDialog(
-            target = state.target,
-            settings = settings,
-            controllerType = controllerType,
-            onBehaviorChange = { behavior ->
-                when (val target = state.target) {
-                    is OverlayTarget.Builtin -> onUpdate { it.setBehavior(controllerType, target.config, behavior) }
-                    is OverlayTarget.Macro -> onUpdate { s ->
-                        val macro = s.activeProfile(controllerType).macros.firstOrNull { it.id == target.id }
-                        if (macro == null) s else s.upsertMacro(controllerType, macro.copy(behavior = behavior))
-                    }
-
-                    is OverlayTarget.Shortcut -> {}
-                }
-            },
-            onStyleChange = { style -> onUpdate { it.setInputStyle(controllerType, state.target.styleKey, style) } },
-            onStylePreview = { style -> controller.previewInputStyle(state.target, style) },
-            onEditShortcut = { onStateChange(OverlayDialogState.ShortcutEditor(it)) },
-            onDeleteShortcut = { shortcut ->
-                onUpdate { it.deleteShortcut(controllerType, shortcut.id) }
-                dismiss()
-            },
-            onHide = {
-                val target = state.target
-                if (target is OverlayTarget.Builtin) {
-                    onUpdate { it.copy(inputVisibilityMap = it.inputVisibilityMap + (target.config to false)) }
-                }
-                dismiss()
-            },
-            onEditMacro = { onStateChange(OverlayDialogState.MacroEditor(it)) },
-            onDeleteMacro = { macro ->
-                onUpdate { it.deleteMacro(controllerType, macro.id) }
-                dismiss()
-            },
-            onDismiss = dismiss,
-        )
-
-        is OverlayDialogState.MacroEditor -> MacroEditorDialog(
-            initial = state.macro,
-            controllerType = controllerType,
-            onSave = { macro ->
-                onUpdate { it.upsertMacro(controllerType, macro) }
-                dismiss()
-            },
-            onDismiss = dismiss,
-        )
-
-        is OverlayDialogState.ShortcutEditor -> ShortcutEditorDialog(
-            initial = state.shortcut,
-            onSave = { shortcut ->
-                onUpdate { it.upsertShortcut(controllerType, shortcut) }
-                dismiss()
-            },
-            onDismiss = dismiss,
-        )
-
         OverlayDialogState.Profiles -> ProfilesDialog(
             settings = settings,
             controllerType = controllerType,
-            onSelect = { profile ->
-                controller.commitEdits()
-                onUpdate { it.selectProfile(controllerType, profile.id) }
-            },
-            onCreate = { name, copyFrom ->
-                controller.commitEdits()
-                onUpdate { it.createProfile(controllerType, name, copyFrom) }
-            },
+            onSelect = { profile -> onUpdate { it.selectProfile(controllerType, profile.id) } },
+            onCreate = { name, copyFrom -> onUpdate { it.createProfile(controllerType, name, copyFrom) } },
             onRename = { profile, name -> onUpdate { it.renameProfile(profile.id, name) } },
             onDelete = { profile -> onUpdate { it.deleteProfile(controllerType, profile.id) } },
             onDismiss = dismiss,
@@ -537,15 +482,26 @@ private fun InputOverlayDialogs(
         )
 
         OverlayDialogState.ConfirmReset -> ConfirmDialog(
-            title = tr("Reset input overlay"),
+            title = tr("Back to the automatic layout"),
             message = tr(
-                "Put every input of the profile \"{0}\" back in its default position and size?",
+                "Put every input of the profile \"{0}\" back on the layout made for this screen? Button options, macros and shortcuts are kept.",
                 settings.activeProfile(controllerType).displayName(),
             ),
             confirmText = tr("Reset"),
             onConfirm = {
                 onReset()
                 dismiss()
+            },
+            onDismiss = dismiss,
+        )
+
+        OverlayDialogState.ConfirmDiscardEdits -> ConfirmDialog(
+            title = tr("Discard changes"),
+            message = tr("Leave the editor without saving the changes?"),
+            confirmText = tr("Discard"),
+            onConfirm = {
+                dismiss()
+                onDiscardEdits()
             },
             onDismiss = dismiss,
         )

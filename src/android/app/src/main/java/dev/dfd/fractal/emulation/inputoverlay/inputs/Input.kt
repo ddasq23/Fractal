@@ -3,60 +3,62 @@ package dev.dfd.fractal.emulation.inputoverlay.inputs
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.Typeface
 import android.view.MotionEvent
-import androidx.annotation.ColorInt
 import dev.dfd.fractal.common.settings.NormalizedRect
 import dev.dfd.fractal.common.settings.OverlayInputConfig
-import dev.dfd.fractal.emulation.inputoverlay.Colors
+import dev.dfd.fractal.emulation.inputoverlay.SkinColors
 
-abstract class Input protected constructor(
-    rect: Rect,
-    alpha: Int,
-) {
+/**
+ * Something drawn on the overlay. Geometry, paints and shaders are prepared in [configure],
+ * which runs only when bounds, opacity or colors change; [draw] and touch handling don't allocate.
+ */
+abstract class Input protected constructor(alpha: Int) {
     /** Bounds on the overlay, in pixels. Change it with [setBounds]. */
-    val rect: Rect = Rect(rect)
+    val rect: Rect = Rect(0, 0, 1, 1)
 
     protected var alpha: Int = alpha
         private set
 
-    /** The built in input this is, or null for a macro. */
+    /** The built in input this is, or null for a macro or shortcut. */
     var config: OverlayInputConfig? = null
 
-    /** Id of the macro this input runs, or null for a built in input. */
+    /** Id of the macro this input runs, or null. */
     var macroId: String? = null
 
     /** Id of the shortcut this input is, or null. */
     var shortcutId: String? = null
 
-    /** Resolution independent layout [rect] comes from, before the global scale. */
+    /** Resolution independent layout [rect] comes from, before the size settings. */
     var layout: NormalizedRect = NormalizedRect(0.5f, 0.5f, 0.1f, 0.1f)
 
-    /** Size multiplier of this input on top of [layout] and the global scale. */
+    /** Size multiplier of this input on top of [layout] and the overlay size setting. */
     var styleScale: Float = 1f
 
     /** Opacity set for this input alone, or null to follow the overlay opacity. */
     var alphaOverride: Int? = null
 
-    /** Picks up a new [Colors.palette]. */
-    fun refreshColors() = configure()
+    /** Hidden input shown faintly in edit mode so it can be selected and shown again. */
+    var ghost: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            configure()
+        }
 
-    private var boundingRectangleColor = 0
-    private var drawBoundingRectangle = false
-    private val boundingRectanglePaint = Paint().apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 3f
-    }
-    protected var activeFillColor = 0
-    protected var activeStrokeColor = 0
-    protected var inactiveFillColor = 0
-    protected var inactiveStrokeColor = 0
-    protected val paint = Paint().apply {
-        strokeWidth = 3f
-        isAntiAlias = true
-    }
+    /** Pixels per dp, for strokes and badges. */
+    var density: Float = 1f
+
+    protected val colors = SkinColors()
 
     /** Round inputs keep their aspect ratio when resized. */
     open val keepsAspectRatio: Boolean = true
+
+    /** Picks up a new [dev.dfd.fractal.emulation.inputoverlay.Colors.palette]. */
+    fun refreshColors() = configure()
+
+    /** Opacity the colors are made with: ghosts are faint. */
+    protected val effectiveAlpha: Int get() = if (ghost) (alpha * 0.35f).toInt().coerceAtLeast(28) else alpha
 
     /**
      * Touch handling for inputs that follow their own pointer (sticks, d-pad).
@@ -78,37 +80,22 @@ abstract class Input protected constructor(
     /** Releases everything the input holds. */
     abstract fun resetInput()
 
+    /** Recomputes geometry and colors; call [SkinColors.update] with [effectiveAlpha]. */
     protected abstract fun configure()
 
-    protected fun configureColors(alpha: Int) {
-        activeFillColor = Colors.activeFill(alpha)
-        activeStrokeColor = Colors.activeStroke(alpha)
-        inactiveFillColor = Colors.inactiveFill(alpha)
-        inactiveStrokeColor = Colors.inactiveStroke(alpha)
-    }
-
-    protected abstract fun drawInput(canvas: Canvas)
-
-    /** Drawn over the input, e.g. behavior indicators. */
-    protected open fun drawDecorations(canvas: Canvas) {}
-
-    fun draw(canvas: Canvas) {
-        drawInput(canvas)
-        drawDecorations(canvas)
-        if (drawBoundingRectangle) {
-            boundingRectanglePaint.color = boundingRectangleColor
-            canvas.drawRect(rect, boundingRectanglePaint)
-        }
-    }
-
-    fun enableDrawingBoundingRect(@ColorInt color: Int) {
-        drawBoundingRectangle = true
-        boundingRectangleColor = color
-    }
-
-    fun disableDrawingBoundingRect() {
-        drawBoundingRectangle = false
-    }
+    abstract fun draw(canvas: Canvas)
 
     abstract fun isInside(x: Float, y: Float): Boolean
+
+    companion object {
+        val BoldTypeface: Typeface = Typeface.create(Typeface.DEFAULT, 700, false)
+
+        fun fillPaint() = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+
+        fun strokePaint() = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+    }
 }
