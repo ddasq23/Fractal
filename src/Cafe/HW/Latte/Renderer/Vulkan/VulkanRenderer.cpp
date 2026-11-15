@@ -321,6 +321,11 @@ void VulkanRenderer::GetDeviceFeatures()
 	vkGetPhysicalDeviceFeatures2(m_physicalDevice, &physicalDeviceFeatures2);
 
 	cemuLog_log(LogType::Force, "Vulkan: present_wait extension: {}", (pwf.presentWait && pidf.presentId) ? "supported" : "unsupported");
+	// Fractal: the extension names alone aren't enough. The Qualcomm driver of the AYN Odin 3 (Adreno 830, Android 15) lists
+	// VK_KHR_present_wait without the feature and vkWaitForPresentKHR stays null: with VSync off (no immediate mode there,
+	// so FIFO with a queue limit) every game crashed on its first frame
+	if (!(pwf.presentWait && pidf.presentId))
+		m_featureControl.deviceExtensions.present_wait = false;
 	m_featureControl.deviceFeatures.geometry_shader = physicalDeviceFeatures2.features.geometryShader;
 	m_featureControl.deviceFeatures.logic_op = physicalDeviceFeatures2.features.logicOp;
 	m_featureControl.deviceFeatures.sampler_anisotropy = physicalDeviceFeatures2.features.samplerAnisotropy;
@@ -3688,7 +3693,7 @@ void VulkanRenderer::SwapBuffer(bool mainWindow)
 
 	// if present_wait is available and enabled, add frame markers to present requests
 	// and limit the number of queued present operations
-	if (m_featureControl.deviceExtensions.present_wait && chainInfo.m_maxQueued > 0)
+	if (m_featureControl.deviceExtensions.present_wait && chainInfo.m_maxQueued > 0 && vkWaitForPresentKHR)
 	{
 		presentId.sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR;
 		presentId.swapchainCount = 1;

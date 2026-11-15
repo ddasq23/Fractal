@@ -1,4 +1,6 @@
 #include <signal.h>
+#include <sys/uio.h>
+#include <unistd.h>
 #include <execinfo.h>
 #include <string.h>
 #include <string>
@@ -122,12 +124,24 @@ void handlerDumpingSignal(int sig, siginfo_t *info, void *context)
             CrashLog_WriteLine(line);
         }
         CrashLog_WriteLine(fmt::format("sp ={:016x}", (uint64)mc.sp));
-        if (!dlInfo.dli_fname && (pc & 3) == 0)
+        // the caller: with a call through a null function pointer (PC 0) it is the only hint where the crash came from
         {
-            const uint32* code = (const uint32*)(pc - 64 * 4);
+            uint64 lr = (uint64)mc.regs[30];
+            Dl_info lrInfo{};
+            if (dladdr((void*)lr, &lrInfo) && lrInfo.dli_fname)
+                CrashLog_WriteLine(fmt::format("LR 0x{:016x} ({} + 0x{:x}{}{})", lr, lrInfo.dli_fname, lr - (uint64)lrInfo.dli_fbase,
+                    lrInfo.dli_sname ? ", " : "", lrInfo.dli_sname ? lrInfo.dli_sname : ""));
+            else
+                CrashLog_WriteLine(fmt::format("LR 0x{:016x} (outside of any library)", lr));
+        }
+        // only when the code around the PC can be read, a bad PC would fault again here and lose the backtrace
+        uint32 code[96];
+        iovec local{code, sizeof(code)}, remote{(void*)(pc - 64 * 4), sizeof(code)};
+        if (!dlInfo.dli_fname && (pc & 3) == 0 && pc >= 0x10000 && process_vm_readv(getpid(), &local, 1, &remote, 1, 0) == (ssize_t)sizeof(code))
+        {
             for (int row = 0; row < 96; row += 8)
             {
-                std::string line = fmt::format("host {:016x}:", (uint64)(code + row));
+                std::string line = fmt::format("host {:016x}:", (uint64)(pc - 64 * 4 + row * 4));
                 for (int k = 0; k < 8; k++)
                     line += fmt::format(" {:08x}", code[row + k]);
                 CrashLog_WriteLine(line);
