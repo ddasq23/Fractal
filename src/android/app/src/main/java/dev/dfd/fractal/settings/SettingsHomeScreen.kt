@@ -37,6 +37,7 @@ fun SettingsHomeScreen(
     goToAccountSettings: () -> Unit,
     goToWelcome: () -> Unit,
     goToGraphicsSettings: () -> Unit,
+    goToFrameGenSettings: () -> Unit,
     goToDrivers: () -> Unit,
     goToAudioSettings: () -> Unit,
     goToInputSettings: () -> Unit,
@@ -82,6 +83,11 @@ fun SettingsHomeScreen(
                 FractalIcons.Chip, tr("Drivers"),
                 tr("Install GPU drivers and switch between them"),
                 dropUnlessResumed(block = goToDrivers),
+            ),
+            SettingsEntry(
+                FractalIcons.Layers, tr("Frame generation"),
+                tr("Lossless Scaling frame generation with your own Lossless.dll"),
+                dropUnlessResumed(block = goToFrameGenSettings),
             ),
         )
         SettingsSection(

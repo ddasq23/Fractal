@@ -134,6 +134,7 @@ VKFUNC_DEVICE(vkDestroyPipelineCache);
 VKFUNC_DEVICE(vkCreatePipelineLayout);
 VKFUNC_DEVICE(vkDestroyPipelineLayout);
 VKFUNC_DEVICE(vkCreateGraphicsPipelines);
+VKFUNC_DEVICE(vkCreateComputePipelines);
 VKFUNC_DEVICE(vkDestroyPipeline);
 VKFUNC_DEVICE(vkCmdBindPipeline);
 
@@ -172,6 +173,7 @@ VKFUNC_DEVICE(vkDestroyFence);
 
 // cmd
 VKFUNC_DEVICE(vkCmdDraw);
+VKFUNC_DEVICE(vkCmdDispatch);
 VKFUNC_DEVICE(vkCmdCopyBufferToImage);
 VKFUNC_DEVICE(vkCmdCopyImageToBuffer);
 VKFUNC_DEVICE(vkCmdClearColorImage);

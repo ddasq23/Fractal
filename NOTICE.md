@@ -31,8 +31,19 @@ headers in existing files are kept as they are.
   - `86476991`: textures whose data is outside of mapped memory are cleared
     instead of crashing.
   - `1490fda6`: Cemu log also written to logcat on Android.
+  - `916ed53e` (with native fixes from `b9ed9b1c`): Lossless Scaling frame
+    generation (`src/Cafe/HW/Latte/Renderer/Vulkan/FrameGen/`, the Android
+    Lossless.dll picker and settings). Ported from Eden / lsfg-vk.
 
 ## Third-party components
+
+Lossless Scaling frame generation (`src/Cafe/HW/Latte/Renderer/Vulkan/FrameGen/`):
+Copyright 2025 lsfg-vk, Copyright 2026 Eden Emulator Project, ported to Cemu by
+Cemu Plus. These files are under the **GNU General Public License 3.0 or later**
+(see their SPDX headers), so a build that includes them also has to follow the
+GPL-3.0 terms (MPL-2.0 code may be combined with GPL code). Fractal does not include or
+download Lossless Scaling or its `Lossless.dll`: the user selects their own copy,
+whose shaders are only read.
 
 Third-party libraries under `dependencies/` and those pulled through vcpkg
 keep their own licenses. See each component's license file.

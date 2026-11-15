@@ -2982,3 +2982,106 @@ msgstr "Escala de la pantalla del GamePad"
 
 msgid "GamePad screen size"
 msgstr "Tamaño de la pantalla del GamePad"
+
+# Frame generation (Lossless Scaling)
+msgid "Fixed multiplier"
+msgstr "Multiplicador fijo"
+
+msgid "{0} FPS"
+msgstr "{0} FPS"
+
+msgid "The file could not be read"
+msgstr "No se pudo leer el archivo"
+
+msgid "The file is not a Windows DLL"
+msgstr "El archivo no es una DLL de Windows"
+
+msgid "The DLL does not contain the frame generation shaders"
+msgstr "La DLL no contiene los shaders de generación de fotogramas"
+
+msgid "The frame generation shaders could not be loaded"
+msgstr "No se pudieron cargar los shaders de generación de fotogramas"
+
+msgid "Unknown error"
+msgstr "Error desconocido"
+
+msgid "Active"
+msgstr "Activa"
+
+msgid "Not supported by this GPU driver (needs the Vulkan memory model, float16 and null descriptors)"
+msgstr "No compatible con este driver de GPU (necesita el modelo de memoria de Vulkan, float16 y descriptores nulos)"
+
+msgid "Lossless.dll is missing or invalid"
+msgstr "Lossless.dll falta o no es válida"
+
+msgid "Failed to start"
+msgstr "No se pudo iniciar"
+
+msgid "Restart the game to turn it on"
+msgstr "Reinicia el juego para activarla"
+
+msgid "Waiting for the game"
+msgstr "Esperando al juego"
+
+msgid "Lossless.dll installed"
+msgstr "Lossless.dll instalada"
+
+msgid "Could not install Lossless.dll: {0}"
+msgstr "No se pudo instalar Lossless.dll: {0}"
+
+msgid "Frame generation"
+msgstr "Generación de fotogramas"
+
+msgid "Lossless Scaling"
+msgstr "Lossless Scaling"
+
+msgid "Frame generation uses the shaders of Lossless Scaling, which Fractal does not include. Select Lossless.dll from your own copy of Lossless Scaling (in its installation folder on Windows). The DLL is only read, never run."
+msgstr "La generación de fotogramas usa los shaders de Lossless Scaling, que Fractal no incluye. Selecciona Lossless.dll de tu propia copia de Lossless Scaling (en su carpeta de instalación en Windows). La DLL solo se lee, nunca se ejecuta."
+
+msgid "Replace Lossless.dll"
+msgstr "Reemplazar Lossless.dll"
+
+msgid "Select Lossless.dll"
+msgstr "Seleccionar Lossless.dll"
+
+msgid "Status: {0}"
+msgstr "Estado: {0}"
+
+msgid "Remove Lossless.dll"
+msgstr "Quitar Lossless.dll"
+
+msgid "Lossless.dll removed"
+msgstr "Lossless.dll quitada"
+
+msgid "Enable frame generation"
+msgstr "Activar generación de fotogramas"
+
+msgid "Inserts generated frames between the frames the game renders. TV screen only, forces VSync while it runs. Takes effect the next time a game starts; the other options apply right away and are also in the in-game menu."
+msgstr "Inserta fotogramas generados entre los fotogramas que renderiza el juego. Solo en la pantalla de la TV, fuerza el VSync mientras funciona. Se aplica la próxima vez que se inicie un juego; las demás opciones se aplican al momento y también están en el menú del juego."
+
+msgid "Target frame rate"
+msgstr "Tasa de fotogramas objetivo"
+
+msgid "Frame multiplier"
+msgstr "Multiplicador de fotogramas"
+
+msgid "Motion estimation resolution"
+msgstr "Resolución de la estimación de movimiento"
+
+msgid "The target frame rate picks the multiplier by itself and backs off when frame generation slows the game down. Pick the refresh rate of your screen, or use a fixed multiplier. A lower motion estimation resolution is the cheapest way to save GPU time."
+msgstr "La tasa de fotogramas objetivo elige el multiplicador por sí sola y retrocede cuando la generación de fotogramas ralentiza el juego. Elige la tasa de refresco de tu pantalla o usa un multiplicador fijo. Una resolución menor en la estimación de movimiento es la forma más barata de ahorrar GPU."
+
+msgid "Installing"
+msgstr "Instalando"
+
+msgid "Lossless Scaling frame generation with your own Lossless.dll"
+msgstr "Generación de fotogramas de Lossless Scaling con tu propia Lossless.dll"
+
+msgid "Add your Lossless.dll in Settings, Frame generation to use it."
+msgstr "Añade tu Lossless.dll en Configuración, Generación de fotogramas para usarla."
+
+msgid "TV screen only, forces VSync while it runs"
+msgstr "Solo en la pantalla de la TV, fuerza el VSync mientras funciona"
+
+msgid "Lower is cheaper on the GPU"
+msgstr "Menor exige menos a la GPU"

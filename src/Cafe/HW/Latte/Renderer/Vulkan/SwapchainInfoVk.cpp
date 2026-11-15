@@ -69,6 +69,11 @@ void SwapchainInfoVk::Create()
 	VkSwapchainCreateInfoKHR create_info = CreateSwapchainCreateInfo(m_surface, details, m_surfaceFormat, image_count, m_actualExtent);
 	create_info.oldSwapchain = nullptr;
 	create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	// frame generation copies the finished frame out of the swapchain image. Only asked for while it is active, so the
+	// swapchain stays exactly as before when it is off
+	m_supportsTransferSrc = mainWindow && m_forceFifo && (details.capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
+	if (m_supportsTransferSrc)
+		create_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
 	VkResult result = vkCreateSwapchainKHR(m_logicalDevice, &create_info, nullptr, &m_swapchain);
 	if (result != VK_SUCCESS)
@@ -392,6 +397,12 @@ VkExtent2D SwapchainInfoVk::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& cap
 VkPresentModeKHR SwapchainInfoVk::ChoosePresentMode(const std::vector<VkPresentModeKHR>& modes)
 {
 	m_maxQueued = 0;
+	if (m_forceFifo)
+	{
+		// frame generation relies on the display to space out generated frames
+		m_maxQueued = 1;
+		return VK_PRESENT_MODE_FIFO_KHR;
+	}
 	const auto vsyncState = (VSync)GetConfig().vsync.GetValue();
 	if (vsyncState == VSync::MAILBOX)
 	{
