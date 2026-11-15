@@ -198,6 +198,10 @@ condiciones cambian entre commits (driver, perfil de CPU), así que compara cada
 
 - **Watch Dogs en Turnip:** un fallo de página de la GPU en una escritura de streamout puede colgar la GPU tras unos
   25 minutos. El driver del sistema no está afectado.
+- **Watch Dogs sobreexpuesto en Android:** desde la sala de Maurice la exposición automática puede quedarse demasiado
+  clara en cerca de la mitad de las sesiones, en Turnip y en el driver del sistema; la build de PC no está afectada.
+  Descartado por ahora: NaN/Inf en los pixel shaders, draws omitidos durante la compilación asíncrona de pipelines y
+  readback de texturas.
 - **Watch Dogs en Mali** (RG Cube): el hilo de renderizado se queda compilando los enormes shaders de streamout; menú en
   bloques e intro negra.
 - **Assassin's Creed IV:** comparando las cinemáticas con la build de PC; las espadas largas cuelgan rectas igual en PC y

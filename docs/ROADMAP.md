@@ -196,6 +196,9 @@ between commits (driver, CPU profile), so compare rows only within themselves.
 
 - **Watch Dogs on Turnip:** a GPU page fault in a streamout write can hang the GPU after about 25 minutes. The system
   driver is not affected.
+- **Watch Dogs overexposed on Android:** from the Maurice room on, the auto exposure can lock too bright in about half
+  of the sessions, on Turnip and on the system driver; the PC build is not affected. Ruled out so far: NaN/Inf in pixel
+  shaders, skipped draws during async pipeline compilation and texture readback.
 - **Watch Dogs on Mali** (RG Cube): the render thread gets stuck compiling the very large streamout shaders; blocky menu
   and black intro.
 - **Assassin's Creed IV:** comparing cutscenes with the PC build; the long swords hang straight down the same way on PC
