@@ -222,6 +222,15 @@ Java_dev_dfd_fractal_nativeinterface_NativeEmulation_setReplaceTVWithPadView([[m
 {
 	// Emulate pressing the TAB key for showing DRC instead of TV
 	WindowSystem::GetWindowInfo().set_keystate(static_cast<uint32>(WindowSystem::PlatformKeyCodes::TAB), swapped);
+	// the GamePad window (next to the TV or on a second screen) shows the TV image in exchange
+	WindowSystem::GetWindowInfo().swap_screens = swapped;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_setPadScreenScaling([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint scaling, jint sizePercent)
+{
+	WindowSystem::GetWindowInfo().pad_scaling = scaling;
+	WindowSystem::GetWindowInfo().pad_size_percent = sizePercent;
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
@@ -261,7 +270,9 @@ Java_dev_dfd_fractal_nativeinterface_NativeEmulation_setDPI([[maybe_unused]] JNI
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeEmulation_clearPadSurface([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
-	VulkanRenderer::GetInstance()->StopUsingPadAndWait();
+	// the GamePad surface (e.g. on a second display) can go away before the renderer exists
+	if (g_renderer)
+		VulkanRenderer::GetInstance()->StopUsingPadAndWait();
 	WindowSystem::GetWindowInfo().pad_open = false;
 }
 
@@ -290,6 +301,8 @@ extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeEmulation_initializeSurface(JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean isMainCanvas)
 {
 	JNIUtils::HandleNativeException(env, [&]() {
+		if (!g_renderer)
+			return; // a GamePad surface that comes before the renderer is set up together with the main one later
 		int width, height;
 		if (isMainCanvas)
 		{

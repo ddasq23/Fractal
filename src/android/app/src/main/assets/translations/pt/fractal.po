@@ -2969,3 +2969,15 @@ msgstr "Cada tipo de controle tem seus próprios perfis. O layout se adapta à t
 
 msgid "Edit layout"
 msgstr "Editar layout"
+
+msgid "GamePad on the second screen"
+msgstr "GamePad na segunda tela"
+
+msgid "Shows the GamePad screen on the other display (dual screen handhelds, external monitor)"
+msgstr "Mostra a tela do GamePad no outro display (portáteis de duas telas, monitor externo)"
+
+msgid "GamePad screen scaling"
+msgstr "Escala da tela do GamePad"
+
+msgid "GamePad screen size"
+msgstr "Tamanho da tela do GamePad"

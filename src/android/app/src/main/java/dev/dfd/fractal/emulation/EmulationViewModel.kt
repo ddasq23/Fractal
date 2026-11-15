@@ -40,6 +40,10 @@ data class SideMenuState(
     val isMotionEnabled: Boolean = false,
     val isTVReplacedWithPad: Boolean = false,
     val isPadVisible: Boolean = false,
+    val isPadOnSecondScreen: Boolean = true,
+    /** GamePad screen image: 0 keep aspect ratio, 1 stretch. */
+    val padScaling: Int = 0,
+    val padSizePercent: Int = 100,
     val isInputOverlayVisible: Boolean = false,
     /** Paused from the menu or a hotkey; going to the background and back keeps it paused. */
     val isPaused: Boolean = false,
@@ -116,7 +120,16 @@ class EmulationViewModel(
     init {
         viewModelScope.launch {
             val settings = dataStore.data.first()
-            _sideMenuState.update { it.copy(isInputOverlayVisible = settings.inputOverlaySettings.isOverlayShown()) }
+            _sideMenuState.update {
+                it.copy(
+                    isInputOverlayVisible = settings.inputOverlaySettings.isOverlayShown(),
+                    isPadVisible = settings.emulationSettings.isPadVisible,
+                    isPadOnSecondScreen = settings.emulationSettings.isPadOnSecondScreen,
+                    padScaling = settings.emulationSettings.padScaling,
+                    padSizePercent = settings.emulationSettings.padSizePercent,
+                )
+            }
+            NativeEmulation.setPadScreenScaling(_sideMenuState.value.padScaling, _sideMenuState.value.padSizePercent)
         }
     }
 
@@ -146,7 +159,28 @@ class EmulationViewModel(
         }
 
     fun updateSideMenuState(sideMenuState: SideMenuState) {
+        val old = _sideMenuState.value
         _sideMenuState.value = sideMenuState
+        // the GamePad screen choices are kept for the next game (a dual screen handheld wants it on every time)
+        if (old.padScaling != sideMenuState.padScaling || old.padSizePercent != sideMenuState.padSizePercent) {
+            NativeEmulation.setPadScreenScaling(sideMenuState.padScaling, sideMenuState.padSizePercent)
+        }
+        if (old.isPadVisible != sideMenuState.isPadVisible || old.isPadOnSecondScreen != sideMenuState.isPadOnSecondScreen ||
+            old.padScaling != sideMenuState.padScaling || old.padSizePercent != sideMenuState.padSizePercent
+        ) {
+            viewModelScope.launch {
+                dataStore.updateData {
+                    it.copy(
+                        emulationSettings = it.emulationSettings.copy(
+                            isPadVisible = sideMenuState.isPadVisible,
+                            isPadOnSecondScreen = sideMenuState.isPadOnSecondScreen,
+                            padScaling = sideMenuState.padScaling,
+                            padSizePercent = sideMenuState.padSizePercent,
+                        )
+                    )
+                }
+            }
+        }
     }
 
     /** Suspends or resumes the game's threads. Does nothing before the game runs. */
@@ -264,6 +298,10 @@ class EmulationViewModel(
     private suspend fun initializeRenderer() = attemptWithContext(Dispatchers.IO) {
         NativeEmulation.initializeRenderer()
         NativeEmulation.initializeSurface(isMainCanvas = true)
+        // a GamePad surface set before the renderer existed (shown from the start, second display) starts now
+        if (setSurfaces.get(isMain = false)) {
+            NativeEmulation.initializeSurface(isMainCanvas = false)
+        }
     }.mapError { NativeError.RendererInitializationError(it) }
 
     private suspend fun prepareTitle(): Either<Unit, NativeError> =

@@ -16,6 +16,12 @@ import java.io.OutputStream
 @Serializable
 data class EmulationSettings(
     val gamePadPosition: GamePadPosition = GamePadPosition.RIGHT,
+    val isPadVisible: Boolean = false,
+    /** With a second display (dual screen handhelds such as the AYN Thor), the GamePad screen goes there. */
+    val isPadOnSecondScreen: Boolean = true,
+    /** GamePad screen image: 0 keep aspect ratio, 1 stretch. */
+    val padScaling: Int = 0,
+    val padSizePercent: Int = 100,
 )
 
 @Serializable

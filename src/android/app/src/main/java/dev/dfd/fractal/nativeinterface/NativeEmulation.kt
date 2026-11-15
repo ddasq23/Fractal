@@ -51,6 +51,10 @@ object NativeEmulation {
     @JvmStatic
     external fun setReplaceTVWithPadView(swapped: Boolean)
 
+    /** GamePad screen image: [scaling] -1 like the TV, 0 keep aspect ratio, 1 stretch; [sizePercent] 25 to 100. */
+    @JvmStatic
+    external fun setPadScreenScaling(scaling: Int, sizePercent: Int)
+
     @JvmStatic
     external fun supportsLoadingCustomDriver(): Boolean
 }

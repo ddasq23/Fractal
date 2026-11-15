@@ -38,6 +38,9 @@ namespace WindowSystem
 		std::atomic_int32_t pad_width, pad_height;			 // client size of pad window
 		std::atomic_int32_t phys_pad_width, phys_pad_height; // client size of pad window in physical pixels
 		std::atomic<double> pad_dpi_scale;
+		std::atomic_int32_t pad_scaling = -1;	   // Android, GamePad screen: -1 like the TV, 0 keep aspect ratio, 1 stretch
+		std::atomic_int32_t pad_size_percent = 100; // Android, GamePad screen: image size in percent of the screen
+		std::atomic_bool swap_screens = false; // Android: the pad window shows the TV image (and the main one the GamePad)
 
 		std::atomic_bool pad_maximized = false;
 		std::atomic_int32_t restored_pad_x = -1, restored_pad_y = -1;

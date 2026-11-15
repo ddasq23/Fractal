@@ -6,6 +6,7 @@
 
 package dev.dfd.fractal.emulation.menu
 
+import dev.dfd.fractal.emulation.rememberSecondDisplay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -179,6 +180,32 @@ fun EmulationMenuContent(
             checked = state.isPadVisible,
             onCheckedChange = { on -> actions.updateMenuState { it.copy(isPadVisible = on) } },
         )
+        if (rememberSecondDisplay() != null) {
+            MenuToggleRow(
+                icon = FractalIcons.Display,
+                title = tr("GamePad on the second screen"),
+                description = tr("Shows the GamePad screen on the other display (dual screen handhelds, external monitor)"),
+                checked = state.isPadOnSecondScreen,
+                onCheckedChange = { on -> actions.updateMenuState { it.copy(isPadOnSecondScreen = on) } },
+            )
+        }
+        if (state.isPadVisible) {
+            MenuChoiceRow(
+                title = tr("GamePad screen scaling"),
+                choices = listOf(0 to tr("Keep aspect ratio"), 1 to tr("Stretch")),
+                selected = state.padScaling,
+                onSelect = { value -> actions.updateMenuState { it.copy(padScaling = value) } },
+            )
+            OverlaySliderRow(
+                title = tr("GamePad screen size"),
+                value = state.padSizePercent.toFloat(),
+                valueRange = 25f..100f,
+                steps = 14,
+                valueText = { "${it.roundToInt()}%" },
+                onValueChange = { v -> actions.updateMenuState { it.copy(padSizePercent = v.roundToInt()) } },
+                onValueChangeFinished = { v -> actions.updateMenuState { it.copy(padSizePercent = v.roundToInt()) } },
+            )
+        }
         MenuToggleRow(
             icon = MenuIcons.Swap,
             title = tr("Swap TV and GamePad"),

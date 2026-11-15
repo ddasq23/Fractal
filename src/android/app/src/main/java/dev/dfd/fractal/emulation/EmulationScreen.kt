@@ -354,6 +354,7 @@ fun EmulationScreen(
             padHolderCallback = viewModel.padHolderCallback,
             onInitializeEmulation = viewModel::initializeEmulation,
             onMainSurfaceView = { mainSurface.view = it },
+            canShowPad = isEmulationInitialized && emulationError == null,
         )
 
         val session = editorSession
@@ -520,6 +521,7 @@ private fun EmulationSurfaces(
     padHolderCallback: SurfaceHolder.Callback,
     onInitializeEmulation: () -> Unit,
     onMainSurfaceView: (SurfaceView?) -> Unit = {},
+    canShowPad: Boolean = true,
 ) {
     if (gamePadPosition == null) {
         return
@@ -527,7 +529,25 @@ private fun EmulationSurfaces(
 
     val isVertical = gamePadPosition.isVertical()
     val appearsAfterTV = gamePadPosition.appearsAfterTV()
-    val isPadVisible = sideMenuState.isPadVisible
+    val context = LocalContext.current
+    val secondDisplay = rememberSecondDisplay()
+    // the presentation goes away while the game is in the background and comes back with it: its surface is
+    // released with the main one and has to be created again to be drawn to
+    val lifecycleState by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    val isStarted = lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+    // the GamePad surface comes once the game runs: it needs the renderer (the choice is remembered between games)
+    val wantsPad = sideMenuState.isPadVisible && canShowPad
+    val padOnSecondScreen = wantsPad && sideMenuState.isPadOnSecondScreen && secondDisplay != null
+    val showPresentation = padOnSecondScreen && isStarted
+    val isPadVisible = wantsPad && !padOnSecondScreen
+
+    DisposableEffect(showPresentation, secondDisplay) {
+        val display = secondDisplay
+        if (!showPresentation || display == null) return@DisposableEffect onDispose {}
+        val presentation = PadPresentation(context, display, padHolderCallback)
+        val shown = runCatching { presentation.show() }.isSuccess
+        onDispose { if (shown) presentation.dismiss() }
+    }
 
     @Composable
     fun MainSurface(modifier: Modifier) {

@@ -863,7 +863,11 @@ void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, s
 
 	sint32 scaledOutputX;
 	sint32 scaledOutputY;
-	if (GetConfig().fullscreen_scaling == kKeepAspectRatio)
+	// the GamePad screen (next to the TV or on a second display) can have its own scaling and size
+	const bool isPadArea = padView && WindowSystem::IsPadWindowOpen();
+	const sint32 padScaling = isPadArea ? WindowSystem::GetWindowInfo().pad_scaling.load() : -1;
+	const bool keepAspect = padScaling >= 0 ? padScaling == 0 : GetConfig().fullscreen_scaling == kKeepAspectRatio;
+	if (keepAspect)
 	{
 		// calculate maximum possible resolution with intact aspect ratio
 		scaledOutputX = w;
@@ -878,6 +882,12 @@ void LatteRenderTarget_getScreenImageArea(sint32* x, sint32* y, sint32* width, s
 	{
 		scaledOutputX = w;
 		scaledOutputY = h;
+	}
+	if (isPadArea)
+	{
+		const sint32 percent = std::clamp<sint32>(WindowSystem::GetWindowInfo().pad_size_percent.load(), 25, 100);
+		scaledOutputX = std::max(scaledOutputX * percent / 100, 1);
+		scaledOutputY = std::max(scaledOutputY * percent / 100, 1);
 	}
 
 	*x = (w - scaledOutputX) / 2;
@@ -1063,7 +1073,10 @@ void LatteRenderTarget_itHLECopyColorBufferToScanBuffer(MPTR colorBufferPtr, uin
 
 	bool showDRC = swkbd::hasKeyboardInputHook() == false && (isDRCPrimary ^ altScreenRequested);
 
-	if ((renderTarget & RENDER_TARGET_DRC) && g_renderer->IsPadWindowActive())
+	// with the screens swapped (GamePad on the main screen) the pad window, e.g. the second screen of a dual screen
+	// handheld, shows the TV image instead (from SapphireRhodonite's android-port-dual)
+	const bool padWindowShowsTV = WindowSystem::GetWindowInfo().swap_screens;
+	if ((renderTarget & (padWindowShowsTV ? RENDER_TARGET_TV : RENDER_TARGET_DRC)) && g_renderer->IsPadWindowActive())
 		LatteRenderTarget_copyToBackbuffer(texView, true);
 	if (((renderTarget & RENDER_TARGET_TV) && !showDRC) || ((renderTarget & RENDER_TARGET_DRC) && showDRC))
 		LatteRenderTarget_copyToBackbuffer(texView, false);
