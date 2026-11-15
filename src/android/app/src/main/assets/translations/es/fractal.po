@@ -3085,3 +3085,21 @@ msgstr "Solo en la pantalla de la TV, fuerza el VSync mientras funciona"
 
 msgid "Lower is cheaper on the GPU"
 msgstr "Menor exige menos a la GPU"
+
+msgid "Adaptive {0} FPS"
+msgstr "Adaptativo {0} FPS"
+
+msgid "Import Lossless.dll"
+msgstr "Importar Lossless.dll"
+
+msgid "From your own copy of Lossless Scaling. Used by every game"
+msgstr "De tu copia de Lossless Scaling. Sirve para todos los juegos"
+
+msgid "Fixed multiplies every frame; adaptive generates what is missing to reach the target"
+msgstr "Fijo multiplica cada cuadro; adaptativo genera lo que falta para llegar al objetivo"
+
+msgid "Installing…"
+msgstr "Instalando…"
+
+msgid "Mode"
+msgstr "Modo"

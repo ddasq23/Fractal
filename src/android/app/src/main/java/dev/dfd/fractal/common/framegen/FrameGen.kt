@@ -19,7 +19,7 @@ val FrameGenFlowScaleChoices = listOf(NativeFrameGen.FLOW_SCALE_AUTO, 50, 75, 10
 fun frameGenMultiplierToString(multiplier: Int) = "${multiplier}x"
 
 fun frameGenTargetRateToString(targetRate: Int) =
-    if (targetRate == 0) tr("Fixed multiplier") else tr("{0} FPS", targetRate)
+    if (targetRate == 0) tr("Fixed multiplier") else tr("Adaptive {0} FPS", targetRate)
 
 fun frameGenFlowScaleToString(flowScale: Int) =
     if (flowScale == NativeFrameGen.FLOW_SCALE_AUTO) tr("Auto") else "$flowScale%"

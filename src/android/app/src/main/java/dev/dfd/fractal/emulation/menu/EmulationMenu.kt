@@ -6,6 +6,14 @@
 
 package dev.dfd.fractal.emulation.menu
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import dev.dfd.fractal.nativeinterface.NativeFrameGen.LosslessDllStatus
+import dev.dfd.fractal.common.framegen.installLosslessDll
+import dev.dfd.fractal.common.framegen.losslessDllStatusToString
 import dev.dfd.fractal.emulation.rememberSecondDisplay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -350,11 +358,31 @@ fun EmulationMenuContent(
 @Composable
 private fun FrameGenMenuSection(isOpen: Boolean) {
     MenuSection(tr("Frame generation"))
-    val isDllInstalled = remember(isOpen) { hasLosslessDll() }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isDllInstalled by remember(isOpen) { mutableStateOf(hasLosslessDll()) }
+    var importMessage by remember { mutableStateOf<String?>(null) }
+    // the DLL can be imported from here too; it is kept for every game, like from the settings
+    val dllPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        importMessage = tr("Installing…")
+        scope.launch {
+            val status = installLosslessDll(context, uri)
+            isDllInstalled = status == LosslessDllStatus.OK
+            importMessage = if (isDllInstalled) tr("Lossless.dll installed")
+            else tr("Could not install Lossless.dll: {0}", losslessDllStatusToString(status))
+        }
+    }
     if (!isDllInstalled) {
-        MenuHint(tr("Add your Lossless.dll in Settings, Frame generation to use it."))
+        MenuActionRow(
+            icon = FractalIcons.Layers,
+            title = tr("Import Lossless.dll"),
+            description = importMessage ?: tr("From your own copy of Lossless Scaling. Used by every game"),
+            onClick = { dllPicker.launch(arrayOf("*/*")) },
+        )
         return
     }
+    importMessage?.let { MenuHint(it) }
 
     var enabled by remember { mutableStateOf(NativeFrameGen.isEnabled()) }
     var multiplier by remember { mutableIntStateOf(NativeFrameGen.getMultiplier()) }
@@ -384,7 +412,8 @@ private fun FrameGenMenuSection(isOpen: Boolean) {
     )
     if (!enabled) return
     MenuChoiceRow(
-        title = tr("Target frame rate"),
+        title = tr("Mode"),
+        description = tr("Fixed multiplies every frame; adaptive generates what is missing to reach the target"),
         choices = FrameGenTargetRateChoices.map { it to frameGenTargetRateToString(it) },
         selected = targetRate,
         onSelect = { value ->
