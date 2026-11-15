@@ -96,6 +96,12 @@ class EmulationActivity : AppCompatActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         HotkeyManager.onKeyEvent(event)
 
+        // handhelds whose built-in controller reports the back button as part of the gamepad (AYN Odin 3: KEYCODE_BACK
+        // from Vendor_2020_Product_0112) would never open the side menu if the emulated controller took it
+        if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+            return super.dispatchKeyEvent(event)
+        }
+
         if (processInputEvents && PhysicalMacroEngine.onKeyEvent(event)) {
             return true
         }
