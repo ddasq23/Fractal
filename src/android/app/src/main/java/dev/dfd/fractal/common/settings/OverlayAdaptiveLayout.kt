@@ -89,6 +89,8 @@ data class OverlayLayoutSpec(
     val contentAspect: Float = 16f / 9f,
     /** The overlay size setting; the layout is fitted with it, so bigger controls never overlap. */
     val sizeScale: Float = 1f,
+    /** Height from the top, in dp, of the stats box in the top left corner; the left shoulders go below it. */
+    val reservedTopLeftDp: Float = 0f,
 )
 
 /** How the two clusters (stick + d-pad on the left, buttons + stick on the right) are arranged. */
@@ -352,9 +354,11 @@ private fun place(
     // ---- top corners: shoulders and triggers ----
     val leftOuter = if (isWiimote) OverlayInputConfig.BUTTON_Z else OverlayInputConfig.BUTTON_ZL
     val leftInner = if (isWiimote) OverlayInputConfig.BUTTON_C else OverlayInputConfig.BUTTON_L
-    placeShoulders(p, area, shoulders, leftOuter, leftInner, mirrored = false)
+    // the left pair goes below the stats box when it is in that corner
+    val leftTop = max(area.top + p.margin, spec.reservedTopLeftDp + p.gap)
+    placeShoulders(p, area, shoulders, leftOuter, leftInner, mirrored = false, top = leftTop)
     if (!isWiimote) {
-        placeShoulders(p, area, shoulders, OverlayInputConfig.BUTTON_ZR, OverlayInputConfig.BUTTON_R, mirrored = true)
+        placeShoulders(p, area, shoulders, OverlayInputConfig.BUTTON_ZR, OverlayInputConfig.BUTTON_R, mirrored = true, top = area.top + p.margin)
     }
 
     // ---- left cluster: movement stick and d-pad (the nunchuk stick on a Wiimote) ----
@@ -493,12 +497,12 @@ private fun placeShoulders(
     outer: OverlayInputConfig,
     inner: OverlayInputConfig,
     mirrored: Boolean,
+    top: Float,
 ) {
     fun box(leftFromEdge: Float, top: Float): LayoutBox {
         val left = if (mirrored) area.right - leftFromEdge - p.shoulderW else area.left + leftFromEdge
         return LayoutBox.sized(left, top, p.shoulderW, p.shoulderH)
     }
-    val top = area.top + p.margin
     p.boxes[outer] = box(p.margin, top)
     p.boxes[inner] = when (arrangement) {
         ShoulderArrangement.COLUMN -> box(p.margin, top + p.shoulderH + p.gap)

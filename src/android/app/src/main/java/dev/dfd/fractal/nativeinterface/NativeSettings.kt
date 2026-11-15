@@ -174,6 +174,10 @@ object NativeSettings {
     @JvmStatic
     external fun setOverlayTextScalePercentage(value: Int)
 
+    /** Bottom of the stats box in the top left corner of the game window, as a fraction of its height; 0 when it isn't there. */
+    @JvmStatic
+    external fun getStatsOverlayTopLeftBottom(): Float
+
     @JvmStatic
     external fun isOverlayFPSEnabled(): Boolean
 

@@ -175,6 +175,30 @@ class OverlayAdaptiveLayoutTest {
     }
 
     @Test
+    fun leftShouldersGoBelowTheStatsBox() {
+        // the FPS/CPU/RAM box of the emulator, three lines tall, in the top left corner
+        val reserve = 50f
+        for (screen in landscapeScreens) {
+            for (type in listOf(OverlayControllerType.VPAD, OverlayControllerType.PRO, OverlayControllerType.CLASSIC)) {
+                val layout = computeAdaptiveLayout(
+                    OverlayLayoutSpec(
+                        widthDp = screen.w,
+                        heightDp = screen.h,
+                        controllerType = type,
+                        density = 2.75f,
+                        insets = screen.insets,
+                        reservedTopLeftDp = reserve,
+                    )
+                )
+                assertSound(layout)
+                for (config in listOf(OverlayInputConfig.BUTTON_ZL, OverlayInputConfig.BUTTON_L)) {
+                    assertTrue("${layout.describe()}: $config under the stats box", layout.boxes.getValue(config).top >= reserve)
+                }
+            }
+        }
+    }
+
+    @Test
     fun biggerSizeSettingStillFits() {
         for (screen in listOf(landscapeScreens[0], landscapeScreens[3], landscapeScreens[9], portraitScreens[0])) {
             val normal = layout(screen, OverlayControllerType.VPAD)

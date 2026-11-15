@@ -60,6 +60,7 @@ import dev.dfd.fractal.nativeinterface.NativeInput.getControllerType
 import dev.dfd.fractal.nativeinterface.NativeInput.isControllerDisabled
 import dev.dfd.fractal.nativeinterface.NativeInput.onOverlayAxis
 import dev.dfd.fractal.nativeinterface.NativeInput.onOverlayButton
+import dev.dfd.fractal.nativeinterface.NativeSettings
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
@@ -138,6 +139,20 @@ class InputOverlayView(context: Context) : View(context), View.OnTouchListener,
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val windowLocation = IntArray(2)
     private var insets = LayoutInsets.NONE
+
+    /** Bottom of the emulator's stats box (FPS, CPU...) in the top left corner, in px; the default layout keeps clear of it. */
+    private var statsReservePx = 0f
+    private val statsWatcher = object : Runnable {
+        override fun run() {
+            val reserve = runCatching { NativeSettings.getStatsOverlayTopLeftBottom() }.getOrDefault(0f) * height
+            // only a real change relays out: the box grows and shrinks a few px as the numbers change
+            if (kotlin.math.abs(reserve - statsReservePx) > 8f * density && inputMode != InputMode.EDIT) {
+                statsReservePx = reserve
+                if (width > 0 && height > 0) setInputs()
+            }
+            postDelayed(this, 1000)
+        }
+    }
 
     private var settings: InputOverlaySettings = InputOverlaySettings()
     private var previewAlpha: Int? = null
@@ -276,10 +291,12 @@ class InputOverlayView(context: Context) : View(context), View.OnTouchListener,
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         controller?.view = this
+        postDelayed(statsWatcher, 1000)
     }
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        removeCallbacks(statsWatcher)
         releaseAll()
         controller?.view = null
     }
@@ -694,6 +711,7 @@ class InputOverlayView(context: Context) : View(context), View.OnTouchListener,
                     density = density,
                     insets = insets,
                     sizeScale = currentScale,
+                    reservedTopLeftDp = statsReservePx / density,
                 )
             )
         }

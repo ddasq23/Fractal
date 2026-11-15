@@ -1,3 +1,4 @@
+#include <atomic>
 #include "Cafe/HW/Latte/Core/LatteOverlay.h"
 #include "Cafe/HW/Latte/Core/LattePerformanceMonitor.h"
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
@@ -514,11 +515,23 @@ void LatteOverlay_translateScreenPosition(ScreenPosition pos, const Vector2f& wi
 	}
 }
 
+// bottom of the stats box when it sits in the top left corner of the TV window, as a fraction of its height (0: none)
+static std::atomic<float> s_statsTopLeftBottom{ 0.0f };
+
+float LatteOverlay_GetStatsTopLeftBottom()
+{
+	return s_statsTopLeftBottom.load(std::memory_order_relaxed);
+}
+
 void LatteOverlay_render(bool pad_view)
 {
 	const auto& config = GetConfig();
 	if(config.overlay.position == ScreenPosition::kDisabled && config.notification.position == ScreenPosition::kDisabled)
+	{
+		if (!pad_view)
+			s_statsTopLeftBottom.store(0.0f, std::memory_order_relaxed);
 		return;
+	}
 
 	sint32 w = 0, h = 0;
 	if (pad_view && WindowSystem::IsPadWindowOpen())
@@ -547,11 +560,17 @@ void LatteOverlay_render(bool pad_view)
 	ImVec2 position{}, pivot{};
 	sint32 direction{};
 
+	float topLeftBottom = 0.0f;
 	if (config.overlay.position != ScreenPosition::kDisabled)
 	{
 		LatteOverlay_translateScreenPosition(config.overlay.position, window_size, position, pivot, direction);
+		const float startY = position.y;
 		LatteOverlay_renderOverlay(position, pivot, direction, overlayFontSize, pad_view);
+		if (config.overlay.position == ScreenPosition::kTopLeft && position.y > startY)
+			topLeftBottom = position.y / window_size.y;
 	}
+	if (!pad_view)
+		s_statsTopLeftBottom.store(topLeftBottom, std::memory_order_relaxed);
 	
 
 	if (config.notification.position != ScreenPosition::kDisabled)

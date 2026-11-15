@@ -1,6 +1,7 @@
 #include "JNIUtils.h"
 #include "audio/IAudioAPI.h"
 #include "config/CemuConfig.h"
+#include "Cafe/HW/Latte/Core/LatteOverlay.h"
 #include "config/NetworkSettings.h"
 
 extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
@@ -25,6 +26,12 @@ extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeSettings_setOverlayTextScalePercentage([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint scalePercentage)
 {
 	GetConfig().overlay.text_scale = scalePercentage;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jfloat JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeSettings_getStatsOverlayTopLeftBottom([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return LatteOverlay_GetStatsTopLeftBottom();
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
