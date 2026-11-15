@@ -15,8 +15,8 @@ private fun getNativeAxisKey(axis: Int, isPositive: Boolean): Int? {
             MotionEvent.AXIS_Y -> NativeInput.Axis.Y_POS
             MotionEvent.AXIS_RX, MotionEvent.AXIS_Z -> NativeInput.Axis.ROTATION_X_POS
             MotionEvent.AXIS_RY, MotionEvent.AXIS_RZ -> NativeInput.Axis.ROTATION_Y_POS
-            MotionEvent.AXIS_LTRIGGER -> NativeInput.Axis.TRIGGER_X_POS
-            MotionEvent.AXIS_RTRIGGER -> NativeInput.Axis.TRIGGER_Y_POS
+            MotionEvent.AXIS_LTRIGGER, MotionEvent.AXIS_BRAKE -> NativeInput.Axis.TRIGGER_X_POS
+            MotionEvent.AXIS_RTRIGGER, MotionEvent.AXIS_GAS -> NativeInput.Axis.TRIGGER_Y_POS
             MotionEvent.AXIS_HAT_X -> NativeInput.Axis.DPAD_RIGHT
             MotionEvent.AXIS_HAT_Y -> NativeInput.Axis.DPAD_DOWN
             else -> null
@@ -36,43 +36,55 @@ private fun getNativeAxisKey(axis: Int, isPositive: Boolean): Int? {
 
 private const val MIN_ABS_AXIS_VALUE = 0.33f
 
+/** How [InputMapper.mapAllInputs] lays the emulated buttons on the physical ones. */
+enum class MappingLayout {
+    /** Same labels: A on A, B on B, ZL on the left trigger... */
+    STANDARD,
+
+    /**
+     * GameCube controller layout on a Classic Controller, for games played with one (Smash Bros.):
+     * A at the bottom, B on the left, X on the right, Y on top, Z on the right bumper,
+     * L and R on the triggers, the C stick on the right stick.
+     */
+    GAMECUBE,
+}
+
 object InputMapper {
+    /** Native axis key of the axis [event] pushes furthest, or null when none is past the bind threshold. */
+    fun dominantAxis(event: MotionEvent): Int? {
+        if (!event.isFromPhysicalController()) {
+            return null
+        }
+        var maxAbsAxisValue = 0f
+        var maxAxis: Int? = null
+        val actionPointerIndex = event.actionIndex
+        for (motionRange in event.device.motionRanges) {
+            val axisValue = event.getAxisValue(motionRange.axis, actionPointerIndex)
+            val axis = getNativeAxisKey(motionRange.axis, axisValue > 0) ?: continue
+            if (abs(axisValue) > maxAbsAxisValue) {
+                maxAxis = axis
+                maxAbsAxisValue = abs(axisValue)
+            }
+        }
+        return maxAxis.takeIf { maxAbsAxisValue > MIN_ABS_AXIS_VALUE }
+    }
+
     fun tryMapMotionEventToMappingId(
         controllerIndex: Int,
         mappingId: Int,
         event: MotionEvent,
     ): Boolean {
-        if (!event.isFromPhysicalController()) {
-            return false
-        }
-
+        val axis = dominantAxis(event) ?: return false
         val device = event.device
-        var maxAbsAxisValue = 0.0f
-        var maxAxis = -1
-        val actionPointerIndex = event.actionIndex
-
-        for (motionRange in device.motionRanges) {
-            val axisValue = event.getAxisValue(motionRange.axis, actionPointerIndex)
-            val axis = getNativeAxisKey(motionRange.axis, axisValue > 0) ?: continue
-            if (abs(axisValue.toDouble()) > maxAbsAxisValue) {
-                maxAxis = axis
-                maxAbsAxisValue = abs(axisValue.toDouble()).toFloat()
-            }
-        }
-
-        if (maxAbsAxisValue > MIN_ABS_AXIS_VALUE) {
-            setControllerMapping(
-                device.descriptor,
-                device.name,
-                controllerIndex,
-                mappingId,
-                maxAxis
-            )
-            return true
-        }
-        return false
+        setControllerMapping(
+            device.descriptor,
+            device.name,
+            controllerIndex,
+            mappingId,
+            axis
+        )
+        return true
     }
-
 
     fun mapKeyEventToMappingId(controllerIndex: Int, mappingId: Int, event: KeyEvent) {
         if (!event.isFromPhysicalController()) {
@@ -124,7 +136,7 @@ object InputMapper {
     }
 
     /** Maps every input of controller [controllerIndex] it can find on the device; returns how many it mapped. */
-    fun mapAllInputs(deviceId: Int, controllerIndex: Int): Int {
+    fun mapAllInputs(deviceId: Int, controllerIndex: Int, layout: MappingLayout = MappingLayout.STANDARD): Int {
         if (NativeInput.isControllerDisabled(controllerIndex)) {
             return 0
         }
@@ -151,7 +163,7 @@ object InputMapper {
         val buttons = getNativeButtonsForControllerType(controllerType)
 
         for (button in buttons) {
-            val mapping = getButtonMappings(button).firstOrNull { inputs[it] == true }
+            val mapping = (layoutMappings(layout, button) ?: getButtonMappings(button)).firstOrNull { inputs[it] == true }
                 ?: FALLBACK_BUTTONS.firstOrNull { inputs[it] == true }
             if (mapping == null) {
                 continue
@@ -183,6 +195,23 @@ object InputMapper {
             }
         }
         return mappedCount
+    }
+
+    /** Mappings [layout] puts on [button] instead of the standard ones; null to keep the standard. */
+    private fun layoutMappings(layout: MappingLayout, button: NativeInputButton): Array<InputMapping>? = when (layout) {
+        MappingLayout.STANDARD -> null
+        // Android names the face buttons by position (A bottom, B right, X left, Y top)
+        MappingLayout.GAMECUBE -> when (button) {
+            ClassicControllerButtons.A -> arrayOf(ButtonInputMapping.BUTTON_A)
+            ClassicControllerButtons.B -> arrayOf(ButtonInputMapping.BUTTON_X)
+            ClassicControllerButtons.X -> arrayOf(ButtonInputMapping.BUTTON_B)
+            ClassicControllerButtons.Y -> arrayOf(ButtonInputMapping.BUTTON_Y)
+            ClassicControllerButtons.L -> arrayOf(ButtonInputMapping.BUTTON_L2, AxisInputMapping.LTRIGGER, AxisInputMapping.BRAKE)
+            ClassicControllerButtons.R -> arrayOf(ButtonInputMapping.BUTTON_R2, AxisInputMapping.RTRIGGER, AxisInputMapping.GAS)
+            ClassicControllerButtons.ZR -> arrayOf(ButtonInputMapping.BUTTON_R1)
+            ClassicControllerButtons.ZL -> arrayOf(ButtonInputMapping.BUTTON_L1)
+            else -> null
+        }
     }
 
     private fun getButtonMappings(button: NativeInputButton): Array<InputMapping> {
@@ -226,12 +255,12 @@ object InputMapper {
             VPadButtons.ZL,
             ProControllerButtons.ZL,
             ClassicControllerButtons.ZL,
-                -> arrayOf(ButtonInputMapping.BUTTON_L2, AxisInputMapping.LTRIGGER)
+                -> arrayOf(ButtonInputMapping.BUTTON_L2, AxisInputMapping.LTRIGGER, AxisInputMapping.BRAKE)
 
             VPadButtons.ZR,
             ProControllerButtons.ZR,
             ClassicControllerButtons.ZR,
-                -> arrayOf(ButtonInputMapping.BUTTON_R2, AxisInputMapping.RTRIGGER)
+                -> arrayOf(ButtonInputMapping.BUTTON_R2, AxisInputMapping.RTRIGGER, AxisInputMapping.GAS)
 
             VPadButtons.PLUS,
             ProControllerButtons.PLUS,
@@ -405,6 +434,8 @@ private enum class AxisInputMapping(val axisCode: Int, val isPositive: Boolean) 
     RZ_NEG(MotionEvent.AXIS_RZ, false),
     LTRIGGER(MotionEvent.AXIS_LTRIGGER, true),
     RTRIGGER(MotionEvent.AXIS_RTRIGGER, true),
+    BRAKE(MotionEvent.AXIS_BRAKE, true),
+    GAS(MotionEvent.AXIS_GAS, true),
     X_POS(MotionEvent.AXIS_X, true),
     X_NEG(MotionEvent.AXIS_X, false),
     Y_POS(MotionEvent.AXIS_Y, true),

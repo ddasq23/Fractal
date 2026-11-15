@@ -1,11 +1,14 @@
 package dev.dfd.fractal.settings.input.controller
 
+import android.app.Application
+import android.content.Context
+import android.hardware.input.InputManager
 import android.os.VibrationEffect
 import android.view.InputDevice
-import android.view.KeyEvent
-import android.view.MotionEvent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,16 +20,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -44,6 +48,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -54,37 +60,47 @@ import androidx.compose.ui.util.fastRoundToInt
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Popup
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewmodel.MutableCreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.dfd.fractal.R
 import dev.dfd.fractal.common.android.inputdevice.tryUseVibrator
 import dev.dfd.fractal.common.input.GamepadInputSource
+import dev.dfd.fractal.common.input.InputDeviceListener
+import dev.dfd.fractal.common.ui.components.Button
+import dev.dfd.fractal.common.ui.components.FractalAlertDialog
 import dev.dfd.fractal.common.ui.components.Header
 import dev.dfd.fractal.common.ui.components.ScreenContent
 import dev.dfd.fractal.common.ui.components.SingleSelection
 import dev.dfd.fractal.common.ui.components.Slider
 import dev.dfd.fractal.common.ui.components.Toggle
 import dev.dfd.fractal.common.ui.extensions.showMessage
-import dev.dfd.fractal.common.ui.localization.controllerTypeToString
 import dev.dfd.fractal.common.ui.localization.tr
+import dev.dfd.fractal.common.ui.theme.FractalTheme
 import dev.dfd.fractal.common.ui.theme.LocalBackdrop
 import dev.dfd.fractal.nativeinterface.NativeInput
 import dev.dfd.fractal.nativeinterface.NativeInput.EmulatedControllerType
-import dev.dfd.fractal.settings.input.controller.emulatedcontroller.ClassicControllerInputs
-import dev.dfd.fractal.settings.input.controller.emulatedcontroller.ProControllerInputs
-import dev.dfd.fractal.settings.input.controller.emulatedcontroller.VPADInputs
-import dev.dfd.fractal.settings.input.controller.emulatedcontroller.WiimoteControllerInputs
+import dev.dfd.fractal.nativeinterface.NativeInput.WiimoteExtension
+import dev.dfd.fractal.settings.input.controller.emulatedcontroller.InputGroups
+import dev.dfd.fractal.settings.input.controller.emulatedcontroller.inputFullName
+import dev.dfd.fractal.settings.input.controller.emulatedcontroller.inputGroupsFor
 
 @Composable
 fun ControllerInputSettingsScreen(
     navigateBack: () -> Unit,
     controllerIndex: Int,
-    viewModel: ControllersViewModel = viewModel(
-        factory = ControllersViewModel.Factory, extras = MutableCreationExtras().apply {
-            set(ControllersViewModel.CONTROLLER_INDEX_KEY, controllerIndex)
-        }),
+    /** Null where the macros screen can't be opened (the in-game panel). */
+    goToMacros: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val viewModel: ControllersViewModel = viewModel(
+        key = "controller$controllerIndex",
+        factory = ControllersViewModel.Factory,
+        extras = MutableCreationExtras().apply {
+            set(APPLICATION_KEY, context.applicationContext as Application)
+            set(ControllersViewModel.CONTROLLER_INDEX_KEY, controllerIndex)
+        },
+    )
 
     DisposableEffect(Unit) {
         // hand-made mappings: no automatic mapping may land on top of them while this screen is open
@@ -95,25 +111,38 @@ fun ControllerInputSettingsScreen(
         }
     }
 
+    // the connected controllers follow plugging and unplugging while the screen is open
+    DisposableEffect(Unit) {
+        val inputManager = context.getSystemService(Context.INPUT_SERVICE) as InputManager?
+        val listener = object : InputDeviceListener {
+            override fun onInputDeviceChanged() {
+                viewModel.refreshAvailableControllers()
+            }
+        }
+        viewModel.refreshAvailableControllers()
+        inputManager?.registerInputDeviceListener(listener, null)
+        onDispose { inputManager?.unregisterInputDeviceListener(listener) }
+    }
+
     val controllers by viewModel.controllers.collectAsState()
     val buttonToBind by viewModel.buttonToBind.collectAsState()
-    val controllerType by viewModel.controllerType.collectAsState()
+    val bindQueueSize by viewModel.bindQueueSize.collectAsState()
+    val choice by viewModel.choice.collectAsState()
     val controls by viewModel.controls.collectAsState()
     val activeController by viewModel.activeController.collectAsState()
+    val wiimoteExtension by viewModel.wiimoteExtension.collectAsState()
+    val profiles by viewModel.profiles.collectAsState()
+    val profileName by viewModel.profileName.collectAsState()
 
     var showMapAllInputsDialog by rememberSaveable { mutableStateOf(false) }
     var showControllerSettingsDialog by rememberSaveable { mutableStateOf(false) }
+    var showSaveProfileDialog by rememberSaveable { mutableStateOf(false) }
+    var showLoadProfileDialog by rememberSaveable { mutableStateOf(false) }
+    var profileToDelete by rememberSaveable { mutableStateOf<String?>(null) }
+    var showDeleteProfileDialog by rememberSaveable { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-
-    fun onInputClick(buttonName: String, buttonId: Int) {
-        viewModel.setButtonToBind(ButtonInfo(buttonName, buttonId))
-    }
-
-    fun onInputLongClick(buttonId: Int) {
-        viewModel.clearButtonMapping(buttonId)
-    }
 
     fun refreshControllers(onControllersAvailable: () -> Unit) {
         if (viewModel.refreshAvailableControllers()) {
@@ -128,47 +157,77 @@ fun ControllerInputSettingsScreen(
         appBarText = tr("Controller {0}", controllerIndex + 1),
         navigateBack = navigateBack,
     ) {
-        SingleSelection(
-            isChoiceEnabled = viewModel::isControllerTypeAllowed,
-            label = tr("Emulated controller"),
-            initialChoice = { controllerType },
-            choices = listOf(
-                EmulatedControllerType.DISABLED,
-                EmulatedControllerType.VPAD,
-                EmulatedControllerType.PRO,
-                EmulatedControllerType.CLASSIC,
-                EmulatedControllerType.WIIMOTE
-            ),
-            choiceToString = { controllerTypeToString(it) },
-            onChoiceChanged = { type ->
-                if (viewModel.setControllerType(type)) {
-                    AutoControllerMapping.onControllerTypeChosen(context, controllerIndex, type)
+        Header(tr("Emulated controller"))
+        ControllerChoicePicker(
+            selected = choice,
+            isAllowed = viewModel::isChoiceAllowed,
+            onSelect = { newChoice ->
+                val changed = viewModel.setChoice(newChoice)
+                if (changed && newChoice != ControllerChoice.DISABLED && viewModel.controls.value.isEmpty()) {
+                    snackbarHostState.showMessage(coroutineScope, tr("Connect a controller and use \"Map all, one by one\""))
                 }
-            }
+            },
+        )
+        ChoiceDescription(choice)
+
+        val style = choice.style ?: return@ScreenContent
+
+        if (choice == ControllerChoice.WIIMOTE) {
+            SingleSelection(
+                label = tr("Extension"),
+                choice = wiimoteExtension,
+                choices = listOf(
+                    WiimoteExtension.NONE,
+                    WiimoteExtension.NUNCHUK,
+                    WiimoteExtension.MOTION_PLUS,
+                    WiimoteExtension.MOTION_PLUS_NUNCHUK,
+                ),
+                choiceToString = ::wiimoteExtensionToString,
+                description = tr("The game sees this extension plugged into the Wii Remote. The pointer needs a real Wii Remote, which Android can't use."),
+                onChoiceChanged = viewModel::setWiimoteExtension,
+            )
+        }
+
+        val nunchuk = WiimoteExtension.hasNunchuk(wiimoteExtension)
+        val motionPlus = wiimoteExtension == WiimoteExtension.MOTION_PLUS || wiimoteExtension == WiimoteExtension.MOTION_PLUS_NUNCHUK
+        ControllerIllustration(
+            style = style,
+            mappedIds = controls.keys,
+            highlightedId = buttonToBind?.id,
+            nunchuk = nunchuk,
+            motionPlus = motionPlus,
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .widthIn(max = 560.dp)
+                .align(Alignment.CenterHorizontally),
+            onPartClick = { ids, _ -> viewModel.startBinding(ids) },
+        )
+        Text(
+            text = tr("Tap a part of the drawing or a row below, then press the button or move the stick on your controller. Long press a row to clear it."),
+            style = MaterialTheme.typography.bodySmall,
+            color = FractalTheme.colors.textSecondary,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
         )
 
-        if (controllerType == EmulatedControllerType.DISABLED) {
-            return@ScreenContent
-        }
-
-        Row(
-            modifier = Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(onClick = {
-                refreshControllers { showMapAllInputsDialog = true }
-            }) {
-                Text(tr("Setup all inputs"))
-            }
-
-            Button(onClick = {
-                refreshControllers { showControllerSettingsDialog = true }
-            }) {
-                Text(tr("Controller settings"))
-            }
-        }
-
+        Header(tr("Physical controller"))
         Button(
-            modifier = Modifier.padding(horizontal = 8.dp),
+            label = if (controllers.isEmpty()) tr("No controller connected") else controllers.joinToString { it.name },
+            description = if (controllers.isEmpty()) tr("Connect a controller by USB or Bluetooth; it is detected right away")
+            else tr("Detected automatically. Tap to map every input from one of them"),
+            onClick = { refreshControllers { showMapAllInputsDialog = true } },
+        )
+        Button(
+            label = tr("Map all, one by one"),
+            description = tr("Asks for each input in turn; skip the ones you don't need"),
+            onClick = {
+                viewModel.refreshAvailableControllers()
+                viewModel.startBindingAll()
+            },
+        )
+        Button(
+            label = tr("Reset to automatic mapping"),
+            description = if (choice == ControllerChoice.GAMECUBE) tr("GameCube layout on the connected controller")
+            else tr("Same buttons as the connected controller"),
             onClick = {
                 viewModel.refreshAvailableControllers()
                 val name = viewModel.resetToAutomaticMapping()
@@ -178,35 +237,58 @@ fun ControllerInputSettingsScreen(
                     else tr("No controllers available"),
                 )
             },
-        ) {
-            Text(tr("Reset to automatic mapping"))
+        )
+        Button(
+            label = tr("Controller settings"),
+            description = tr("Dead zones, analog range, rumble and motion"),
+            onClick = { refreshControllers { showControllerSettingsDialog = true } },
+        )
+        if (goToMacros != null) {
+            Button(
+                label = tr("Macros and turbo"),
+                description = tr("Buttons of the physical controller that play a combo, a sequence or turbo"),
+                onClick = goToMacros,
+            )
         }
 
-
-        when (controllerType) {
-            EmulatedControllerType.VPAD -> VPADInputs(
-                controllerIndex = controllerIndex,
-                onInputClick = ::onInputClick,
-                onInputLongClick = ::onInputLongClick,
-                controlsMapping = controls,
+        Header(tr("Profiles"))
+        Button(
+            label = tr("Save as profile"),
+            description = profileName?.let { tr("Current profile: {0}", it) }
+                ?: tr("Keep this setup to load it later or to use it in a game's settings"),
+            onClick = { showSaveProfileDialog = true },
+        )
+        Button(
+            label = tr("Load profile"),
+            description = if (profiles.isEmpty()) tr("No saved profiles yet") else tr("{0} saved profiles", profiles.size),
+            onClick = {
+                viewModel.refreshProfiles()
+                showLoadProfileDialog = true
+            },
+        )
+        if (profiles.isNotEmpty()) {
+            Button(
+                label = tr("Delete profile"),
+                onClick = {
+                    viewModel.refreshProfiles()
+                    showDeleteProfileDialog = true
+                },
             )
+        }
 
-            EmulatedControllerType.PRO -> ProControllerInputs(
-                onInputClick = ::onInputClick,
-                onInputLongClick = ::onInputLongClick,
-                controlsMapping = controls,
-            )
+        InputGroups(
+            groups = inputGroupsFor(style, nunchuk),
+            controlsMapping = controls,
+            onInputClick = { id -> viewModel.startBinding(listOf(id)) },
+            onInputLongClick = viewModel::clearButtonMapping,
+        )
 
-            EmulatedControllerType.CLASSIC -> ClassicControllerInputs(
-                onInputClick = ::onInputClick,
-                onInputLongClick = ::onInputLongClick,
-                controlsMapping = controls,
-            )
-
-            EmulatedControllerType.WIIMOTE -> WiimoteControllerInputs(
-                onInputClick = ::onInputClick,
-                onInputLongClick = ::onInputLongClick,
-                controlsMapping = controls,
+        if (choice == ControllerChoice.GAMEPAD) {
+            Toggle(
+                label = tr("Toggle screen"),
+                description = tr("Makes the \"show screen\" button toggle between the TV and gamepad screens"),
+                initialCheckedState = { NativeInput.getVPADScreenToggle(controllerIndex) },
+                onCheckedChanged = { NativeInput.setVPADScreenToggle(controllerIndex, it) }
             )
         }
     }
@@ -214,22 +296,14 @@ fun ControllerInputSettingsScreen(
     buttonToBind?.let {
         InputBindingPopup(
             buttonName = it.name,
-            mapKeyEvent = { event ->
-                viewModel.mapKeyEvent(event, it.id)
-                viewModel.clearButtonToBind()
-            },
-            mapMotionEvent = { event ->
-                if (viewModel.tryMapMotionEvent(event, it.id)) {
-                    viewModel.clearButtonToBind()
-                }
-            },
+            remaining = bindQueueSize,
+            viewModel = viewModel,
             onClear = {
                 viewModel.clearButtonMapping(it.id)
-                viewModel.clearButtonToBind()
+                viewModel.skipButtonToBind()
             },
-            onDismiss = {
-                viewModel.clearButtonToBind()
-            },
+            onSkip = viewModel::skipButtonToBind,
+            onDismiss = viewModel::clearButtonToBind,
         )
     }
 
@@ -244,11 +318,175 @@ fun ControllerInputSettingsScreen(
     if (showControllerSettingsDialog) {
         ControllerSettingsDialog(
             controllers = controllers,
-            controllerType = controllerType,
+            controllerType = choice.nativeType,
             activeController = activeController,
             onSetActiveController = viewModel::setActiveController,
             onSetControllerSettings = viewModel::setControllerSettings,
             onDismissRequest = { showControllerSettingsDialog = false })
+    }
+
+    if (showSaveProfileDialog) {
+        ProfileNameDialog(
+            initialName = profileName ?: "",
+            existing = profiles,
+            isValid = viewModel::isValidProfileName,
+            onDismiss = { showSaveProfileDialog = false },
+            onSave = { name ->
+                showSaveProfileDialog = false
+                viewModel.save()
+                snackbarHostState.showMessage(
+                    coroutineScope,
+                    if (viewModel.saveProfile(name)) tr("Profile saved: {0}", name.trim())
+                    else tr("Could not save the profile"),
+                )
+            },
+        )
+    }
+
+    if (showLoadProfileDialog) {
+        ProfileListDialog(
+            title = tr("Load profile"),
+            profiles = profiles,
+            onDismiss = { showLoadProfileDialog = false },
+            onSelect = { name ->
+                showLoadProfileDialog = false
+                snackbarHostState.showMessage(
+                    coroutineScope,
+                    if (viewModel.loadProfile(name)) tr("Profile loaded: {0}", name)
+                    else tr("Could not load the profile"),
+                )
+            },
+        )
+    }
+
+    if (showDeleteProfileDialog) {
+        ProfileListDialog(
+            title = tr("Delete profile"),
+            profiles = profiles,
+            onDismiss = { showDeleteProfileDialog = false },
+            onSelect = { name ->
+                showDeleteProfileDialog = false
+                profileToDelete = name
+            },
+        )
+    }
+
+    profileToDelete?.let { name ->
+        FractalAlertDialog(
+            onDismissRequest = { profileToDelete = null },
+            title = { Text(tr("Delete profile")) },
+            text = { Text(tr("Delete the profile {0}? Games set to use it go back to the normal setup.", name)) },
+            dismissButton = { TextButton(onClick = { profileToDelete = null }) { Text(tr("No")) } },
+            confirmButton = {
+                TextButton(onClick = {
+                    profileToDelete = null
+                    viewModel.deleteProfile(name)
+                }) { Text(tr("Yes")) }
+            },
+        )
+    }
+}
+
+private fun wiimoteExtensionToString(extension: Int) = when (extension) {
+    WiimoteExtension.NUNCHUK -> tr("Nunchuk")
+    WiimoteExtension.MOTION_PLUS -> tr("MotionPlus")
+    WiimoteExtension.MOTION_PLUS_NUNCHUK -> tr("MotionPlus and Nunchuk")
+    else -> tr("None")
+}
+
+fun controllerChoiceName(choice: ControllerChoice) = when (choice) {
+    ControllerChoice.DISABLED -> tr("Disabled")
+    ControllerChoice.GAMEPAD -> tr("Wii U GamePad")
+    ControllerChoice.PRO -> tr("Wii U Pro Controller")
+    ControllerChoice.CLASSIC -> tr("Classic Controller")
+    ControllerChoice.GAMECUBE -> tr("GameCube layout")
+    ControllerChoice.WIIMOTE -> tr("Wii Remote")
+}
+
+private fun controllerChoiceShortDescription(choice: ControllerChoice) = when (choice) {
+    ControllerChoice.DISABLED -> tr("Not connected")
+    ControllerChoice.GAMEPAD -> tr("Screen, touch, motion")
+    ControllerChoice.PRO -> tr("Default for gamepads")
+    ControllerChoice.CLASSIC -> tr("Wii Remote + Classic")
+    ControllerChoice.GAMECUBE -> tr("On a Classic Controller")
+    ControllerChoice.WIIMOTE -> tr("Nunchuk, MotionPlus")
+}
+
+@Composable
+private fun ChoiceDescription(choice: ControllerChoice) {
+    val text = when (choice) {
+        ControllerChoice.DISABLED -> tr("This player has no controller.")
+        ControllerChoice.GAMEPAD -> tr("The Wii U GamePad: every game supports it, and some only work with it. The on-screen controls and the touch screen drive it.")
+        ControllerChoice.PRO -> tr("The Wii U Pro Controller, the default for physical gamepads. Many games support it, but some only accept the Wii U GamePad or the Wii Remote: switch to those here or with a profile in the game's settings.")
+        ControllerChoice.CLASSIC -> tr("Classic Controller Pro, connected to a Wii Remote. Used by Wii U games that support it and by Virtual Console games.")
+        ControllerChoice.GAMECUBE -> tr("The Wii U only takes GameCube controllers through the USB adapter, which Cemu does not emulate. This option uses a Classic Controller (supported by Smash Bros. and others) laid out like a GameCube pad: A at the bottom, B left, X right, Y top, Z on the right bumper, L and R on the triggers.")
+        ControllerChoice.WIIMOTE -> tr("Wii Remote with optional Nunchuk or MotionPlus, for games that need it. Hold the controller sideways or use the Nunchuk as you would on the Wii U.")
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = FractalTheme.colors.textSecondary,
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
+    )
+}
+
+/** Cards for every emulated controller, the selected one highlighted. */
+@Composable
+private fun ControllerChoicePicker(
+    selected: ControllerChoice,
+    isAllowed: (ControllerChoice) -> Boolean,
+    onSelect: (ControllerChoice) -> Unit,
+) {
+    val colors = FractalTheme.colors
+    val shape = FractalTheme.shapes.card
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ControllerChoice.entries.forEach { choice ->
+            val isSelected = choice == selected
+            val allowed = isAllowed(choice)
+            Column(
+                modifier = Modifier
+                    .width(150.dp)
+                    .clip(shape)
+                    .background(if (isSelected) colors.accent.copy(alpha = 0.18f) else colors.surface)
+                    .border(if (isSelected) 2.dp else 1.dp, if (isSelected) colors.accent else colors.border, shape)
+                    .clickable(enabled = allowed) { onSelect(choice) }
+                    .alpha(if (allowed) 1f else 0.4f)
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                val style = choice.style
+                if (style != null) {
+                    ControllerIllustration(
+                        style = style,
+                        mappedIds = emptySet(),
+                        highlightedId = null,
+                        nunchuk = true,
+                    )
+                } else {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 18.dp), contentAlignment = Alignment.Center) {
+                        Text("—", color = colors.textSecondary, fontSize = 24.sp)
+                    }
+                }
+                Text(
+                    controllerChoiceName(choice),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (isSelected) colors.accent else colors.text,
+                    maxLines = 1,
+                )
+                Text(
+                    controllerChoiceShortDescription(choice),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                    maxLines = 1,
+                )
+            }
+        }
     }
 }
 
@@ -261,8 +499,6 @@ private fun ControllerSettingsDialog(
     onSetControllerSettings: (InputController, NativeInput.ControllerSettings) -> Unit,
     controllers: List<InputController>,
 ) {
-
-
     fun updateSettings(settings: NativeInput.ControllerSettings) {
         val (controller, _) = activeController ?: return
         onSetControllerSettings(controller, settings)
@@ -308,8 +544,9 @@ private fun ControllerSettingsDialog(
 
                     val (controller, settings) = activeController ?: return@Column
 
-                    val canUseMotion =
-                        controllerType == EmulatedControllerType.VPAD && controller.hasMotion
+                    // the GamePad and the Wii Remote (MotionPlus) take motion; the other controllers have none
+                    val typeHasMotion = controllerType == EmulatedControllerType.VPAD || controllerType == EmulatedControllerType.WIIMOTE
+                    val canUseMotion = typeHasMotion && controller.hasMotion
 
                     Toggle(
                         label = tr("Use motion"),
@@ -317,7 +554,7 @@ private fun ControllerSettingsDialog(
                         onCheckedChanged = { updateSettings(settings.copy(motion = it)) },
                         enabled = canUseMotion,
                         description = when {
-                            controllerType != EmulatedControllerType.VPAD -> tr("Requires Wii U GamePad")
+                            !typeHasMotion -> tr("Requires Wii U GamePad or Wii Remote")
                             !controller.hasMotion -> tr("Controller has no motion sensors")
                             else -> null
                         },
@@ -347,19 +584,19 @@ private fun ControllerSettingsDialog(
                     )
 
                     AxisGroup(
-                        label = tr("Axis"),
+                        label = tr("Left stick"),
                         values = settings.axis,
                         onValuesChanged = { updateSettings(settings.copy(axis = it)) },
                     )
 
                     AxisGroup(
-                        label = tr("Rotation"),
+                        label = tr("Right stick"),
                         values = settings.rotation,
                         onValuesChanged = { updateSettings(settings.copy(rotation = it)) },
                     )
 
                     AxisGroup(
-                        label = tr("Trigger"),
+                        label = tr("Analog triggers"),
                         values = settings.trigger,
                         onValuesChanged = { updateSettings(settings.copy(trigger = it)) },
                     )
@@ -400,7 +637,37 @@ private fun ControllerSelectDialog(
     onDismissRequest: () -> Unit,
     onSelect: (InputController) -> Unit,
 ) {
-    Dialog(onDismissRequest = onDismissRequest) {
+    PickListDialog(
+        title = tr("Select a controller"),
+        items = controllers,
+        label = { it.name },
+        onDismiss = onDismissRequest,
+        onSelect = {
+            onSelect(it)
+            onDismissRequest()
+        },
+    )
+}
+
+@Composable
+private fun ProfileListDialog(
+    title: String,
+    profiles: List<String>,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    PickListDialog(title = title, items = profiles, label = { it }, onDismiss = onDismiss, onSelect = onSelect)
+}
+
+@Composable
+private fun <T> PickListDialog(
+    title: String,
+    items: List<T>,
+    label: (T) -> String,
+    onDismiss: () -> Unit,
+    onSelect: (T) -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
             modifier = Modifier
@@ -409,10 +676,8 @@ private fun ControllerSelectDialog(
             shape = RoundedCornerShape(16.dp),
         ) {
             Text(
-                modifier = Modifier.padding(
-                    start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp
-                ),
-                text = tr("Select a controller"),
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+                text = title,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
             )
@@ -423,13 +688,13 @@ private fun ControllerSelectDialog(
                     .weight(weight = 1.0f, fill = false)
                     .verticalScroll(rememberScrollState()),
             ) {
-                controllers.forEach {
-                    Text(text = it.name, modifier = Modifier
+                if (items.isEmpty()) {
+                    Text(tr("Nothing here yet"), modifier = Modifier.padding(vertical = 16.dp, horizontal = 8.dp))
+                }
+                items.forEach {
+                    Text(text = label(it), modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            onSelect(it)
-                            onDismissRequest()
-                        }
+                        .clickable { onSelect(it) }
                         .padding(vertical = 16.dp, horizontal = 8.dp))
                 }
             }
@@ -437,7 +702,7 @@ private fun ControllerSelectDialog(
             HorizontalDivider()
 
             TextButton(
-                onClick = onDismissRequest,
+                onClick = onDismiss,
                 modifier = Modifier
                     .padding(8.dp)
                     .align(Alignment.End),
@@ -449,18 +714,53 @@ private fun ControllerSelectDialog(
 }
 
 @Composable
+private fun ProfileNameDialog(
+    initialName: String,
+    existing: List<String>,
+    isValid: (String) -> Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf(initialName) }
+    val valid = isValid(name)
+    val overwrites = existing.any { it.equals(name.trim(), ignoreCase = true) }
+    FractalAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Save as profile")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    label = { Text(tr("Profile name")) },
+                    isError = name.isNotEmpty() && !valid,
+                )
+                when {
+                    name.isNotEmpty() && !valid -> Text(tr("Use letters, numbers and spaces; \"controller1\" style names are reserved."))
+                    overwrites -> Text(tr("A profile with this name exists and will be replaced."))
+                }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } },
+        confirmButton = { TextButton(onClick = { onSave(name) }, enabled = valid) { Text(tr("Save")) } },
+    )
+}
+
+@Composable
 private fun InputBindingPopup(
     buttonName: String,
-    mapKeyEvent: (KeyEvent) -> Unit,
-    mapMotionEvent: (MotionEvent) -> Unit,
+    remaining: Int,
+    viewModel: ControllersViewModel,
     onClear: () -> Unit,
+    onSkip: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     LaunchedEffect(Unit) {
         GamepadInputSource.events.collect { event ->
             when (event) {
-                is GamepadInputSource.InputEvent.Key -> mapKeyEvent(event.keyEvent)
-                is GamepadInputSource.InputEvent.Motion -> mapMotionEvent(event.motionEvent)
+                is GamepadInputSource.InputEvent.Key -> viewModel.mapKeyEvent(event.keyEvent)
+                is GamepadInputSource.InputEvent.Motion -> viewModel.tryMapMotionEvent(event.motionEvent)
             }
         }
     }
@@ -499,8 +799,16 @@ private fun InputBindingPopup(
                     Text(
                         text = tr("Trigger an input to bind it to {0}", buttonName),
                         fontSize = 16.sp,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
+                    if (remaining > 0) {
+                        Text(
+                            text = tr("{0} more after this one", remaining),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = FractalTheme.colors.textSecondary,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                    }
 
                     Row(
                         modifier = Modifier
@@ -510,6 +818,10 @@ private fun InputBindingPopup(
                     ) {
                         TextButton(onClick = onClear) { Text(tr("Clear")) }
                         Spacer(modifier = Modifier.width(8.dp))
+                        if (remaining > 0) {
+                            TextButton(onClick = onSkip) { Text(tr("Skip")) }
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
                         TextButton(onClick = onDismiss) { Text(tr("Cancel")) }
                     }
                 }
@@ -517,3 +829,8 @@ private fun InputBindingPopup(
         }
     }
 }
+
+/** Display name of slot [index]'s emulated controller for lists ("Wii U Pro Controller", "GameCube layout"...). */
+fun slotControllerName(context: Context, index: Int): String = controllerChoiceName(
+    ControllerChoice.of(NativeInput.getControllerType(index), AutoControllerMapping.isGameCubeLayout(context, index))
+)

@@ -83,6 +83,7 @@ fun GameProfileEditScreen(
     val packs by viewModel.packs.collectAsState()
     val downloadStatus by viewModel.downloadStatus.collectAsState()
     val dataInfo by viewModel.dataInfo.collectAsState()
+    val controllerProfiles by viewModel.controllerProfiles.collectAsState()
     var confirmRemoveShaders by remember { mutableStateOf(false) }
 
     val userFolder = remember { context.internalFolder() }
@@ -191,6 +192,27 @@ fun GameProfileEditScreen(
                     checked = v.turnipSysmem,
                     onChange = viewModel::setTurnipSysmem,
                 )
+            }
+
+            controllerProfiles?.let { profiles ->
+                SectionTitle(tr("Controllers"))
+                HintText(
+                    if (profiles.available.isEmpty()) tr("Save a controller profile in Settings > Controllers to use it here, e.g. a Wii U GamePad setup for a game that needs one.")
+                    else tr("The game loads these controller profiles when it starts; the input settings stay as they are.")
+                )
+                // four players cover most games; a slot further down shows when it has a profile
+                profiles.perSlot.forEachIndexed { index, profile ->
+                    if (index >= 4 && profile == null) return@forEachIndexed
+                    ChoiceRow(
+                        title = tr("Controller {0}", index + 1),
+                        description = null,
+                        value = profile,
+                        choices = listOf<String?>(null) + (profiles.available + listOfNotNull(profile)).distinct(),
+                        label = { it ?: tr("Same as the input settings") },
+                        onSelect = { viewModel.setControllerProfile(index, it) },
+                        enabled = profiles.available.isNotEmpty() || profile != null,
+                    )
+                }
             }
 
             SectionTitle(tr("Graphic packs"))

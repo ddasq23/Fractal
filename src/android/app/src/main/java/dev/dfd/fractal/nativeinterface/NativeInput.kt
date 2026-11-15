@@ -108,6 +108,16 @@ object NativeInput {
         const val HOME: Int = 17
     }
 
+    /** Wiimote extensions, as Cafe OS WPAD device types. The Classic Controller is its own emulated type. */
+    object WiimoteExtension {
+        const val NONE: Int = 0
+        const val NUNCHUK: Int = 1
+        const val MOTION_PLUS: Int = 5
+        const val MOTION_PLUS_NUNCHUK: Int = 6
+
+        fun hasNunchuk(extension: Int) = extension == NUNCHUK || extension == MOTION_PLUS_NUNCHUK
+    }
+
     object EmulatedControllerType {
         const val VPAD: Int = 0
         const val PRO: Int = 1
@@ -318,4 +328,33 @@ object NativeInput {
     /** The running game's profile chose the controller profile of [index]; it is not ours to change. */
     @JvmStatic
     external fun isControllerSetByGameProfile(index: Int): Boolean
+
+    /** Extension of the Wiimote in slot [index] ([WiimoteExtension]); NONE when the slot is no Wiimote. */
+    @JvmStatic
+    external fun getWiimoteExtension(index: Int): Int
+
+    @JvmStatic
+    external fun setWiimoteExtension(index: Int, extension: Int)
+
+    /** Named controller profiles (controllerProfiles/<name>.xml), the per slot files left out. */
+    @JvmStatic
+    external fun getControllerProfiles(): Array<String>
+
+    @JvmStatic
+    external fun isValidControllerProfileName(name: String): Boolean
+
+    /** Saves controller [index] as the named profile [name]; false when it could not be written. */
+    @JvmStatic
+    external fun saveControllerProfile(index: Int, name: String): Boolean
+
+    /** Replaces controller [index] with the named profile [name]; the slot file is not written. */
+    @JvmStatic
+    external fun loadControllerProfile(index: Int, name: String): Boolean
+
+    @JvmStatic
+    external fun deleteControllerProfile(name: String): Boolean
+
+    /** Name of the profile controller [index] was loaded from or saved as, null for none. */
+    @JvmStatic
+    external fun getControllerProfileName(index: Int): String?
 }

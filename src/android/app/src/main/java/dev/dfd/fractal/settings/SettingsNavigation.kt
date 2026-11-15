@@ -17,6 +17,7 @@ import dev.dfd.fractal.settings.input.controller.ControllerInputSettingsScreen
 import dev.dfd.fractal.settings.input.device.DeviceInputSettingsScreen
 import dev.dfd.fractal.settings.input.hotkeys.HotkeySettingsScreen
 import dev.dfd.fractal.settings.input.InputSettingsScreen
+import dev.dfd.fractal.settings.input.macros.PhysicalMacrosScreen
 import dev.dfd.fractal.settings.inputoverlay.InputOverlaySettingsScreen
 import dev.dfd.fractal.settings.overlay.OverlaySettingsScreen
 import kotlinx.serialization.Serializable
@@ -64,6 +65,9 @@ private object SettingsRoutes {
 
     @Serializable
     object InputOverlaySettingsScreenRoute
+
+    @Serializable
+    data class PhysicalMacrosScreenRoute(val controllerIndex: Int)
 
     @Serializable
     object DeviceInputSettingsScreenRoute
@@ -142,6 +146,14 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
                 ControllerInputSettingsScreen(
                     navigateBack = { navController.popBackStack() },
                     controllerIndex = controllerIndex,
+                    goToMacros = { navController.navigate(SettingsRoutes.PhysicalMacrosScreenRoute(controllerIndex)) },
+                )
+            }
+
+            screen<SettingsRoutes.PhysicalMacrosScreenRoute> { navBackStackEntry ->
+                PhysicalMacrosScreen(
+                    navigateBack = { navController.popBackStack() },
+                    controllerIndex = navBackStackEntry.toRoute<SettingsRoutes.PhysicalMacrosScreenRoute>().controllerIndex,
                 )
             }
 
@@ -164,6 +176,7 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
                     goToHostInputSettings = {
                         navController.navigate(SettingsRoutes.DeviceInputSettingsScreenRoute)
                     },
+                    goToMacros = { navController.navigate(SettingsRoutes.PhysicalMacrosScreenRoute(0)) },
                 )
             }
         }

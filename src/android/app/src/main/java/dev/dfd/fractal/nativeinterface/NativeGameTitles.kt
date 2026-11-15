@@ -89,6 +89,13 @@ object NativeGameTitles {
     @JvmStatic
     external fun setDriverSettingForTitle(gameTitleId: Long, driverSetting: DriverSetting)
 
+    /** Controller profile the game loads into slot [index] (0-7) when it starts; null for the global setup. */
+    @JvmStatic
+    external fun getControllerProfileForTitle(gameTitleId: Long, index: Int): String?
+
+    @JvmStatic
+    external fun setControllerProfileForTitle(gameTitleId: Long, index: Int, profile: String?)
+
     @JvmStatic
     external fun titleHasShaderCacheFiles(gameTitleId: Long): Boolean
 
