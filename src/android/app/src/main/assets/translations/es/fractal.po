@@ -2235,6 +2235,300 @@ msgstr "Asigna un control conectado al primer control que no tenga ninguno, sin 
 msgid "Reset to automatic mapping"
 msgstr "Restablecer la asignación automática"
 
+msgid "Connect a controller and use \"Map all, one by one\""
+msgstr "Conecta un mando y usa \"Asignar todo, uno por uno\""
+
+msgid "Extension"
+msgstr "Extensión"
+
+msgid "The game sees this extension plugged into the Wii Remote. The pointer needs a real Wii Remote, which Android can't use."
+msgstr "El juego ve esta extensión conectada al Wii Remote. El puntero necesita un Wii Remote real, que Android no puede usar."
+
+msgid "Tap a part of the drawing or a row below, then press the button or move the stick on your controller. Long press a row to clear it."
+msgstr "Toca una parte del dibujo o una fila de abajo y pulsa el botón o mueve el stick en tu mando. Mantén pulsada una fila para borrarla."
+
+msgid "Physical controller"
+msgstr "Mando físico"
+
+msgid "No controller connected"
+msgstr "Ningún mando conectado"
+
+msgid "Connect a controller by USB or Bluetooth; it is detected right away"
+msgstr "Conecta un mando por USB o Bluetooth; se detecta al instante"
+
+msgid "Detected automatically. Tap to map every input from one of them"
+msgstr "Detectado automáticamente. Toca para asignar todas las entradas desde uno de ellos"
+
+msgid "Map all, one by one"
+msgstr "Asignar todo, uno por uno"
+
+msgid "Asks for each input in turn; skip the ones you don't need"
+msgstr "Pide cada entrada por turnos; salta las que no necesites"
+
+msgid "GameCube layout on the connected controller"
+msgstr "Distribución de GameCube en el mando conectado"
+
+msgid "Same buttons as the connected controller"
+msgstr "Mismos botones que el mando conectado"
+
+msgid "Dead zones, analog range, rumble and motion"
+msgstr "Zonas muertas, rango analógico, vibración y movimiento"
+
+msgid "Macros and turbo"
+msgstr "Macros y turbo"
+
+msgid "Buttons of the physical controller that play a combo, a sequence or turbo"
+msgstr "Botones del mando físico que hacen un combo, una secuencia o turbo"
+
+msgid "Profiles"
+msgstr "Perfiles"
+
+msgid "Save as profile"
+msgstr "Guardar como perfil"
+
+msgid "Current profile: {0}"
+msgstr "Perfil actual: {0}"
+
+msgid "Keep this setup to load it later or to use it in a game's settings"
+msgstr "Guarda esta configuración para cargarla después o usarla en los ajustes de un juego"
+
+msgid "Load profile"
+msgstr "Cargar perfil"
+
+msgid "No saved profiles yet"
+msgstr "Aún no hay perfiles guardados"
+
+msgid "{0} saved profiles"
+msgstr "{0} perfiles guardados"
+
+msgid "Profile saved: {0}"
+msgstr "Perfil guardado: {0}"
+
+msgid "Could not save the profile"
+msgstr "No se pudo guardar el perfil"
+
+msgid "Profile loaded: {0}"
+msgstr "Perfil cargado: {0}"
+
+msgid "Could not load the profile"
+msgstr "No se pudo cargar el perfil"
+
+msgid "Delete the profile {0}? Games set to use it go back to the normal setup."
+msgstr "¿Borrar el perfil {0}? Los juegos configurados para usarlo vuelven a la configuración normal."
+
+msgid "Nunchuk"
+msgstr "Nunchuk"
+
+msgid "MotionPlus"
+msgstr "MotionPlus"
+
+msgid "MotionPlus and Nunchuk"
+msgstr "MotionPlus y Nunchuk"
+
+msgid "Classic Controller"
+msgstr "Classic Controller"
+
+msgid "GameCube layout"
+msgstr "Distribución de GameCube"
+
+msgid "Wii Remote"
+msgstr "Wii Remote"
+
+msgid "Not connected"
+msgstr "Desconectado"
+
+msgid "Screen, touch, motion"
+msgstr "Pantalla, táctil, movimiento"
+
+msgid "Default for gamepads"
+msgstr "Predeterminado de los mandos"
+
+msgid "Wii Remote + Classic"
+msgstr "Wii Remote + Classic"
+
+msgid "On a Classic Controller"
+msgstr "Sobre un Classic Controller"
+
+msgid "Nunchuk, MotionPlus"
+msgstr "Nunchuk, MotionPlus"
+
+msgid "This player has no controller."
+msgstr "Este jugador no tiene mando."
+
+msgid "The Wii U GamePad: every game supports it, and some only work with it. The on-screen controls and the touch screen drive it."
+msgstr "El Wii U GamePad: todos los juegos lo admiten y algunos solo funcionan con él. Los controles en pantalla y la pantalla táctil lo manejan."
+
+msgid "The Wii U Pro Controller, the default for physical gamepads. Many games support it, but some only accept the Wii U GamePad or the Wii Remote: switch to those here or with a profile in the game's settings."
+msgstr "El Wii U Pro Controller, el predeterminado para mandos físicos. Muchos juegos lo admiten, pero algunos solo aceptan el Wii U GamePad o el Wii Remote: cámbialo aquí o con un perfil en los ajustes del juego."
+
+msgid "Classic Controller Pro, connected to a Wii Remote. Used by Wii U games that support it and by Virtual Console games."
+msgstr "Classic Controller Pro, conectado a un Wii Remote. Lo usan los juegos de Wii U que lo admiten y los de Virtual Console."
+
+msgid "The Wii U only takes GameCube controllers through the USB adapter, which Cemu does not emulate. This option uses a Classic Controller (supported by Smash Bros. and others) laid out like a GameCube pad: A at the bottom, B left, X right, Y top, Z on the right bumper, L and R on the triggers."
+msgstr "Wii U solo acepta mandos de GameCube con el adaptador USB, que Cemu no emula. Esta opción usa un Classic Controller (admitido por Smash Bros. y otros) con los botones como en GameCube: A abajo, B a la izquierda, X a la derecha, Y arriba, Z en el bumper derecho, L y R en los gatillos."
+
+msgid "Wii Remote with optional Nunchuk or MotionPlus, for games that need it. Hold the controller sideways or use the Nunchuk as you would on the Wii U."
+msgstr "Wii Remote con Nunchuk o MotionPlus opcionales, para los juegos que lo piden. Sujeta el mando de lado o usa el Nunchuk como en Wii U."
+
+msgid "Requires Wii U GamePad or Wii Remote"
+msgstr "Requiere el Wii U GamePad o el Wii Remote"
+
+msgid "Left stick"
+msgstr "Stick izquierdo"
+
+msgid "Right stick"
+msgstr "Stick derecho"
+
+msgid "Analog triggers"
+msgstr "Gatillos analógicos"
+
+msgid "Nothing here yet"
+msgstr "Aún no hay nada"
+
+msgid "Profile name"
+msgstr "Nombre del perfil"
+
+msgid "Use letters, numbers and spaces; \"controller1\" style names are reserved."
+msgstr "Usa letras, números y espacios; los nombres como \"controller1\" están reservados."
+
+msgid "A profile with this name exists and will be replaced."
+msgstr "Ya existe un perfil con este nombre y se reemplazará."
+
+msgid "{0} more after this one"
+msgstr "{0} más después de este"
+
+msgid "Control stick"
+msgstr "Stick de control"
+
+msgid "C stick"
+msgstr "Stick C"
+
+msgid "Classic Controller only"
+msgstr "Solo del Classic Controller"
+
+msgid "Pick a button or a combination of your physical controller and what it does in the game. A single button only runs the macro; the buttons of a combination still do their normal job too."
+msgstr "Elige un botón o una combinación de tu mando físico y lo que hace en el juego. Un botón solo ejecuta únicamente la macro; los botones de una combinación siguen haciendo también su función normal."
+
+msgid "Add turbo"
+msgstr "Añadir turbo"
+
+msgid "Holding the trigger presses a button many times a second"
+msgstr "Mantener el gatillo pulsa un botón muchas veces por segundo"
+
+msgid "Add combo"
+msgstr "Añadir combo"
+
+msgid "The trigger presses several buttons together"
+msgstr "El gatillo pulsa varios botones a la vez"
+
+msgid "Add sequence"
+msgstr "Añadir secuencia"
+
+msgid "The trigger plays steps one after the other"
+msgstr "El gatillo ejecuta pasos uno tras otro"
+
+msgid "Your macros"
+msgstr "Tus macros"
+
+msgid "No macros yet"
+msgstr "Aún no hay macros"
+
+msgid "No trigger"
+msgstr "Sin gatillo"
+
+msgid "Turbo {0}"
+msgstr "Turbo {0}"
+
+msgid "Controller {0} ({1})"
+msgstr "Control {0} ({1})"
+
+msgid "{0} presses a second"
+msgstr "{0} pulsaciones por segundo"
+
+msgid "{0} steps"
+msgstr "{0} pasos"
+
+msgid "repeats"
+msgstr "se repite"
+
+msgid "toggle"
+msgstr "fijar"
+
+msgid "Name (optional)"
+msgstr "Nombre (opcional)"
+
+msgid "Tap, then press the button or buttons on your controller and let go"
+msgstr "Toca y luego pulsa el botón o los botones en tu mando y suéltalos"
+
+msgid "Only on {0}"
+msgstr "Solo en {0}"
+
+msgid "Off: the trigger works on any connected controller"
+msgstr "Desactivado: el gatillo funciona en cualquier mando conectado"
+
+msgid "Does"
+msgstr "Hace"
+
+msgid "Kind"
+msgstr "Tipo"
+
+msgid "Combo: buttons together"
+msgstr "Combo: botones a la vez"
+
+msgid "Sequence: steps in order"
+msgstr "Secuencia: pasos en orden"
+
+msgid "Buttons pressed together"
+msgstr "Botones pulsados a la vez"
+
+msgid "Duration"
+msgstr "Duración"
+
+msgid "A step with no buttons is a pause that releases everything"
+msgstr "Un paso sin botones es una pausa que suelta todo"
+
+msgid "Behavior"
+msgstr "Comportamiento"
+
+msgid "Plays the sequence again and again while the trigger is held"
+msgstr "Repite la secuencia mientras se mantiene el gatillo"
+
+msgid "Presses and releases the buttons quickly while the trigger is held"
+msgstr "Pulsa y suelta los botones rápidamente mientras se mantiene el gatillo"
+
+msgid "Turbo speed"
+msgstr "Velocidad del turbo"
+
+msgid "{0}/s"
+msgstr "{0}/s"
+
+msgid "One press turns the macro on, the next one off"
+msgstr "Una pulsación activa la macro y la siguiente la desactiva"
+
+msgid "Press the trigger"
+msgstr "Pulsa el gatillo"
+
+msgid "Press one button, or hold several together, on your controller, then let go."
+msgstr "Pulsa un botón, o mantén varios a la vez, en tu mando y luego suéltalos."
+
+msgid "New gamepads become"
+msgstr "Los mandos nuevos son"
+
+msgid "Pro Controller: each gamepad is its own player and the on-screen controls stay on the GamePad. Wii U GamePad: the first gamepad drives the GamePad, for games that only accept it. Mappings you already have don't change."
+msgstr "Pro Controller: cada mando es un jugador y los controles en pantalla se quedan en el GamePad. Wii U GamePad: el primer mando maneja el GamePad, para juegos que solo lo aceptan. Las asignaciones que ya tienes no cambian."
+
+msgid "Profile: {0}"
+msgstr "Perfil: {0}"
+
+msgid "Save a controller profile in Settings > Controllers to use it here, e.g. a Wii U GamePad setup for a game that needs one."
+msgstr "Guarda un perfil de control en Configuración > Controles para usarlo aquí, por ejemplo un GamePad para un juego que lo necesita."
+
+msgid "The game loads these controller profiles when it starts; the input settings stay as they are."
+msgstr "El juego carga estos perfiles de mando al iniciar; los ajustes de entrada se quedan como están."
+
+msgid "Same as the input settings"
+msgstr "Igual que los ajustes de entrada"
+
 msgid "Resolution & FPS"
 msgstr "Resolución y FPS"
 

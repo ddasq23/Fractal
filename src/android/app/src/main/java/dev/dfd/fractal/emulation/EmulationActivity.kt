@@ -29,13 +29,15 @@ import dev.dfd.fractal.emulation.input.DeviceMotionHandler
 import dev.dfd.fractal.emulation.input.HotkeyManager
 import dev.dfd.fractal.emulation.input.InputHandler
 import dev.dfd.fractal.emulation.input.NativeInputDeviceListener
+import dev.dfd.fractal.emulation.input.PhysicalMacroEngine
+import dev.dfd.fractal.common.input.PhysicalMacroStore
 import dev.dfd.fractal.settings.input.controller.AutoControllerMappingListener
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.system.exitProcess
 
-private class InputDelegateManager(context: Context) {
+private class InputDelegateManager(private val context: Context) {
     private val nativeInputDeviceListener = NativeInputDeviceListener(context)
     private val controllerCallbacks = ControllerCallbacks(context)
     private val controllerMotionHandler = ControllerMotionHandler(context)
@@ -52,6 +54,7 @@ private class InputDelegateManager(context: Context) {
         controllerMotionHandler.register()
         deviceControllerCallbacks.register()
         autoControllerMapping.register()
+        PhysicalMacroEngine.register(context)
     }
 
     fun unregisterAll() {
@@ -60,6 +63,7 @@ private class InputDelegateManager(context: Context) {
         controllerMotionHandler.unregister()
         deviceControllerCallbacks.unregister()
         autoControllerMapping.unregister()
+        PhysicalMacroEngine.unregister(context)
     }
 
     fun onResume(rotation: Int) {
@@ -79,6 +83,9 @@ class EmulationActivity : AppCompatActivity() {
     private var processInputEvents = true
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+        if (processInputEvents) {
+            PhysicalMacroEngine.onMotionEvent(event)
+        }
         if (processInputEvents && InputHandler.onMotionEvent(event)) {
             return true
         }
@@ -88,6 +95,10 @@ class EmulationActivity : AppCompatActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         HotkeyManager.onKeyEvent(event)
+
+        if (processInputEvents && PhysicalMacroEngine.onKeyEvent(event)) {
+            return true
+        }
 
         if (processInputEvents && InputHandler.onKeyEvent(event)) {
             return true
@@ -126,6 +137,7 @@ class EmulationActivity : AppCompatActivity() {
         inputManager = InputDelegateManager(this)
 
         setupHotkeys()
+        setupPhysicalMacros()
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -140,7 +152,10 @@ class EmulationActivity : AppCompatActivity() {
                         gamePath = gamePath,
                         setMotionSensorEnabled = inputManager::setDeviceMotionEnabled,
                         onQuit = ::onQuit,
-                        setInputListeningEnabled = { processInputEvents = it },
+                        setInputListeningEnabled = {
+                            processInputEvents = it
+                            if (!it) PhysicalMacroEngine.releaseAll()
+                        },
                     )
                 }
             }
@@ -183,6 +198,16 @@ class EmulationActivity : AppCompatActivity() {
                 AppSettingsStore.dataStore.data.map { it.hotkeySettings }
                     .distinctUntilChanged()
                     .collect { HotkeyManager.setHotkeyMappings(it) }
+            }
+        }
+    }
+
+    private fun setupPhysicalMacros() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                PhysicalMacroStore.get(this@EmulationActivity).data.map { it.macros }
+                    .distinctUntilChanged()
+                    .collect { PhysicalMacroEngine.setMacros(it) }
             }
         }
     }

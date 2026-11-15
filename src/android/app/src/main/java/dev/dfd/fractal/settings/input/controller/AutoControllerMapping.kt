@@ -17,12 +17,17 @@ import dev.dfd.fractal.nativeinterface.NativeInput.EmulatedControllerType
  * Default mapping for gamepads nobody mapped yet, so the built-in controls of a handheld (or a
  * freshly paired pad) work without a visit to the input settings.
  *
- * Rule: a connected gamepad that drives no emulated controller is mapped (with [InputMapper.mapAllInputs])
- * to the first slot that has no physical controller mapped. Slot 0 is created as a Wii U GamePad if it
- * does not exist, unless the user turned it off; other slots are only used when the user already
- * picked their emulated controller type. A slot with any physical mapping is never touched, even if the
- * device it uses is not connected: that is the user's (or an earlier automatic) choice, and
- * "Reset to automatic mapping" on the controller screen redoes it for the connected pad.
+ * Slot 0 is a Wii U GamePad unless the user or a game profile says otherwise: the on-screen controls
+ * and the touch screen drive it. A connected gamepad that drives no emulated controller is mapped
+ * (with [InputMapper.mapAllInputs]) as the [defaultType] the user picked:
+ * - Pro Controller (the default): the first slot that is a Pro, Classic or Wiimote without physical
+ *   mapping, else the first unused slot from 1 on, created as a Pro Controller. Each pad gets its own
+ *   slot, and the on-screen GamePad in slot 0 stays as it is.
+ * - Wii U GamePad (the behavior before the choice existed): the first slot without physical mapping,
+ *   slot 0 included; other unused slots are only taken when the user already picked their type.
+ * A slot with any physical mapping is never touched, even if the device it uses is not connected:
+ * that is the user's (or an earlier automatic) choice, and "Reset to automatic mapping" on the
+ * controller screen redoes it for the connected pad. Slots the user turned off are never used.
  *
  * The switch and the "slot 0 turned off by the user" mark live in their own SharedPreferences, read
  * synchronously from the input device callbacks of both activities (and both processes in release).
@@ -31,6 +36,11 @@ object AutoControllerMapping {
     private const val PREFS_NAME = "input_auto_mapping"
     private const val KEY_ENABLED = "enabled"
     private const val KEY_USER_DISABLED_SLOTS = "user_disabled_slots"
+    private const val KEY_DEFAULT_TYPE = "default_type"
+    private const val KEY_GAMECUBE_SLOTS = "gamecube_layout_slots"
+
+    /** Emulated controller types a new gamepad can become. */
+    val DEFAULT_TYPE_CHOICES = listOf(EmulatedControllerType.PRO, EmulatedControllerType.VPAD)
 
     data class MappedController(val controllerIndex: Int, val deviceName: String)
 
@@ -53,6 +63,25 @@ object AutoControllerMapping {
 
     fun setEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_ENABLED, enabled).apply()
+    }
+
+    /** Emulated controller a newly connected gamepad becomes: Pro Controller unless the user picked the GamePad. */
+    fun defaultType(context: Context): Int =
+        prefs(context).getInt(KEY_DEFAULT_TYPE, EmulatedControllerType.PRO)
+            .takeIf { it in DEFAULT_TYPE_CHOICES } ?: EmulatedControllerType.PRO
+
+    fun setDefaultType(context: Context, type: Int) {
+        if (type in DEFAULT_TYPE_CHOICES) prefs(context).edit().putInt(KEY_DEFAULT_TYPE, type).apply()
+    }
+
+    /** Slot [controllerIndex] is a Classic Controller laid out as a GameCube controller (only how it is shown and mapped). */
+    fun isGameCubeLayout(context: Context, controllerIndex: Int): Boolean =
+        prefs(context).getStringSet(KEY_GAMECUBE_SLOTS, emptySet())!!.contains(controllerIndex.toString())
+
+    fun setGameCubeLayout(context: Context, controllerIndex: Int, enabled: Boolean) {
+        val slots = prefs(context).getStringSet(KEY_GAMECUBE_SLOTS, emptySet())!!.toMutableSet()
+        val changed = if (enabled) slots.add(controllerIndex.toString()) else slots.remove(controllerIndex.toString())
+        if (changed) prefs(context).edit().putStringSet(KEY_GAMECUBE_SLOTS, slots).apply()
     }
 
     private fun isSlotDisabledByUser(context: Context, controllerIndex: Int) =
@@ -94,8 +123,37 @@ object AutoControllerMapping {
     private fun mappedDescriptors(controllerIndex: Int): Set<String> =
         NativeInput.getMappedControllerDescriptors(controllerIndex).toSet()
 
+    /** Slot for a new gamepad and whether it was created for it; null when there is none. */
+    private fun claimFreeSlot(context: Context): Pair<Int, Boolean>? =
+        if (defaultType(context) == EmulatedControllerType.PRO) claimProSlot(context) else claimGamePadSlot(context)
+
+    /** A Pro, Classic or Wiimote slot without physical controller, else a new Pro Controller from slot 1 on. */
+    private fun claimProSlot(context: Context): Pair<Int, Boolean>? {
+        val usable = (0..<NativeInput.MAX_CONTROLLERS).filter { !NativeInput.isControllerSetByGameProfile(it) }
+        usable.firstOrNull {
+            val type = NativeInput.getControllerType(it)
+            type != EmulatedControllerType.DISABLED && type != EmulatedControllerType.VPAD && mappedDescriptors(it).isEmpty()
+        }?.let { return it to false }
+        for (index in usable) {
+            if (index == 0 || isSlotDisabledByUser(context, index)) {
+                continue
+            }
+            if (NativeInput.getControllerType(index) != EmulatedControllerType.DISABLED) {
+                continue
+            }
+            if (NativeInput.getControllersCount().wpadCount >= NativeInput.MAX_WPAD_CONTROLLERS) {
+                return null
+            }
+            NativeInput.setControllerType(index, EmulatedControllerType.PRO)
+            if (!NativeInput.isControllerDisabled(index)) {
+                return index to true
+            }
+        }
+        return null
+    }
+
     /** First slot without a physical controller; may create slot 0 as a Wii U GamePad. */
-    private fun claimFreeSlot(context: Context): Pair<Int, Boolean>? {
+    private fun claimGamePadSlot(context: Context): Pair<Int, Boolean>? {
         for (index in 0..<NativeInput.MAX_CONTROLLERS) {
             if (NativeInput.isControllerSetByGameProfile(index)) {
                 continue

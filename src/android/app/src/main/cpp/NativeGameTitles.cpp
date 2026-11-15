@@ -178,6 +178,33 @@ Java_dev_dfd_fractal_nativeinterface_NativeGameTitles_setDriverSettingForTitle([
 	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT jstring JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeGameTitles_getControllerProfileForTitle(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id, jint index)
+{
+	if (index < 0 || index >= 8)
+		return nullptr;
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	const auto& profile = NativeGameTitles::g_currentGameProfile.GetControllerProfile()[index];
+	if (!profile || profile->empty())
+		return nullptr;
+	return JNIUtils::ToJString(env, *profile);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeGameTitles_setControllerProfileForTitle(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id, jint index, jstring profile)
+{
+	if (index < 0 || index >= 8)
+		return;
+	NativeGameTitles::LoadGameProfile(game_title_id);
+	std::optional<std::string> value;
+	if (profile != nullptr)
+		value = JNIUtils::FromJString(env, profile);
+	if (value && value->empty())
+		value.reset();
+	NativeGameTitles::g_currentGameProfile.SetControllerProfile(index, value);
+	NativeGameTitles::g_currentGameProfile.Save(game_title_id);
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeGameTitles_titleHasShaderCacheFiles([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong game_title_id)
 {

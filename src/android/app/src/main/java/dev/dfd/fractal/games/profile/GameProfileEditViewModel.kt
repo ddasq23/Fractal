@@ -16,6 +16,7 @@ import dev.dfd.fractal.nativeinterface.NativeGameTitles
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.DriverSettingMode
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
 import dev.dfd.fractal.nativeinterface.NativeGraphicPacks
+import dev.dfd.fractal.nativeinterface.NativeInput
 import dev.dfd.fractal.nativeinterface.NativeSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +60,9 @@ data class GamePack(
     val active: Boolean,
     val presets: List<Preset>,
 )
+
+/** Controller profile each slot loads for this game (null: the input settings) and the saved profiles. */
+data class GameControllerProfiles(val perSlot: List<String?>, val available: List<String>)
 
 /** Saves & cache section: what there is to export. */
 data class GameDataInfo(val hasSave: Boolean, val shaderCacheBytes: Long)
@@ -286,6 +290,25 @@ class GameProfileEditViewModel(val game: Game) : ViewModel() {
 
     // endregion
 
+    // region controllers
+
+    private val _controllerProfiles = MutableStateFlow<GameControllerProfiles?>(null)
+    val controllerProfiles = _controllerProfiles.asStateFlow()
+
+    private fun loadControllerProfiles() = GameControllerProfiles(
+        perSlot = (0..<NativeInput.MAX_CONTROLLERS).map { NativeGameTitles.getControllerProfileForTitle(titleId, it) },
+        available = NativeInput.getControllerProfiles().sortedWith(String.CASE_INSENSITIVE_ORDER),
+    )
+
+    fun setControllerProfile(index: Int, profile: String?) {
+        _controllerProfiles.update { it?.copy(perSlot = it.perSlot.toMutableList().apply { set(index, profile) }) }
+        viewModelScope.launch(profileDispatcher) {
+            runCatching { NativeGameTitles.setControllerProfileForTitle(titleId, index, profile) }
+        }
+    }
+
+    // endregion
+
     // region saves & cache
 
     private val _dataInfo = MutableStateFlow<GameDataInfo?>(null)
@@ -311,6 +334,7 @@ class GameProfileEditViewModel(val game: Game) : ViewModel() {
     init {
         viewModelScope.launch(profileDispatcher) {
             _values.value = runCatching { loadValues() }.getOrNull()
+            _controllerProfiles.value = runCatching { loadControllerProfiles() }.getOrNull()
         }
         viewModelScope.launch {
             _driverSettingChoices.value = getDriverSettingsChoices()

@@ -5,6 +5,8 @@
 #include "input/InputManager.h"
 #include "JNIUtils.h"
 #include "input/emulated/EmulatedController.h"
+#include "input/emulated/WiimoteController.h"
+#include "config/ActiveSettings.h"
 
 #include <android/sensor.h>
 
@@ -540,4 +542,100 @@ extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeInput_isControllerSetByGameProfile([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
 {
 	return InputManager::instance().is_gameprofile_set(index);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getWiimoteExtension([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+{
+	auto wiimote = std::dynamic_pointer_cast<WiimoteController>(EmulatedControllerManager::GetController(index).GetControllerPtr());
+	if (!wiimote)
+		return static_cast<jint>(kWAPDevCore);
+	return static_cast<jint>(wiimote->get_device_type());
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_setWiimoteExtension([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jint extension)
+{
+	auto wiimote = std::dynamic_pointer_cast<WiimoteController>(EmulatedControllerManager::GetController(index).GetControllerPtr());
+	if (!wiimote)
+		return;
+	// the Classic Controller is its own emulated type; a Wiimote only takes the Nunchuk and the MotionPlus
+	switch (static_cast<WPADDeviceType>(extension))
+	{
+	case kWAPDevCore:
+	case kWAPDevFreestyle:
+	case kWAPDevMPLS:
+	case kWAPDevMPLSFreeStyle:
+		wiimote->set_device_type(static_cast<WPADDeviceType>(extension));
+		break;
+	default:
+		break;
+	}
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getControllerProfiles(JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return JNIUtils::CreateStringObjectArray(env, InputManager::get_profiles());
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_isValidControllerProfileName(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring name)
+{
+	return InputManager::is_valid_profilename(JNIUtils::FromJString(env, name));
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_saveControllerProfile(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jstring name)
+{
+	const auto profileName = JNIUtils::FromJString(env, name);
+	if (index < 0 || index >= static_cast<jint>(InputManager::kMaxController) || !InputManager::is_valid_profilename(profileName))
+		return false;
+	try
+	{
+		return InputManager::instance().save(index, profileName);
+	}
+	catch (const std::exception& ex)
+	{
+		cemuLog_log(LogType::Force, "can't save controller profile {}: {}", profileName, ex.what());
+		return false;
+	}
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_loadControllerProfile(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jstring name)
+{
+	const auto profileName = JNIUtils::FromJString(env, name);
+	if (index < 0 || index >= static_cast<jint>(InputManager::kMaxController) || !InputManager::is_valid_profilename(profileName))
+		return false;
+	try
+	{
+		return InputManager::instance().load(index, profileName);
+	}
+	catch (const std::exception& ex)
+	{
+		cemuLog_log(LogType::Force, "can't load controller profile {}: {}", profileName, ex.what());
+		return false;
+	}
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_deleteControllerProfile(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring name)
+{
+	const auto profileName = JNIUtils::FromJString(env, name);
+	if (!InputManager::is_valid_profilename(profileName))
+		return false;
+	std::error_code ec;
+	bool removed = fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/{}.xml", profileName), ec);
+	removed |= fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/{}.txt", profileName), ec);
+	return removed;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jstring JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getControllerProfileName(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index)
+{
+	auto emulatedController = EmulatedControllerManager::GetController(index).GetControllerPtr();
+	if (!emulatedController || !emulatedController->has_profile_name())
+		return nullptr;
+	return JNIUtils::ToJString(env, emulatedController->get_profile_name());
 }

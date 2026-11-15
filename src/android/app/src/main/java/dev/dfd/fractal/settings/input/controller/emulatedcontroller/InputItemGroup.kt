@@ -10,24 +10,24 @@ import dev.dfd.fractal.common.ui.fractal.SettingsCard
 import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.common.ui.theme.FractalTheme
 
+/** Every input of [groups], one row each: tap to bind ([onInputClick] gets the id), long press to clear. */
 @Composable
-fun InputItemsGroup(
-    groupName: String,
-    inputIds: List<Int>,
-    inputIdToString: (Int) -> String,
-    onInputClick: (String, Int) -> Unit,
-    onInputLongClick: (Int) -> Unit,
+fun InputGroups(
+    groups: List<InputGroup>,
     controlsMapping: Map<Int, String>,
+    onInputClick: (Int) -> Unit,
+    onInputLongClick: (Int) -> Unit,
 ) {
-    Header(groupName)
-    inputIds.forEach {
-        val buttonName = inputIdToString(it)
-        InputItem(
-            buttonName = buttonName,
-            mapping = controlsMapping[it],
-            onClick = { onInputClick(buttonName, it) },
-            onLongClick = { onInputLongClick(it) },
-        )
+    groups.forEach { group ->
+        Header(group.name)
+        group.inputs.forEach { (id, name) ->
+            InputItem(
+                buttonName = name,
+                mapping = controlsMapping[id],
+                onClick = { onInputClick(id) },
+                onLongClick = { onInputLongClick(id) },
+            )
+        }
     }
 }
 
