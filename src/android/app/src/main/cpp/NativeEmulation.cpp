@@ -409,6 +409,30 @@ Java_dev_dfd_fractal_nativeinterface_NativeEmulation_pauseTitle([[maybe_unused]]
 	CafeSystem::PauseTitle();
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT jlong JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getForegroundTitleId([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return static_cast<jlong>(CafeSystem::GetForegroundTitleId());
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jstring JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getForegroundTitleName(JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return JNIUtils::ToJString(env, CafeSystem::GetForegroundTitleName());
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getForegroundTitleVersion([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return static_cast<jint>(CafeSystem::GetForegroundTitleVersion());
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getForegroundTitleRegion([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return static_cast<jint>(CafeSystem::GetForegroundTitleRegion());
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeEmulation_resumeTitle([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {

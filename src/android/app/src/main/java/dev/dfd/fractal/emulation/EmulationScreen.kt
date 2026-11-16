@@ -90,6 +90,7 @@ fun EmulationScreen(
     setMotionSensorEnabled: (Boolean) -> Unit,
     setInputListeningEnabled: (Boolean) -> Unit,
     onQuit: () -> Unit,
+    onRestartGame: () -> Unit = {},
     viewModel: EmulationViewModel = viewModel(
         factory = EmulationViewModel.Factory, extras = MutableCreationExtras().apply {
             set(EmulationViewModel.LAUNCH_PATH_KEY, gamePath)
@@ -103,6 +104,7 @@ fun EmulationScreen(
     var editorSession by remember { mutableStateOf<OverlayEditorSession?>(null) }
     var editorTesting by remember { mutableStateOf(false) }
     var pausedBeforeEditing by remember { mutableStateOf(false) }
+    var pausedBeforeGameSettings by remember { mutableStateOf(false) }
     var showEmulatedUSBDevices by remember { mutableStateOf(false) }
     val overlayController = remember { InputOverlayController() }
     var overlayDialog by remember { mutableStateOf<OverlayDialogState?>(null) }
@@ -320,6 +322,15 @@ fun EmulationScreen(
                 showEmulatedUSBDevices = true
                 closeDrawer()
             }
+
+            override fun gameSettings() {
+                val game = RunningGame.current(gamePath) ?: return
+                // the game waits while its settings are open
+                pausedBeforeGameSettings = viewModel.sideMenuState.value.isPaused
+                viewModel.setPaused(true)
+                panel = EmulationPanel.GameSettings(game)
+                closeDrawer()
+            }
         }
     }
 
@@ -421,8 +432,10 @@ fun EmulationScreen(
         panel = panel,
         onPanelChange = { next ->
             if (next == null || next is EmulationPanel.Controller || next == EmulationPanel.Hotkeys) closeDrawer()
+            if (next == null && panel is EmulationPanel.GameSettings && !pausedBeforeGameSettings) viewModel.setPaused(false)
             panel = next
         },
+        onRestartGame = onRestartGame,
         onClosed = {
             // the panel's window took the key events: nothing pressed before stays held
             HotkeyManager.clearPressedKeys()

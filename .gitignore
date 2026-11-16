@@ -62,3 +62,6 @@ __pycache__/
 # Claude Code (local)
 .claude/settings.local.json
 CLAUDE.local.md
+
+# menu music and sound effects (licensed files, not redistributable): put them here locally before building
+src/android/app/src/main/assets/sounds/

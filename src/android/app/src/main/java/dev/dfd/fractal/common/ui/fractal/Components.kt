@@ -6,6 +6,10 @@
 
 package dev.dfd.fractal.common.ui.fractal
 
+import dev.dfd.fractal.common.sound.withSfx
+import androidx.compose.runtime.LaunchedEffect
+import dev.dfd.fractal.common.sound.MenuSounds
+import dev.dfd.fractal.common.sound.MenuSfx
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -62,9 +66,19 @@ fun Modifier.gamepadConfirm(onConfirm: () -> Unit): Modifier = onKeyEvent {
     true
 }
 
-/** White ring drawn around focused items; only visible while navigating with keys/gamepad. */
+/**
+ * White ring drawn around focused items; only visible while navigating with keys/gamepad. Focus arriving plays [sfx]
+ * (null: silent).
+ */
 @Composable
-fun Modifier.focusRing(focused: Boolean, shape: Shape, width: Dp = 3.dp, gap: Dp = 3.dp): Modifier {
+fun Modifier.focusRing(
+    focused: Boolean,
+    shape: Shape,
+    width: Dp = 3.dp,
+    gap: Dp = 3.dp,
+    sfx: MenuSfx? = MenuSfx.NAVIGATE,
+): Modifier {
+    if (sfx != null) LaunchedEffect(focused) { if (focused) MenuSounds.play(sfx) }
     if (!focused) return this
     return this
         .border(width, FractalTheme.colors.focusRing, shape)
@@ -102,13 +116,13 @@ fun FractalButton(
                 }
             )
             .screenFocusItem()
-            .gamepadConfirm { if (enabled) onClick() }
+            .gamepadConfirm { if (enabled) withSfx(action = onClick)() }
             .clickable(
                 interactionSource = interaction,
                 indication = null,
                 enabled = enabled,
                 role = Role.Button,
-                onClick = onClick,
+                onClick = withSfx(action = onClick),
             )
             .heightIn(min = 48.dp)
             .padding(horizontal = 22.dp, vertical = 12.dp),
@@ -150,8 +164,8 @@ fun FractalIconButton(
             .clip(shapes.button)
             .background(if (selected) colors.selected else Color.Transparent)
             .screenFocusItem()
-            .gamepadConfirm(onClick)
-            .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
+            .gamepadConfirm(withSfx(action = onClick))
+            .clickable(interaction, indication = null, role = Role.Button, onClick = withSfx(action = onClick))
             .size(44.dp),
         contentAlignment = Alignment.Center,
     ) {

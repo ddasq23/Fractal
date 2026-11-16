@@ -6,6 +6,7 @@
 
 package dev.dfd.fractal.welcome
 
+import dev.dfd.fractal.settings.appearance.MenuSoundSettings
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.only
@@ -302,6 +303,8 @@ private fun AppearanceStep() {
     EconomyToggle(gui.animationEconomy) { on -> scope.launch { updateGuiSettings { it.copy(animationEconomy = on) } } }
     SectionTitle(tr("Library view"))
     LibraryViewPicker(gui.libraryView) { view -> scope.launch { updateGuiSettings { it.copy(libraryView = view) } } }
+    SectionTitle(tr("Sounds"))
+    MenuSoundSettings(gui) { block -> scope.launch { updateGuiSettings(block) } }
 }
 
 @Composable

@@ -1,5 +1,11 @@
 package dev.dfd.fractal
 
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
+import dev.dfd.fractal.common.settings.AppSettingsStore
+import dev.dfd.fractal.common.sound.MenuSounds
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
@@ -112,6 +118,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycleScope.launch {
+            AppSettingsStore.dataStore.data.map { it.guiSettings }.distinctUntilChanged().collect { MenuSounds.apply(it) }
+        }
         setContent {
             TranslatableContent {
                 ActivityContent {
@@ -124,11 +133,13 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         GamepadUi.start(this)
+        MenuSounds.onLibraryStarted()
     }
 
     override fun onStop() {
         super.onStop()
         GamepadUi.stop()
+        MenuSounds.onLibraryStopped()
     }
 
     override fun onDestroy() {

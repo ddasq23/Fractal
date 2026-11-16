@@ -48,7 +48,8 @@ class PackActions(
     /** An option of a resolution / FPS limit setting, null for Off. */
     val select: (setting: PackSetting, option: PackOption?) -> Unit,
     val download: () -> Unit,
-    val openBrowser: () -> Unit,
+    /** Opens the browser of all packs; null hides its button. */
+    val openBrowser: (() -> Unit)?,
 )
 
 // region resolution & FPS limit
@@ -254,7 +255,7 @@ fun GamePacksSection(
             primary = !packsDownloaded,
             enabled = !downloading,
         )
-        FractalButton(tr("All graphic packs"), onClick = actions.openBrowser, icon = FractalIcons.Layers)
+        actions.openBrowser?.let { FractalButton(tr("All graphic packs"), onClick = it, icon = FractalIcons.Layers) }
     }
 }
 

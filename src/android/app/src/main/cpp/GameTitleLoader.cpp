@@ -133,6 +133,43 @@ std::shared_ptr<Image> GameTitleLoader::LoadIcon(TitleId titleId, const std::opt
 {
 	if (auto iconIt = m_iconCache.find(titleId); iconIt != m_iconCache.end())
 		return iconIt->second;
+	auto image = ReadIcon(titleId, titleInfo);
+	if (image)
+		m_iconCache.emplace(titleId, image);
+	return image;
+}
+
+std::optional<std::pair<Game, std::shared_ptr<Image>>> GameTitleLoader::LoadGame(TitleId titleId)
+{
+	using namespace std::chrono;
+	GameInfo2 gameInfo = CafeTitleList::GetGameInfo(titleId);
+	if (!gameInfo.IsValid())
+		return std::nullopt;
+	TitleId baseTitleId = gameInfo.GetBaseTitleId();
+	std::optional<TitleInfo> titleInfo = getFirstTitleInfoByTitleId(titleId);
+	Game game{};
+	game.titleId = baseTitleId;
+	if (titleInfo.has_value())
+		game.path = titleInfo->GetPath();
+	game.isFavorite = GetConfig().IsGameListFavorite(baseTitleId);
+	if (!GetConfig().GetGameListCustomName(baseTitleId, game.name))
+		game.name = titleInfo.has_value() ? titleInfo->GetMetaTitleName() : "Unknown title";
+	game.version = gameInfo.GetVersion();
+	game.region = gameInfo.GetRegion();
+	game.dlc = gameInfo.GetAOCVersion();
+	game.minutesPlayed = 0;
+	iosu::pdm::GameListStat playTimeStat{};
+	if (iosu::pdm::GetStatForGamelist(baseTitleId, playTimeStat))
+	{
+		game.minutesPlayed = playTimeStat.numMinutesPlayed;
+		if (playTimeStat.last_played.year != 0)
+			game.lastPlayed = year_month_day(year(playTimeStat.last_played.year), month(playTimeStat.last_played.month + 1), day(playTimeStat.last_played.day));
+	}
+	return std::make_pair(game, ReadIcon(baseTitleId, titleInfo));
+}
+
+std::shared_ptr<Image> GameTitleLoader::ReadIcon(TitleId titleId, const std::optional<TitleInfo>& titleInfo)
+{
 	std::string tempMountPath = TitleInfo::GetUniqueTempMountingPath();
 	if (!titleInfo.has_value())
 		return {};
@@ -150,7 +187,6 @@ std::shared_ptr<Image> GameTitleLoader::LoadIcon(TitleId titleId, const std::opt
 	titleInfoValue.Unmount(tempMountPath);
 	if (!image->IsOk())
 		return {};
-	m_iconCache.emplace(titleId, image);
 	return image;
 }
 

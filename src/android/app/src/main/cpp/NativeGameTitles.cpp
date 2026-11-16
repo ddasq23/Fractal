@@ -225,6 +225,16 @@ Java_dev_dfd_fractal_nativeinterface_NativeGameTitles_setGameTitleFavorite([[may
 	GetConfig().SetGameListFavorite(game_title_id, isFavorite);
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT jobject JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeGameTitles_getGame(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong titleId)
+{
+	auto loaded = GameTitleLoader::LoadGame(static_cast<TitleId>(titleId));
+	if (!loaded.has_value())
+		return nullptr;
+	static JavaGameBuilder builder;
+	return builder.Build(env, loaded->first, loaded->second);
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeGameTitles_setGameTitleLoadedCallback(JNIEnv* env, [[maybe_unused]] jclass clazz, jobject game_title_loaded_callback)
 {

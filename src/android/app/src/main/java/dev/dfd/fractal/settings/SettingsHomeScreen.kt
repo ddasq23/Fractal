@@ -120,7 +120,7 @@ fun SettingsHomeScreen(
             tr("Interface"),
             SettingsEntry(
                 FractalIcons.Palette, tr("Appearance"),
-                tr("Theme, wallpaper and library view"),
+                tr("Theme, wallpaper, library view and sounds"),
                 dropUnlessResumed(block = goToAppearance),
             ),
             SettingsEntry(

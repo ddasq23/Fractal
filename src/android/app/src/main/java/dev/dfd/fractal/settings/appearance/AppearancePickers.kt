@@ -6,6 +6,14 @@
 
 package dev.dfd.fractal.settings.appearance
 
+import kotlin.math.roundToInt
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Slider
+import dev.dfd.fractal.common.sound.withSfx
+import dev.dfd.fractal.common.sound.MenuSounds
+import dev.dfd.fractal.common.sound.MenuSfx
 import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -115,8 +123,8 @@ private fun PickerTile(
             .focusRing(focused, shape)
             .clip(shape)
             .screenFocusItem()
-            .gamepadConfirm(onClick)
-            .clickable(interaction, indication = null, role = Role.RadioButton, onClick = onClick)
+            .gamepadConfirm(withSfx(MenuSfx.SWAP, onClick))
+            .clickable(interaction, indication = null, role = Role.RadioButton, onClick = withSfx(MenuSfx.SWAP, onClick))
             .fractalSurface(
                 shape,
                 FractalTheme.surface,
@@ -317,8 +325,8 @@ fun SettingToggle(title: String, description: String, enabled: Boolean, onChange
             .focusRing(focused, shape, gap = 2.dp)
             .clip(shape)
             .screenFocusItem()
-            .gamepadConfirm { onChange(!enabled) }
-            .clickable(interaction, indication = null, role = Role.Switch) { onChange(!enabled) }
+            .gamepadConfirm(withSfx { onChange(!enabled) })
+            .clickable(interaction, indication = null, role = Role.Switch, onClick = withSfx { onChange(!enabled) })
             .fractalSurface(shape, FractalTheme.surface)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -332,6 +340,63 @@ fun SettingToggle(title: String, description: String, enabled: Boolean, onChange
             )
         }
         Switch(checked = enabled, onCheckedChange = null)
+    }
+}
+
+/** Library music and menu sound effects: on/off and volume of each. */
+@Composable
+fun MenuSoundSettings(gui: GuiSettings, update: ((GuiSettings) -> GuiSettings) -> Unit) {
+    SettingToggle(
+        tr("Background music"),
+        tr("A track for each theme, in the library and settings only"),
+        gui.menuMusicEnabled,
+    ) { on -> update { it.copy(menuMusicEnabled = on) } }
+    if (gui.menuMusicEnabled) {
+        SettingSlider(tr("Music volume"), gui.menuMusicVolume) { v -> update { it.copy(menuMusicVolume = v) } }
+    }
+    SettingToggle(
+        tr("Sound effects"),
+        tr("Moving through menus and covers, switching themes, opening games and settings"),
+        gui.menuSfxEnabled,
+    ) { on -> update { it.copy(menuSfxEnabled = on) } }
+    if (gui.menuSfxEnabled) {
+        SettingSlider(tr("Effects volume"), gui.menuSfxVolume) { v ->
+            update { it.copy(menuSfxVolume = v) }
+            MenuSounds.preview(MenuSfx.CONFIRM, v)
+        }
+    }
+}
+
+/** 0..100 % in steps of 5, saved when the thumb is let go. */
+@Composable
+fun SettingSlider(title: String, value: Int, onChange: (Int) -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val shape = FractalTheme.shapes.card
+    val colors = FractalTheme.colors
+    var current by remember(value) { mutableFloatStateOf(value.toFloat()) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .focusRing(focused, shape, gap = 2.dp)
+            .clip(shape)
+            .fractalSurface(shape, FractalTheme.surface)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = colors.text, modifier = Modifier.weight(1f))
+            Text("${current.roundToInt()}%", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+        }
+        Slider(
+            value = current,
+            onValueChange = { current = it },
+            onValueChangeFinished = { onChange(current.roundToInt()) },
+            valueRange = 0f..100f,
+            steps = 19,
+            interactionSource = interaction,
+            colors = SliderDefaults.colors(thumbColor = colors.accent, activeTrackColor = colors.accent),
+            modifier = Modifier.screenFocusItem(),
+        )
     }
 }
 

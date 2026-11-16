@@ -6,6 +6,7 @@
 
 package dev.dfd.fractal.common.ui.fractal
 
+import dev.dfd.fractal.common.sound.withSfx
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -66,14 +67,14 @@ fun SettingsCard(
     val showRing = selfFocused || focused
     val clickModifier = if (onClick != null) {
         Modifier
-            .gamepadConfirm { if (enabled) onClick() }
+            .gamepadConfirm { if (enabled) withSfx(action = onClick)() }
             .combinedClickable(
                 interactionSource = interaction,
                 indication = ripple(),
                 enabled = enabled,
                 role = role,
                 onLongClick = onLongClick,
-                onClick = onClick,
+                onClick = withSfx(action = onClick),
             )
     } else Modifier
     CompositionLocalProvider(LocalContentColor provides colors.text) {

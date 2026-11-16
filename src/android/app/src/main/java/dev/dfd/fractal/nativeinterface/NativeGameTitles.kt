@@ -111,6 +111,10 @@ object NativeGameTitles {
     @JvmStatic
     external fun reloadGameTitles()
 
+    /** One installed title as the library shows it (name, play time, icon), read right away; null if unknown. */
+    @JvmStatic
+    external fun getGame(titleId: Long): Game?
+
     @JvmStatic
     external fun getInstalledGamesTitleIds(): LongArray
 

@@ -6,6 +6,8 @@
 
 package dev.dfd.fractal.games.library
 
+import dev.dfd.fractal.common.sound.MenuSounds
+import dev.dfd.fractal.common.sound.MenuSfx
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -117,13 +119,13 @@ private fun Modifier.gameItem(
 ): Modifier = this
     .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
     .onFocusChanged { if (it.isFocused) actions.focus(game) }
-    .gamepadConfirm { actions.play(game) }
+    .gamepadConfirm { MenuSounds.play(MenuSfx.CONFIRM); actions.play(game) }
     .combinedClickable(
         interactionSource = interaction,
         indication = null,
         role = Role.Button,
-        onLongClick = { actions.openMenu(game) },
-        onClick = { actions.play(game) },
+        onLongClick = { MenuSounds.play(MenuSfx.CONFIRM); actions.openMenu(game) },
+        onClick = { MenuSounds.play(MenuSfx.CONFIRM); actions.play(game) },
     )
 
 // region grid
@@ -164,7 +166,7 @@ private fun GridCard(game: Game, actions: LibraryActions, focusRequester: FocusR
     Box(
         modifier
             .scale(scale)
-            .focusRing(focused, shape)
+            .focusRing(focused, shape, sfx = MenuSfx.COVER)
             .aspectRatio(3f / 4f)
             .clip(shape)
             .gameItem(game, actions, interaction, focusRequester),
@@ -344,7 +346,7 @@ private fun CarouselTile(game: Game, side: Dp, isSelected: Boolean, actions: Lib
     Box(
         Modifier
             .size(animatedSide)
-            .focusRing(focused, shape)
+            .focusRing(focused, shape, sfx = MenuSfx.COVER)
             .clip(shape)
             .gameItem(game, actions, interaction, focusRequester),
     ) {
@@ -409,7 +411,7 @@ private fun ListRow(
     Row(
         modifier
             .fillMaxWidth()
-            .focusRing(focused, shape, gap = 2.dp)
+            .focusRing(focused, shape, gap = 2.dp, sfx = MenuSfx.COVER)
             .clip(shape)
             .then(
                 if (isSelected) Modifier.background(colors.selected)

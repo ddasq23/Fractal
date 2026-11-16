@@ -32,6 +32,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import dev.dfd.fractal.games.data.GameDataActions
+import androidx.compose.foundation.layout.ColumnScope
+import android.content.Context
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.MutableCreationExtras
@@ -65,6 +68,8 @@ fun GameProfileEditScreen(
     navigateBack: () -> Unit,
     goToGraphicPacks: () -> Unit = {},
     onPlay: ((Game) -> Unit)? = null,
+    /** Set when the screen is opened over the running game, from the in-game menu. */
+    inGame: InGameProfile? = null,
     viewModel: GameProfileEditViewModel = viewModel(
         factory = GameProfileEditViewModel.Factory,
         extras = MutableCreationExtras().apply {
@@ -98,7 +103,8 @@ fun GameProfileEditScreen(
             setPreset = viewModel::setPackPreset,
             select = viewModel::selectPackOption,
             download = { viewModel.downloadPacks(userFolder) },
-            openBrowser = goToGraphicPacks,
+            // the pack browser is a library screen; over the game there is only this game's list
+            openBrowser = goToGraphicPacks.takeIf { inGame == null },
         )
     }
 
@@ -119,6 +125,12 @@ fun GameProfileEditScreen(
     Box(Modifier.fillMaxSize()) {
         FractalScreen(title = tr("Game settings"), onBack = navigateBack) {
             GameHeader(game, onPlay)
+            if (inGame != null) {
+                SettingPanel {
+                    HintText(tr("Changes are saved to this game's profile right away and apply the next time the game starts."))
+                    FractalButton(tr("Restart game"), onClick = inGame.onRestart, icon = FractalIcons.Refresh, primary = true)
+                }
+            }
 
             if (hasRecommendedPacks(game.titleId)) {
                 SectionTitle(tr("Recommended"))
@@ -219,49 +231,8 @@ fun GameProfileEditScreen(
             SectionTitle(tr("Graphic packs"))
             GamePacksSection(packs, packsDownloaded, downloading, packActions)
 
-            SectionTitle(tr("Saves & cache"))
-            val info = dataInfo
-            ActionRow(
-                title = tr("Export save"),
-                description = when {
-                    info == null -> null
-                    info.hasSave -> tr("Zip of this game's save, to keep or move to another device")
-                    else -> tr("This game has no save data yet")
-                },
-                icon = GameIcons.Export,
-                onClick = { dataActions.exportSave(game) },
-                enabled = info?.hasSave != false,
-            )
-            ActionRow(
-                title = tr("Import save"),
-                description = tr("Replaces the save with one from a zip; the current save is backed up first"),
-                icon = GameIcons.Import,
-                onClick = { dataActions.importSave(game) },
-            )
-            val cacheSize = info?.shaderCacheBytes?.takeIf { it > 0 }?.let { Formatter.formatFileSize(context, it) }
-            ActionRow(
-                title = tr("Export shader cache"),
-                description = when {
-                    info == null -> null
-                    cacheSize != null -> tr("Transferable cache ({0}): shaders compiled while playing", cacheSize)
-                    else -> tr("This game has no shader cache yet")
-                },
-                icon = GameIcons.Export,
-                onClick = { dataActions.exportShaderCache(game) },
-                enabled = cacheSize != null || info == null,
-            )
-            ActionRow(
-                title = tr("Import shader cache"),
-                description = tr("Use a cache made for this same game to skip shader compile stutters"),
-                icon = GameIcons.Import,
-                onClick = { dataActions.importShaderCache(game) },
-            )
-            ActionRow(
-                title = tr("Remove shader caches"),
-                description = tr("Deletes the shader and pipeline caches of this game; they are rebuilt while playing"),
-                icon = FractalIcons.Trash,
-                onClick = { confirmRemoveShaders = true },
-            )
+            // exporting or replacing a save or the shader cache of the game that is running could lose data
+            if (inGame == null) SavesAndCacheSection(game, dataInfo, dataActions, context) { confirmRemoveShaders = true }
             Spacer(Modifier.height(24.dp))
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
@@ -360,4 +331,60 @@ private fun cpuModeToString(cpuMode: Int): String = when (cpuMode) {
     NativeGameTitles.CPUMode.SINGLECORERECOMPILER -> tr("Single-core recompiler")
     NativeGameTitles.CPUMode.MULTICORERECOMPILER -> tr("Multi-core recompiler")
     else -> tr("Auto (recommended)")
+}
+
+/** Options for the running game, opened from the in-game menu over [GameProfileEditScreen]. */
+class InGameProfile(val onRestart: () -> Unit)
+
+@Composable
+private fun ColumnScope.SavesAndCacheSection(
+    game: Game,
+    info: GameDataInfo?,
+    dataActions: GameDataActions,
+    context: Context,
+    onRemoveShaders: () -> Unit,
+) {
+    SectionTitle(tr("Saves & cache"))
+
+    ActionRow(
+        title = tr("Export save"),
+        description = when {
+            info == null -> null
+            info.hasSave -> tr("Zip of this game's save, to keep or move to another device")
+            else -> tr("This game has no save data yet")
+        },
+        icon = GameIcons.Export,
+        onClick = { dataActions.exportSave(game) },
+        enabled = info?.hasSave != false,
+    )
+    ActionRow(
+        title = tr("Import save"),
+        description = tr("Replaces the save with one from a zip; the current save is backed up first"),
+        icon = GameIcons.Import,
+        onClick = { dataActions.importSave(game) },
+    )
+    val cacheSize = info?.shaderCacheBytes?.takeIf { it > 0 }?.let { Formatter.formatFileSize(context, it) }
+    ActionRow(
+        title = tr("Export shader cache"),
+        description = when {
+            info == null -> null
+            cacheSize != null -> tr("Transferable cache ({0}): shaders compiled while playing", cacheSize)
+            else -> tr("This game has no shader cache yet")
+        },
+        icon = GameIcons.Export,
+        onClick = { dataActions.exportShaderCache(game) },
+        enabled = cacheSize != null || info == null,
+    )
+    ActionRow(
+        title = tr("Import shader cache"),
+        description = tr("Use a cache made for this same game to skip shader compile stutters"),
+        icon = GameIcons.Import,
+        onClick = { dataActions.importShaderCache(game) },
+    )
+    ActionRow(
+        title = tr("Remove shader caches"),
+        description = tr("Deletes the shader and pipeline caches of this game; they are rebuilt while playing"),
+        icon = FractalIcons.Trash,
+        onClick = onRemoveShaders,
+    )
 }

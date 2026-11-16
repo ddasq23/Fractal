@@ -6,6 +6,7 @@
 
 package dev.dfd.fractal.games.profile
 
+import dev.dfd.fractal.common.sound.withSfx
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -61,8 +62,8 @@ private fun Modifier.settingRow(enabled: Boolean, role: Role, onClick: () -> Uni
         .focusRing(focused, shape, gap = 2.dp)
         .clip(shape)
         .screenFocusItem()
-        .gamepadConfirm { if (enabled) onClick() }
-        .clickable(interaction, indication = null, enabled = enabled, role = role, onClick = onClick)
+        .gamepadConfirm { if (enabled) withSfx(action = onClick)() }
+        .clickable(interaction, indication = null, enabled = enabled, role = role, onClick = withSfx(action = onClick))
         .fractalSurface(shape, FractalTheme.surface)
         .padding(horizontal = 16.dp, vertical = 12.dp)
         .alpha(if (enabled) 1f else 0.5f)

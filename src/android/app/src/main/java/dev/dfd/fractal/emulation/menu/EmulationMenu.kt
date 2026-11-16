@@ -106,6 +106,7 @@ interface EmulationMenuActions {
     fun controllerSettings()
     fun hotkeys()
     fun emulatedUsbDevices()
+    fun gameSettings()
 }
 
 val ScalingFilterChoices = listOf(
@@ -192,6 +193,13 @@ fun EmulationMenuContent(
             QuickTile(MenuIcons.Camera, tr("Screenshot"), actions::takeScreenshot)
             QuickTile(MenuIcons.Exit, tr("Exit"), actions::quit)
         }
+
+        MenuActionRow(
+            icon = FractalIcons.Tune,
+            title = tr("Game settings"),
+            description = tr("This game's profile: CPU, driver, graphic packs and controllers. The game pauses while it is open"),
+            onClick = actions::gameSettings,
+        )
 
         MenuSection(tr("Display"))
         MenuToggleRow(

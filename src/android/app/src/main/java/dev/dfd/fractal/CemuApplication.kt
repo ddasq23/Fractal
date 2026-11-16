@@ -1,5 +1,6 @@
 package dev.dfd.fractal
 
+import dev.dfd.fractal.common.sound.MenuSounds
 import android.app.Application
 import dev.dfd.fractal.common.android.context.internalFolder
 import dev.dfd.fractal.common.settings.AppSettingsStore
@@ -27,10 +28,14 @@ import java.util.regex.Pattern
 class CemuApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // GameRestartActivity's process only relaunches the game: no emulator, settings store or files there
+        if (getProcessName().endsWith(":restart")) return
 
         configureExceptionHandler()
 
         AppSettingsStore.init(this)
+        // menu music and sounds belong to the library's process; the game's (release: EmulationProcess) has none
+        if (getProcessName() == packageName) MenuSounds.init(this)
 
         NativeFiles.initialize(contentResolver)
 

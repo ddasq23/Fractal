@@ -158,6 +158,7 @@ class EmulationActivity : AppCompatActivity() {
                         gamePath = gamePath,
                         setMotionSensorEnabled = inputManager::setDeviceMotionEnabled,
                         onQuit = ::onQuit,
+                        onRestartGame = ::restartGame,
                         setInputListeningEnabled = {
                             processInputEvents = it
                             if (!it) PhysicalMacroEngine.releaseAll()
@@ -227,6 +228,13 @@ class EmulationActivity : AppCompatActivity() {
     }
 
     private fun onQuit() {
+        finish()
+        exitProcess(0)
+    }
+
+    /** Boots the game again in a new process, so settings that only apply at boot take effect. */
+    private fun restartGame() {
+        GameRestartActivity.restart(this, intent)
         finish()
         exitProcess(0)
     }

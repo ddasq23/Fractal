@@ -1907,8 +1907,8 @@ msgstr "Tema"
 msgid "Theme and wallpaper"
 msgstr "Tema y fondo de pantalla"
 
-msgid "Theme, wallpaper and library view"
-msgstr "Tema, fondo de pantalla y vista de la biblioteca"
+msgid "Theme, wallpaper, library view and sounds"
+msgstr "Tema, fondo de pantalla, vista de la biblioteca y sonidos"
 
 msgid "There are no graphic packs for this game."
 msgstr "No hay paquetes gráficos para este juego."
@@ -3106,3 +3106,33 @@ msgstr "Modo"
 
 msgid "PanVK (Mesa) by faux123 for Mali-G57, G77, G610 and G710 class GPUs"
 msgstr "PanVK (Mesa) de faux123 para GPU de la clase Mali-G57, G77, G610 y G710"
+
+msgid "This game's profile: CPU, driver, graphic packs and controllers. The game pauses while it is open"
+msgstr "Perfil de este juego: CPU, driver, paquetes gráficos y mandos. El juego se pausa mientras está abierto"
+
+msgid "Changes are saved to this game's profile right away and apply the next time the game starts."
+msgstr "Los cambios se guardan en el perfil de este juego al momento y se aplican la próxima vez que se abra el juego."
+
+msgid "Restart game"
+msgstr "Reiniciar el juego"
+
+msgid "Sounds"
+msgstr "Sonidos"
+
+msgid "Background music"
+msgstr "Música de fondo"
+
+msgid "A track for each theme, in the library and settings only"
+msgstr "Una pista para cada tema, solo en la biblioteca y los ajustes"
+
+msgid "Music volume"
+msgstr "Volumen de la música"
+
+msgid "Sound effects"
+msgstr "Efectos de sonido"
+
+msgid "Moving through menus and covers, switching themes, opening games and settings"
+msgstr "Al moverse por menús y portadas, cambiar de tema y abrir juegos y ajustes"
+
+msgid "Effects volume"
+msgstr "Volumen de los efectos"

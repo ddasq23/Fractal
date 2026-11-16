@@ -1,5 +1,12 @@
 package dev.dfd.fractal.emulation.menu
 
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.HasDefaultViewModelProviderFactory
+import androidx.compose.ui.platform.LocalContext
+import android.app.Application
+import dev.dfd.fractal.games.profile.GameProfileEditScreen
+import dev.dfd.fractal.games.profile.InGameProfile
+import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
 import android.view.SurfaceView
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +41,8 @@ sealed interface EmulationPanel {
     data object ControllerPicker : EmulationPanel
     data class Controller(val index: Int) : EmulationPanel
     data object Hotkeys : EmulationPanel
+    /** The running game's profile, the same screen the library opens. */
+    data class GameSettings(val game: Game) : EmulationPanel
 }
 
 /**
@@ -45,6 +54,7 @@ fun EmulationPanels(
     panel: EmulationPanel?,
     onPanelChange: (EmulationPanel?) -> Unit,
     onClosed: () -> Unit,
+    onRestartGame: () -> Unit = {},
 ) {
     val close = {
         onPanelChange(null)
@@ -63,6 +73,10 @@ fun EmulationPanels(
 
         EmulationPanel.Hotkeys -> FullScreenPanel(key = "hotkeys", onClose = close) { back ->
             HotkeySettingsScreen(navigateBack = back)
+        }
+
+        is EmulationPanel.GameSettings -> FullScreenPanel(key = "game-${panel.game.titleId}", onClose = close) { back ->
+            GameProfileEditScreen(game = panel.game, navigateBack = back, inGame = InGameProfile(onRestart = onRestartGame))
         }
     }
 }
@@ -96,9 +110,13 @@ private fun FullScreenPanel(
     onClose: () -> Unit,
     content: @Composable (back: () -> Unit) -> Unit,
 ) {
+    val application = LocalContext.current.applicationContext as Application
     val owner = remember(key) {
-        object : ViewModelStoreOwner {
+        // view models that take the Application (AndroidViewModel) need the default factory an activity would give
+        object : ViewModelStoreOwner, HasDefaultViewModelProviderFactory {
             override val viewModelStore = ViewModelStore()
+            override val defaultViewModelProviderFactory: ViewModelProvider.Factory =
+                ViewModelProvider.AndroidViewModelFactory.getInstance(application)
         }
     }
     DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }

@@ -44,10 +44,13 @@ class GameTitleLoader
 	void ReloadGameTitles();
 	~GameTitleLoader();
 	void TitleRefresh(TitleId titleId);
+	/** One title read right away on the calling thread, without the loader's caches (the running game, in-game). */
+	static std::optional<std::pair<Game, std::shared_ptr<Image>>> LoadGame(TitleId titleId);
 
   private:
 	void LoadGameTitles();
 	std::string GetNameByTitleId(TitleId titleId, const std::optional<TitleInfo>& titleInfo);
 	std::shared_ptr<Image> LoadIcon(TitleId titleId, const std::optional<TitleInfo>& titleInfo);
+	static std::shared_ptr<Image> ReadIcon(TitleId titleId, const std::optional<TitleInfo>& titleInfo);
 	void HandleTitleListCallback(CafeTitleListCallbackEvent* evt);
 };

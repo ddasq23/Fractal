@@ -39,6 +39,13 @@
             android:screenOrientation="userLandscape"
             tools:ignore="DiscouragedApi" />
         <activity
+            android:name=".emulation.GameRestartActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:process=":restart"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity
             android:name=".emulation.EmulationActivity"
             android:configChanges="orientation|screenSize"
             android:exported="true"

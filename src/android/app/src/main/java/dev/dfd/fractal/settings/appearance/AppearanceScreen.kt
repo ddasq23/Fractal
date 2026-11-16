@@ -44,6 +44,8 @@ fun AppearanceScreen(navigateBack: () -> Unit) {
             onCustomImage = { path -> update { it.copy(wallpaper = WallpaperId.CUSTOM, customWallpaperPath = path) } },
         )
         EconomyToggle(gui.animationEconomy) { on -> update { it.copy(animationEconomy = on) } }
+        SectionTitle(tr("Sounds"))
+        MenuSoundSettings(gui) { block -> update(block) }
         SectionTitle(tr("Intro"))
         SettingToggle(
             tr("Play intro on launch"),

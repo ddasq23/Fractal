@@ -54,7 +54,16 @@ data class GuiSettings(
     val libraryView: LibraryView = LibraryView.GRID,
     val librarySort: LibrarySort = LibrarySort.NAME,
     val onboardingCompleted: Boolean = false,
+    /** Library background music (a track per theme) and its volume, 0..100. */
+    val menuMusicEnabled: Boolean = true,
+    val menuMusicVolume: Int = DEFAULT_MENU_VOLUME,
+    /** Sound effects of the library and settings screens and their volume, 0..100. */
+    val menuSfxEnabled: Boolean = true,
+    val menuSfxVolume: Int = DEFAULT_MENU_VOLUME,
 )
+
+/** Comfortable menu volume: there, not in the way. */
+const val DEFAULT_MENU_VOLUME = 25
 
 /** Absolute pixel rectangle, as saved by versions before layout profiles. */
 @Serializable
