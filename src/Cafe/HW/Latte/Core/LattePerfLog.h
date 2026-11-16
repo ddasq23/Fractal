@@ -106,6 +106,9 @@ namespace PerfLog
 	// Buttons: A B X Y L R ZL ZR PLUS MINUS UP DOWN LEFT RIGHT, and LUP LDOWN LLEFT LRIGHT RUP RDOWN
 	// RLEFT RRIGHT for the sticks. Only read while the performance log is on; the GamePad (VPAD)
 	// presses the buttons that are held at the current time.
+	// GamePad touch screen: "<seconds> TOUCH <x> <y> [hold]" touches one point, "<seconds> DRAG <x1> <y1> <x2> <y2> [hold]"
+	// moves the touch from the first point to the second over the hold (stylus games: Kirby and the Rainbow Curse).
+	// Coordinates go from 0 to 1 over the GamePad screen, from its top left corner
 	// "<seconds> SYNC <draws>" lines: the presses after it wait until a frame with at least <draws> draws was presented
 	// (after the previous sync) and are timed from that frame, so a recorded walk survives load times that vary
 	struct ScriptedPress
@@ -115,7 +118,10 @@ namespace PerfLog
 		std::string button;
 		int segment = 0; // number of SYNC lines before this press
 		uint32 holdFrames = 0; // "<n>f" holds; 0 = held until endS
+		float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f; // TOUCH and DRAG
 	};
+	// position (0..1) of the scripted GamePad touch held right now, false when nothing touches the screen
+	bool ScriptedTouch(float& x, float& y);
 	const std::vector<ScriptedPress>& InputScript();
 	// whether a press of InputScript() is held right now
 	bool PressHeld(const ScriptedPress& press);

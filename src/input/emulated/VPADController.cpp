@@ -331,6 +331,16 @@ void VPADController::update_touch(VPADStatus_t& status)
 		);*/
 	}
 
+	// Fractal: benchmark input script touches (TOUCH, DRAG)
+	if (float sx, sy; PerfLog::ScriptedTouch(sx, sy))
+	{
+		status.tpData.touch = kTpTouchOn;
+		status.tpData.validity = kTpValid;
+		status.tpData.x = (uint16)(sx * 3883.0f + 92.0f);
+		status.tpData.y = (uint16)(4095.0f - sy * 3694.0f - 254.0f);
+		m_last_touch_position = glm::ivec2{status.tpData.x, status.tpData.y};
+	}
+
 	status.tpProcessed1 = status.tpData;
 	status.tpProcessed2 = status.tpData;
 }

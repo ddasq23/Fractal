@@ -206,6 +206,23 @@ namespace PerfLog
 		return true;
 	}
 
+	bool ScriptedTouch(float& x, float& y)
+	{
+		for (const auto& press : InputScript())
+		{
+			if ((press.button != "TOUCH" && press.button != "DRAG") || !PressHeld(press))
+				continue;
+			// DRAG: along the line over the hold time (frame holds jump to the end point)
+			float f = 1.0f;
+			if (press.holdFrames == 0 && press.endS > press.startS)
+				f = (float)std::clamp((ScriptSeconds(press.segment) - press.startS) / (press.endS - press.startS), 0.0, 1.0);
+			x = std::clamp(press.x1 + (press.x2 - press.x1) * f, 0.0f, 1.0f);
+			y = std::clamp(press.y1 + (press.y2 - press.y1) * f, 0.0f, 1.0f);
+			return true;
+		}
+		return false;
+	}
+
 	const std::vector<ScriptedAxes>& InputAxes()
 	{
 		static const std::vector<ScriptedAxes> empty;
@@ -252,6 +269,21 @@ namespace PerfLog
 					s_inputAxes.push_back(a);
 				continue;
 			}
+			for (char& ch : button)
+				ch = (char)toupper((unsigned char)ch);
+			float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f;
+			if (button == "TOUCH")
+			{
+				if (!(ss >> x1 >> y1))
+					continue;
+				x2 = x1;
+				y2 = y1;
+			}
+			else if (button == "DRAG")
+			{
+				if (!(ss >> x1 >> y1 >> x2 >> y2))
+					continue;
+			}
 			if (std::string hold; ss >> hold)
 			{
 				if (!hold.empty() && (hold.back() == 'f' || hold.back() == 'F'))
@@ -259,15 +291,13 @@ namespace PerfLog
 				else
 					holdMs = atof(hold.c_str());
 			}
-			for (char& ch : button)
-				ch = (char)toupper((unsigned char)ch);
 			if (button == "SYNC")
 			{
 				if (s_scriptSyncs.size() < s_scriptSyncAt.size())
 					s_scriptSyncs.push_back({t, (uint32)holdMs});
 				continue;
 			}
-			script.push_back({t, t + holdMs / 1000.0, button, (int)s_scriptSyncs.size(), holdFrames});
+			script.push_back({t, t + holdMs / 1000.0, button, (int)s_scriptSyncs.size(), holdFrames, x1, y1, x2, y2});
 		}
 		s_pressFirstFrame = std::make_unique<std::atomic<uint64>[]>(std::max<size_t>(script.size(), 1));
 		cemuLog_log(LogType::Force, "Performance log: input script {} ({} presses)", _pathToUtf8(path), script.size());
