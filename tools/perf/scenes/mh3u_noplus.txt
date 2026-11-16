@@ -1,7 +1,7 @@
 # title: MONSTER HUNTER 3 ULTIMATE
 # title_id: 0005000010118300
 # duration: 300
-# window: 220 290
+# window: 250 298
 # scene: new save; A through the intro to Character Creation (~60 s), A on Name opens the keyboard, PLUS answers it ("x"),
 # DOWN x5 lands on Voice (one press is lost after the keyboard), A opens it, B backs out, DOWN to OK and A; then A every 3 s (PLUS every 30 s)
 20 A
