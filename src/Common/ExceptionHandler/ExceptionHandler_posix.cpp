@@ -7,6 +7,7 @@
 #include "config/CemuConfig.h"
 #include "util/helpers/StringHelpers.h"
 #include "ExceptionHandler.h"
+#include "Cafe/HW/Espresso/Debugger/GuestWatch.h"
 
 #include "Cafe/HW/Espresso/Debugger/GDBStub.h"
 #include "Cafe/HW/Espresso/Debugger/GDBBreakpoints.h"
@@ -74,6 +75,9 @@ void DemangleAndPrintBacktrace(char** backtrace, size_t size)
 // handle signals that would dump core, print stacktrace and then dump depending on config
 void handlerDumpingSignal(int sig, siginfo_t *info, void *context)
 {
+	// GuestWatch watch_jit: stores to its read-only pages are logged and performed there
+	if (sig == SIGSEGV && GuestWatch::HandleFault(info->si_addr, context))
+		return;
 #if defined(ARCH_X86_64) && BOOST_OS_LINUX
 	// Check for hardware breakpoints
 	if (info->si_signo == SIGTRAP && info->si_code == TRAP_HWBKPT)

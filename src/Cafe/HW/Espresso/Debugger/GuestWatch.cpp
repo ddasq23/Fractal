@@ -8,6 +8,15 @@
 #include <set>
 #include "config/ActiveSettings.h"
 
+#if BOOST_PLAT_ANDROID && defined(__aarch64__)
+#include <signal.h>
+#include <sys/mman.h>
+#include <ucontext.h>
+#include <unistd.h>
+#include <thread>
+#include <atomic>
+#endif
+
 namespace GuestWatch
 {
 	uint32 g_lo = 0;
@@ -35,6 +44,120 @@ namespace GuestWatch
 	static uint32 s_dupLogs = 0;
 	static uint32 s_lastDupMask = 0;
 
+	static void Add(uint32 pc, uint32 lr, uint32 thread, uint32 addr, uint32 size, uint32 value, char kind);
+	static uint32 CurrentThread();
+
+#if BOOST_PLAT_ANDROID && defined(__aarch64__)
+	// watch_jit=1: recompiled code writes guest memory with host stores the hooks above never see. The host pages of the
+	// range are made read only; a store to them faults, HandleFault decodes it (STR/STUR, register or immediate
+	// offset), logs it when it touches the range, performs it and skips the instruction. Stores it can't decode
+	// (atomics, pairs, libc copies) open the pages for a moment; a helper thread closes them again
+	static uintptr_t s_pageLo = 0, s_pageHi = 0; // host addresses, page aligned
+	static std::atomic<bool> s_pagesProtected{false};
+	static std::atomic<uint32> s_openCount{0};
+
+	static void ProtectPages(bool on)
+	{
+		mprotect((void*)s_pageLo, s_pageHi - s_pageLo, on ? PROT_READ : (PROT_READ | PROT_WRITE));
+		s_pagesProtected.store(on);
+	}
+
+	static void StartPageWatch()
+	{
+		const uintptr_t pageSize = (uintptr_t)sysconf(_SC_PAGESIZE);
+		s_pageLo = ((uintptr_t)(memory_base + g_lo)) & ~(pageSize - 1);
+		s_pageHi = (((uintptr_t)(memory_base + g_hi)) + pageSize - 1) & ~(pageSize - 1);
+		std::thread([] {
+			// the range is mapped once the game's memory is set up; then keep the pages closed
+			while (!memory_isAddressRangeAccessible(g_lo, g_hi - g_lo))
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			cemuLog_log(LogType::Force, "GuestWatch: page watch on host {:x}-{:x}", s_pageLo, s_pageHi);
+			while (true)
+			{
+				if (!s_pagesProtected.load())
+					ProtectPages(true);
+				std::this_thread::sleep_for(std::chrono::microseconds(500));
+			}
+		}).detach();
+	}
+
+	static uint64 RegValue(const mcontext_t& mc, uint32 r, bool is64)
+	{
+		if (r == 31)
+			return 0; // xzr for the value register; sp is never the base of a guest access
+		return is64 ? mc.regs[r] : (mc.regs[r] & 0xFFFFFFFF);
+	}
+
+	bool HandleFault(void* faultAddr, void* context)
+	{
+		if (s_pageHi == 0)
+			return false;
+		const uintptr_t fa = (uintptr_t)faultAddr;
+		if (fa < s_pageLo || fa >= s_pageHi)
+			return false;
+		ucontext_t* uc = (ucontext_t*)context;
+		mcontext_t& mc = uc->uc_mcontext;
+		const uint32 insn = *(uint32*)mc.pc;
+		const uint32 sizeLog2 = insn >> 30;
+		const uint32 rt = insn & 31, rn = (insn >> 5) & 31;
+		uintptr_t addr = 0;
+		bool decoded = false;
+		if ((insn & 0x3FE00C00) == 0x38200800) // STR (register offset)
+		{
+			const uint32 rm = (insn >> 16) & 31, option = (insn >> 13) & 7, s = (insn >> 12) & 1;
+			uint64 off = mc.regs[rm];
+			if (option == 2) off = (uint32)off;                 // uxtw
+			else if (option == 6) off = (uint64)(sint64)(sint32)(uint32)off; // sxtw
+			addr = mc.regs[rn] + (off << (s ? sizeLog2 : 0));
+			decoded = true;
+		}
+		else if ((insn & 0x3FC00000) == 0x39000000) // STR (unsigned immediate)
+		{
+			addr = mc.regs[rn] + (((insn >> 10) & 0xFFF) << sizeLog2);
+			decoded = true;
+		}
+		else if ((insn & 0x3FE00C00) == 0x38000000) // STUR
+		{
+			sint64 imm = (sint64)((insn >> 12) & 0x1FF);
+			if (imm & 0x100) imm -= 0x200;
+			addr = mc.regs[rn] + imm;
+			decoded = true;
+		}
+		const uint32 size = 1u << sizeLog2;
+		const uint32 guestAddr = (uint32)(fa - (uintptr_t)memory_base);
+		PPCInterpreter_t* hCPU = PPCInterpreter_getCurrentInstance();
+		const uint32 lr = hCPU ? hCPU->spr.LR : 0;
+		const uint32 thread = hCPU ? CurrentThread() : 0;
+		if (!decoded || addr != fa)
+		{
+			// let it through: open the pages, the helper thread closes them again
+			ProtectPages(false);
+			if (guestAddr < g_hi && guestAddr + 4 > g_lo && s_openCount.fetch_add(1) < 64)
+				cemuLog_log(LogType::Force, "GuestWatch page: undecoded store {:08x} at host pc {:x} to [{:08x}] lr {:08x} thr {:08x}", insn, (uint64)mc.pc, guestAddr, lr, thread);
+			return true;
+		}
+		const uint64 value = RegValue(mc, rt, sizeLog2 == 3);
+		ProtectPages(false);
+		memcpy((void*)addr, &value, size);
+		ProtectPages(true);
+		if (guestAddr < g_hi && guestAddr + size > g_lo)
+		{
+			uint32 guestValue = 0;
+			if (size == 4) guestValue = _swapEndianU32((uint32)value);
+			else if (size == 2) guestValue = _swapEndianU16((uint16)value);
+			else if (size == 1) guestValue = (uint8)value;
+			else guestValue = _swapEndianU32((uint32)value);
+			Add(0, lr, thread, guestAddr, size, guestValue, 'J');
+			cemuLog_log(LogType::Force, "GuestWatch page: [{:08x}]={:08x} size {} host pc {:x} lr {:08x} thr {:08x}", guestAddr, guestValue, size, (uint64)mc.pc, lr, thread);
+		}
+		mc.pc += 4;
+		return true;
+	}
+#else
+	static void StartPageWatch() {}
+	bool HandleFault(void*, void*) { return false; }
+#endif
+
 	void Init()
 	{
 		const sint64 lo = PerfLog::Tunable("watch_lo", 0);
@@ -49,6 +172,8 @@ namespace GuestWatch
 		g_lo = (uint32)lo;
 		g_hi = (uint32)(lo + size);
 		cemuLog_log(LogType::Force, "GuestWatch: watching 0x{:08x}-0x{:08x}, ring {}, pairs {}", g_lo, g_hi, ringSize, s_pairs);
+		if (PerfLog::Tunable("watch_jit", 0) != 0)
+			StartPageWatch();
 	}
 
 	static void FormatEntry(const Entry& e, char* buf, size_t bufSize)
