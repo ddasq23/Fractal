@@ -136,6 +136,12 @@ val DriverSources = listOf(
         { name, _ -> name.lowercase().endsWith("-adrenotools.zip") },
     ),
     DriverSource(
+        // the four panvk-faux123-driver-* repositories ship the same universal package
+        "faux123", "panvk-faux123-driver-ace", GpuVendor.MALI,
+        trNoop("PanVK (Mesa) by faux123 for Mali-G57, G77, G610 and G710 class GPUs"), ::zipAsset,
+        supports = { maliValhallJm(it) || maliCsf(it) || maliUnknown(it) },
+    ),
+    DriverSource(
         "JimVulkan", "mali-panvk", GpuVendor.MALI,
         trNoop("PanVK (Mesa) for Bifrost, Valhall and 5th gen Mali"), ::zipAsset,
     ),

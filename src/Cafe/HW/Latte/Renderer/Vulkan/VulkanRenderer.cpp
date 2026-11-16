@@ -224,6 +224,7 @@ void VulkanRenderer::DetermineVendor()
 	if(driverId == VK_DRIVER_ID_MESA_RADV || driverId == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
 		m_vendor = GfxVendor::Mesa;
 	m_isTurnip = driverId == VK_DRIVER_ID_MESA_TURNIP;
+	m_isPanVK = driverId == VK_DRIVER_ID_MESA_PANVK;
 	// Adreno (Qualcomm driver and Turnip) returns NaN from min/max/clamp with a NaN operand where the R600 returns the other
 	// operand, so a NaN the console drops reaches the framebuffer: Watch Dogs' May Stadium washed out to white on the RP5
 	m_minMaxReturnsNaN = properties.properties.vendorID == 0x5143;
@@ -375,6 +376,12 @@ void VulkanRenderer::GetDeviceFeatures()
 	// so FIFO with a queue limit) every game crashed on its first frame
 	if (!(pwf.presentWait && pidf.presentId))
 		m_featureControl.deviceExtensions.present_wait = false;
+#if defined(__ANDROID__)
+	// PanVK (faux123 v1.1.7, Mali-G615) reports the feature, but Mesa's Android WSI has no vkWaitForPresentKHR: the call
+	// jumped to address -1 on the first frame of every game (POCO X6 Pro). Turnip and the vendor drivers don't report it
+	if (m_isPanVK)
+		m_featureControl.deviceExtensions.present_wait = false;
+#endif
 	m_featureControl.deviceFeatures.geometry_shader = physicalDeviceFeatures2.features.geometryShader;
 	m_featureControl.deviceFeatures.logic_op = physicalDeviceFeatures2.features.logicOp;
 	m_featureControl.deviceFeatures.sampler_anisotropy = physicalDeviceFeatures2.features.samplerAnisotropy;

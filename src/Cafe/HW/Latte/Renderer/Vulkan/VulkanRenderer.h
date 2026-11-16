@@ -743,6 +743,7 @@ private:
 	// completion marker: the end of every command buffer writes its id + 1 into host visible memory, so finished command
 	// buffers can be found without vkGetFenceStatus (which blocks until the GPU is done on Turnip/KGSL)
 	bool m_isTurnip{false};
+	bool m_isPanVK{false};
 	bool m_useCompletionMarker{false};
 	VkBuffer m_completionMarkerBuffer{VK_NULL_HANDLE};
 	VkDeviceMemory m_completionMarkerMemory{VK_NULL_HANDLE};
