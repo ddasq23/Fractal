@@ -27,9 +27,11 @@ enum class MenuSfx(val fileName: String) {
  * Background music of the library (one track per theme) and the menu sound effects.
  *
  * The files are not in the repository: put them in `app/src/main/assets/sounds/` before building, as
- * `music/<theme>.mp3` (solid, liquid_glass, blur, material_you, synthwave; `music/default.mp3` is used by themes
- * without one of their own) and `sfx/<effect>.ogg` or `.mp3` (navigate, cover, swap, confirm). Missing files are
- * silent. Everything plays only while the library is on screen: never over a game.
+ * `music/<theme>.ogg` (solid, liquid_glass, blur, material_you, synthwave; `music/default.ogg` is used by themes
+ * without one of their own), optionally `music/<theme>_intro.ogg` played once before it, and `sfx/<effect>.ogg`
+ * (navigate, cover, swap, confirm; `.mp3`/`.wav` also work). The loop file is cut so its end flows into its start;
+ * Ogg Vorbis because MP3 adds silence at both ends. Missing files are silent. Everything plays only while the library
+ * is on screen: never over a game.
  */
 object MenuSounds {
     private const val TAG = "MenuSounds"
@@ -50,7 +52,7 @@ object MenuSounds {
     private var sfxVolume = 0.25f
     private var theme: FractalThemeId? = null
 
-    private var player: MediaPlayer? = null
+    private var player: MusicTrack? = null
     private var playerFile: String? = null
     private var fade: ValueAnimator? = null
     /** The library activity is started (on screen). */
@@ -79,7 +81,7 @@ object MenuSounds {
         musicEnabled = gui.menuMusicEnabled
         musicVolume = gui.menuMusicVolume / 100f
         theme = gui.theme
-        if (musicChanged) updateMusic() else if (fade?.isRunning != true) player?.setVolume(musicVolume, musicVolume)
+        if (musicChanged) updateMusic() else if (fade?.isRunning != true) player?.setVolume(musicVolume)
     }
 
     fun play(sfx: MenuSfx) {
@@ -120,22 +122,8 @@ object MenuSounds {
         }
         if (file != playerFile) {
             releasePlayer()
-            player = runCatching {
-                assets.openFd(file).use { fd ->
-                    MediaPlayer().apply {
-                        setAudioAttributes(
-                            AudioAttributes.Builder()
-                                .setUsage(AudioAttributes.USAGE_MEDIA)
-                                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                                .build(),
-                        )
-                        setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
-                        isLooping = true
-                        setVolume(0f, 0f)
-                        prepare()
-                    }
-                }
-            }.onFailure { Log.w(TAG, "can't play $file", it) }.getOrNull()
+            player = runCatching { MusicTrack(assets, introFile(file), file) }
+                .onFailure { Log.w(TAG, "can't play $file", it) }.getOrNull()
             playerFile = if (player != null) file else null
         }
         val current = player ?: return
@@ -145,8 +133,12 @@ object MenuSounds {
 
     private fun musicFile(): String? {
         val name = theme?.name?.lowercase() ?: return null
-        return listOf("$MUSIC_DIR/$name.mp3", "$MUSIC_DIR/default.mp3").firstOrNull(::assetExists)
+        return listOf(name, "default").flatMap { n -> listOf("ogg", "mp3").map { "$MUSIC_DIR/$n.$it" } }
+            .firstOrNull(::assetExists)
     }
+
+    private fun introFile(loopFile: String): String? =
+        loopFile.substringBeforeLast('.').let { "${it}_intro.${loopFile.substringAfterLast('.')}" }.takeIf(::assetExists)
 
     private fun fadeTo(target: Float, then: () -> Unit = {}) {
         val current = player ?: return
@@ -156,7 +148,7 @@ object MenuSounds {
             duration = FADE_MS
             addUpdateListener {
                 val v = it.animatedValue as Float
-                runCatching { current.setVolume(v, v) }
+                runCatching { current.setVolume(v) }
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 private var cancelled = false
@@ -184,6 +176,71 @@ object MenuSounds {
 
     private fun assetExists(path: String): Boolean =
         runCatching { assets.openFd(path).close() }.isSuccess
+}
+
+/**
+ * A track played as [introFile] once (if any), then [loopFile] over and over without a gap. MediaPlayer's own looping
+ * seeks back to the start, which leaves a short silence; chaining a fresh player with setNextMediaPlayer doesn't.
+ */
+private class MusicTrack(private val assets: AssetManager, introFile: String?, private val loopFile: String) {
+    private var current: MediaPlayer = create(introFile ?: loopFile)
+    private var next: MediaPlayer? = null
+    private var volume = 0f
+
+    init {
+        queueNext()
+    }
+
+    val isPlaying get() = current.isPlaying
+
+    fun start() = current.start()
+
+    fun pause() {
+        if (current.isPlaying) current.pause()
+    }
+
+    fun setVolume(v: Float) {
+        volume = v
+        current.setVolume(v, v)
+        next?.setVolume(v, v)
+    }
+
+    fun release() {
+        current.release()
+        next?.release()
+        next = null
+    }
+
+    private fun create(file: String): MediaPlayer = assets.openFd(file).use { fd ->
+        MediaPlayer().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build(),
+            )
+            setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+            setVolume(volume, volume)
+            prepare()
+        }
+    }
+
+    /** The loop file queued after the current player; when that one ends the queued one is already playing. */
+    private fun queueNext() {
+        val following = runCatching { create(loopFile) }.getOrElse {
+            Log.w("MenuSounds", "can't queue $loopFile", it)
+            current.isLooping = true
+            return
+        }
+        current.setNextMediaPlayer(following)
+        next = following
+        current.setOnCompletionListener { done ->
+            done.release()
+            current = following
+            next = null
+            queueNext()
+        }
+    }
 }
 
 /** [action] with [sfx] played first, for click handlers. */
