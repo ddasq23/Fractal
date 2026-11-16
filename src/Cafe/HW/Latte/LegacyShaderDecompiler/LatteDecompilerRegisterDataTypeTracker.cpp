@@ -33,8 +33,28 @@ void LatteDecompiler_analyzeDataTypes(LatteDecompilerShaderContext* shaderContex
 	if (shaderContext->analyzer.usesRelativeGPRWrite)
 	{
 		const bool isMetal = g_renderer && g_renderer->GetType() == RendererAPI::Metal; // the MSL emitter only has the array form
-		if (g_renderer && g_renderer->UseRelativeWriteSwitch() && !isMetal && !shaderContext->analyzer.usesRelativeGPRRead && !shaderContext->analyzer.relativeGPRWriteNeedsArray)
+		if (g_renderer && g_renderer->UseRelativeWriteSwitch() && !isMetal && !shaderContext->analyzer.relativeGPRWriteNeedsArray &&
+			(!shaderContext->analyzer.usesRelativeGPRRead || PerfLog::Tunable("relread_select", 1) != 0))
+		{
 			shaderContext->typeTracker.switchRelativeGPRWrites = true;
+			// With indexed reads as well the compiler still crashes on any dynamically indexed GPR array (Pikmin 3: an
+			// insertion sort over R8..R15), so the reads take the select chain over the registers in use, like shaders
+			// without indexed writes. Registers only reached through the index would be missing from that chain and from the
+			// write switch: mark everything from the lowest indexed base up to 8 above the highest register the shader names
+			// (the clause temporaries R124..R127 are never indexed). perf/tuning.txt relread_select=0 keeps the array form
+			if (shaderContext->analyzer.usesRelativeGPRRead)
+			{
+				sint32 highest = -1;
+				for (sint32 i = 0; i < 124; i++)
+				{
+					if ((shaderContext->analyzer.gprUseMask[i / 8] & (1 << (i % 8))) != 0)
+						highest = i;
+				}
+				const sint32 last = std::min(highest + 8, 123);
+				for (sint32 i = std::max(shaderContext->analyzer.lowestRelativeGPR, 0); i <= last; i++)
+					shaderContext->analyzer.gprUseMask[i / 8] |= (1 << (i % 8));
+			}
+		}
 		else
 			shaderContext->typeTracker.useArrayGPRs = true;
 	}

@@ -282,6 +282,7 @@ void LatteDecompiler_analyzeALUClause(LatteDecompilerShaderContext* shaderContex
 				{
 					// if indexed register access is used, all possibly referenced registers are stored to a separate array at the beginning of the group
 					shaderContext->analyzer.usesRelativeGPRRead = true;
+					shaderContext->analyzer.lowestRelativeGPR = std::min(shaderContext->analyzer.lowestRelativeGPR, gprIndex);
 					continue;
 				}
 
@@ -290,6 +291,7 @@ void LatteDecompiler_analyzeALUClause(LatteDecompilerShaderContext* shaderContex
 		if( aluInstruction.destRel != 0 )
 		{
 			shaderContext->analyzer.usesRelativeGPRWrite = true;
+			shaderContext->analyzer.lowestRelativeGPR = std::min(shaderContext->analyzer.lowestRelativeGPR, (sint32)aluInstruction.destGpr);
 			const bool isReduction = !aluInstruction.isOP3 && (aluInstruction.opcode == ALU_OP2_INST_DOT4 || aluInstruction.opcode == ALU_OP2_INST_DOT4_IEEE || aluInstruction.opcode == ALU_OP2_INST_CUBE);
 			if (isReduction || aluInstruction.indexMode > GPU7_INDEX_AR_W)
 				shaderContext->analyzer.relativeGPRWriteNeedsArray = true;

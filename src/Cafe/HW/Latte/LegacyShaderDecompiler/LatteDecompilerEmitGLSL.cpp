@@ -804,8 +804,9 @@ void _emitCodeToReadRelativeGPR(LatteDecompilerShaderContext* shaderContext, Lat
 	else
 		cemu_assert_unimplemented();
 	
-	if( LATTE_DECOMPILER_DTYPE_SIGNED_INT != requiredType )
-		_emitTypeConversionPrefix(shaderContext, LATTE_DECOMPILER_DTYPE_SIGNED_INT, requiredType);
+	const sint32 registerType = shaderContext->typeTracker.defaultDataType;
+	if( registerType != requiredType )
+		_emitTypeConversionPrefix(shaderContext, registerType, requiredType);
 
 	// generated code looks like this:
 	// result = ((lookupIndex==0)?GPR5:(lookupIndex==1)?GPR6:(lookupIndex==2)?GPR7:...:(lookupIndex==122)?GPR127:0)
@@ -822,9 +823,9 @@ void _emitCodeToReadRelativeGPR(LatteDecompilerShaderContext* shaderContext, Lat
 		_appendChannelAccess(src, aluInstruction->sourceOperand[operandIndex].chan);
 		src->add(":");
 	}
-	src->add("0)");
-	if( LATTE_DECOMPILER_DTYPE_SIGNED_INT != requiredType )
-		_emitTypeConversionSuffix(shaderContext, LATTE_DECOMPILER_DTYPE_SIGNED_INT, requiredType);
+	src->add(registerType == LATTE_DECOMPILER_DTYPE_FLOAT ? "0.0)" : "0)");
+	if( registerType != requiredType )
+		_emitTypeConversionSuffix(shaderContext, registerType, requiredType);
 }
 
 void _emitOperandInputCode(LatteDecompilerShaderContext* shaderContext, LatteDecompilerALUInstruction* aluInstruction, sint32 operandIndex, sint32 requiredType)
@@ -2843,9 +2844,9 @@ void _emitTEXSetCubemapIndexCode(LatteDecompilerShaderContext* shaderContext, La
 	const char* resultElemTable[4] = {"x","y","z","w"};
 
 	if (shaderContext->typeTracker.defaultDataType == LATTE_DECOMPILER_DTYPE_SIGNED_INT)
-		src->addFmt(" = intBitsToFloat(R{}i.{});" _CRLF, texInstruction->srcGpr, resultElemTable[texInstruction->textureFetch.srcSel[0]]);
+		src->addFmt(" = intBitsToFloat({}.{});" _CRLF, _getRegisterVarName(shaderContext, texInstruction->srcGpr), resultElemTable[texInstruction->textureFetch.srcSel[0]]);
 	else if (shaderContext->typeTracker.defaultDataType == LATTE_DECOMPILER_DTYPE_FLOAT)
-		src->addFmt(" = R{}f.{};" _CRLF, texInstruction->srcGpr, resultElemTable[texInstruction->textureFetch.srcSel[0]]);
+		src->addFmt(" = {}.{};" _CRLF, _getRegisterVarName(shaderContext, texInstruction->srcGpr), resultElemTable[texInstruction->textureFetch.srcSel[0]]);
 	else
 		cemu_assert_unimplemented();
 }
