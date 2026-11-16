@@ -1452,30 +1452,40 @@ void AArch64GenContext_t::atomic_cmp_store(IMLInstruction* imlInstruction)
 	WReg valReg = gpReg<WReg>(imlInstruction->op_atomic_compare_store.regWriteValue);
 	WReg cmpValReg = gpReg<WReg>(imlInstruction->op_atomic_compare_store.regCompareValue);
 
+	Label unaligned;
+	Label done;
+	add(TEMP_GPR1.XReg, MEM_BASE_REG, eaReg, ExtMod::UXTW);
+	// Fractal: CASAL and LDAXR/STLXR fault (SIGBUS) on an address that is not 4 byte aligned, where x86's lock cmpxchg
+	// just works. Sonic Lost World runs stwcx. on an odd address after the title screen: compare and store without
+	// atomicity there, like the PC build effectively does
+	tst(eaReg, 3);
+	bne(unaligned);
 	if (s_cpu.isAtomicSupported())
 	{
 		mov(TEMP_GPR2.WReg, cmpValReg);
-		add(TEMP_GPR1.XReg, MEM_BASE_REG, eaReg, ExtMod::UXTW);
 		casal(TEMP_GPR2.WReg, valReg, AdrNoOfs(TEMP_GPR1.XReg));
 		cmp(TEMP_GPR2.WReg, cmpValReg);
-		cset(outReg, Cond::EQ);
+		b(done);
 	}
 	else
 	{
-		Label notEqual;
 		Label storeFailed;
-
-		add(TEMP_GPR1.XReg, MEM_BASE_REG, eaReg, ExtMod::UXTW);
 		L(storeFailed);
 		ldaxr(TEMP_GPR2.WReg, AdrNoOfs(TEMP_GPR1.XReg));
 		cmp(TEMP_GPR2.WReg, cmpValReg);
-		bne(notEqual);
+		bne(done);
 		stlxr(TEMP_GPR2.WReg, valReg, AdrNoOfs(TEMP_GPR1.XReg));
 		cbnz(TEMP_GPR2.WReg, storeFailed);
-
-		L(notEqual);
-		cset(outReg, Cond::EQ);
+		// flags still EQ from the compare
+		b(done);
 	}
+	L(unaligned);
+	ldr(TEMP_GPR2.WReg, AdrNoOfs(TEMP_GPR1.XReg));
+	cmp(TEMP_GPR2.WReg, cmpValReg);
+	bne(done);
+	str(valReg, AdrNoOfs(TEMP_GPR1.XReg));
+	L(done);
+	cset(outReg, Cond::EQ);
 }
 
 bool AArch64GenContext_t::fpr_load(IMLInstruction* imlInstruction, bool indexed)

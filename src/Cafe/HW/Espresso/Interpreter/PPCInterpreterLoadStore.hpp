@@ -71,7 +71,20 @@ static void PPCInterpreter_STWCX(PPCInterpreter_t* hCPU, uint32 Opcode)
 			wordPtr = _rawPtrToAtomic((uint32be*)memory_getPointerFromVirtualOffset(ea));
 		}
 		uint32be newValue = hCPU->gpr[rS];
-		if (!wordPtr->compare_exchange_strong(reservedValue, newValue))
+		// Fractal: an atomic compare-exchange on an address that is not 4 byte aligned faults on ARM (SIGBUS); x86 allows
+		// it. Same plain compare and store as the AArch64 recompiler there (see AArch64GenContext_t::atomic_cmp_store)
+		bool stored;
+		if ((ea & 3) != 0)
+		{
+			uint32be current;
+			memcpy(&current, (void*)wordPtr, 4);
+			stored = current == reservedValue;
+			if (stored)
+				memcpy((void*)wordPtr, &newValue, 4);
+		}
+		else
+			stored = wordPtr->compare_exchange_strong(reservedValue, newValue);
+		if (!stored)
 		{
 			// failed
 			ppc_setCRBit(hCPU, CR_BIT_LT, 0);

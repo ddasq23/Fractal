@@ -1362,15 +1362,19 @@ void VulkanRenderer::draw_setRenderPass()
 	auto vkObjRenderPass = fboVk->GetRenderPassObj();
 	auto vkObjFramebuffer = fboVk->GetFramebufferObj();
 
-	bool feedbackLoopHandlesSelfDependency = UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.HasSelfDependency() && !currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency();
-	bool selfDependencyNeedsPassSplit = currentSelfDependencyInfo.HasSelfDependency() && !feedbackLoopHandlesSelfDependency;
-	// a pixel shader that samples the color attachment it renders to: without the feedback loop extension the draw samples a
-	// copy taken just before it (draw_selfDependencyCopy) and the pass needs no split for it
+	// a pixel shader that samples the color attachment it renders to samples a copy taken just before the draw
+	// (draw_selfDependencyCopy) and the pass needs no split for it. Also with VK_EXT_attachment_feedback_loop_layout: the
+	// feedback loop only defines a pixel reading its own texel, and filters that read the neighbours (Paper Mario Color
+	// Splash's 1280x720 pass) got garbage from the Mesa drivers (Turnip, PanVK), colored dots over the picture. The GPU7 reads
+	// what was there before the draw, which is what the copy holds
 	m_state.selfDepCopyPixelDS = nullptr;
-	if (selfDependencyNeedsPassSplit && !currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency() &&
+	const bool selfDependencyCopied = currentSelfDependencyInfo.HasSelfDependency() && !currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency() &&
 		currentSelfDependencyInfo.GetAspectMask() == VK_IMAGE_ASPECT_COLOR_BIT &&
-		draw_selfDependencyCopy(fboVk, currentSelfDependencyInfo.colorAttachmentMask))
-		selfDependencyNeedsPassSplit = false;
+		draw_selfDependencyCopy(fboVk, currentSelfDependencyInfo.colorAttachmentMask);
+	bool feedbackLoopHandlesSelfDependency = !selfDependencyCopied && UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.HasSelfDependency() && !currentSelfDependencyInfo.HasVertexOrGeometrySelfDependency();
+	bool selfDependencyNeedsPassSplit = currentSelfDependencyInfo.HasSelfDependency() && !feedbackLoopHandlesSelfDependency && !selfDependencyCopied;
+	// the copied draw does not sample the attachment: no feedback loop for it
+	const VkImageAspectFlags feedbackLoopAspect = selfDependencyCopied ? 0 : currentSelfDependencyInfo.GetAspectMask();
 	// accurate_barriers in perf/tuning.txt overrides the setting for measurements (-1 = use the setting)
 	static const sint64 s_accurateOverride = PerfLog::Tunable("accurate_barriers", -1);
 	const bool accurateBarriers = s_accurateOverride < 0 ? GetConfig().vk_accurate_barriers.GetValue() : s_accurateOverride != 0;
@@ -1407,10 +1411,10 @@ void VulkanRenderer::draw_setRenderPass()
 		}
 		else if (m_state.descriptorSetsChanged || feedbackLoopHandlesSelfDependency)
 			sync_inputTexturesChanged(feedbackLoopHandlesSelfDependency);
-		if (UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.GetAspectMask() != m_state.feedbackLoopImageAspect)
+		if (UseAttachmentFeedbackLoop() && feedbackLoopAspect != m_state.feedbackLoopImageAspect)
 		{
-			m_state.feedbackLoopImageAspect = currentSelfDependencyInfo.GetAspectMask();
-			vkCmdSetAttachmentFeedbackLoopEnableEXT(m_state.currentCommandBuffer, currentSelfDependencyInfo.GetAspectMask());
+			m_state.feedbackLoopImageAspect = feedbackLoopAspect;
+			vkCmdSetAttachmentFeedbackLoopEnableEXT(m_state.currentCommandBuffer, feedbackLoopAspect);
 		}
 		return;
 	}
@@ -1465,10 +1469,10 @@ void VulkanRenderer::draw_setRenderPass()
 	m_state.renderPassDepthTested = false;
 	m_state.renderPassWrittenColorMask = 0;
 	occlusionQuery_notifyRenderPassBegin();
-	if (UseAttachmentFeedbackLoop() && currentSelfDependencyInfo.GetAspectMask() != m_state.feedbackLoopImageAspect)
+	if (UseAttachmentFeedbackLoop() && feedbackLoopAspect != m_state.feedbackLoopImageAspect)
 	{
-		m_state.feedbackLoopImageAspect = currentSelfDependencyInfo.GetAspectMask();
-		vkCmdSetAttachmentFeedbackLoopEnableEXT(m_state.currentCommandBuffer, currentSelfDependencyInfo.GetAspectMask());
+		m_state.feedbackLoopImageAspect = feedbackLoopAspect;
+		vkCmdSetAttachmentFeedbackLoopEnableEXT(m_state.currentCommandBuffer, feedbackLoopAspect);
 	}
 
 	vkObjRenderPass->flagForCurrentCommandBuffer();
