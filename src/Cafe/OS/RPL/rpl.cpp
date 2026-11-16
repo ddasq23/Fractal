@@ -1895,40 +1895,87 @@ void RPLLoader_Link()
 
 // Fixes for races inside a game's own code that the console's timing never hits but an emulator can.
 // Each one looks for the exact instruction sequence first, so another version or region of the game is left alone.
+struct RPLTitleFix
+{
+	const char* description;
+	std::vector<uint64> titleIds;
+	std::vector<uint32> pattern; // kAnyBranchAbs matches any "bla"
+	size_t patchAt;              // index in pattern of the first replaced word
+	std::vector<uint32> replacement;
+};
+
+static constexpr uint32 kAnyBranchAbs = 0x48000003;
+
+static const std::vector<RPLTitleFix>& RPLLoader_TitleFixes()
+{
+	static const std::vector<RPLTitleFix> s_fixes = {
+		// Ninja Gaiden 3: Razor's Edge, event flags "set": after OR-ing the new bits it walks the waiters and signals or
+		// resets each one's OSEvent, re-reading the flags without a lock. The waiter woken first can clear the flags and
+		// set the other thread's bit between that read and the reset, so the reset wipes out a signal that was just
+		// given: both threads then wait forever (the game froze with a black screen after a few minutes on Android).
+		// Setting bits never makes a waiter's condition false, and "clear" resets the events itself, so the reset there
+		// is dropped.
+		{
+			"Ninja Gaiden 3: event flag reset race",
+			{0x0005000010110A00ull, 0x0005000010110B00ull, 0x0005000010110900ull, 0x0005000010139B00ull},
+			{
+				0x7FC3F378, kAnyBranchAbs, // mr r3,r30; bla OSSignalEvent
+				0x80DE0030, 0x2C060000, 0x41820024, 0x811F0010, 0x813F0014, 0x91060000, 0x91260004, 0x3BBD0040, 0x48000010,
+				0x7FC3F378, kAnyBranchAbs, // mr r3,r30; bla OSResetEvent <- nop
+			},
+			12, {0x60000000},
+		},
+		// Monster Hunter 3 Ultimate, streaming loader "is the file ready": returns state == 2 (open). Asking the loader
+		// thread to open the next file only stores the command and signals it; the state stays 2 until that thread
+		// wakes and closes the old file. The main thread asks right after the request, sees the stale "ready" and reads
+		// the file while it is being closed and reopened: it then looks up FS channel 2 (= none) and walks memory, or
+		// reads a NULL member (crash 245 s into a new game when the opening movie ends; on the console the loader thread
+		// wakes before the question comes). Ready now also needs no command pending (+7220 == 0):
+		//   lwz r3,88(r3); cmpwi r3,0; beqlr; lwz r0,7216(r3); lwz r12,7220(r3); xori r0,r0,2; or r0,r0,r12;
+		//   cntlzw r0,r0; srwi r3,r0,5; blr
+		{
+			"Monster Hunter 3 Ultimate: file reported ready while a reopen is pending",
+			{0x0005000010118300ull, 0x0005000010117200ull, 0x0005000010104D00ull}, // USA, EUR, JPN (3G HD)
+			{
+				0x80630058, 0x2C030000, 0x4082000C, 0x5463063E, 0x4E800020, // lwz r3,88(r3); if NULL return 0
+				0x80031C30, 0x68000002, 0x7C000034, 0x5403D97E, 0x4E800020, // return state(+7216) == 2
+			},
+			0,
+			{
+				0x80630058, 0x2C030000, 0x4D820020, 0x80031C30, 0x81831C34,
+				0x68000002, 0x7C006378, 0x7C000034, 0x5403D97E, 0x4E800020,
+			},
+		},
+	};
+	return s_fixes;
+}
+
 static void RPLLoader_ApplyTitleFixes(RPLModule* module)
 {
 	const uint64 titleId = CafeSystem::GetForegroundTitleId();
-	const bool isNinjaGaiden3 = titleId == 0x0005000010110A00ull || titleId == 0x0005000010110B00ull ||
-		titleId == 0x0005000010110900ull || titleId == 0x0005000010139B00ull;
-	if (!isNinjaGaiden3 || module->regionSize_text < 64)
-		return;
-	// Ninja Gaiden 3: Razor's Edge, event flags "set": after OR-ing the new bits it walks the waiters and signals or resets
-	// each one's OSEvent, re-reading the flags without a lock. The waiter woken first can clear the flags and set the
-	// other thread's bit between that read and the reset, so the reset wipes out a signal that was just given: both
-	// threads then wait forever (the game froze with a black screen after a few minutes on Android). Setting bits never
-	// makes a waiter's condition false, and "clear" resets the events itself, so the reset there is dropped.
-	static const uint32 pattern[] = {
-		0x7FC3F378, 0x48000003, // mr r3,r30; bla OSSignalEvent
-		0x80DE0030, 0x2C060000, 0x41820024, 0x811F0010, 0x813F0014, 0x91060000, 0x91260004, 0x3BBD0040, 0x48000010,
-		0x7FC3F378, 0x48000003, // mr r3,r30; bla OSResetEvent <- nop
-	};
-	constexpr size_t count = sizeof(pattern) / sizeof(pattern[0]);
 	uint32be* text = (uint32be*)module->regionMappingBase_text.GetPtr();
 	const size_t words = module->regionSize_text / 4;
-	for (size_t i = 0; i + count <= words; i++)
+	for (const RPLTitleFix& fix : RPLLoader_TitleFixes())
 	{
-		bool match = true;
-		for (size_t k = 0; k < count && match; k++)
-		{
-			const uint32 w = text[i + k];
-			match = pattern[k] == 0x48000003 ? (w & 0xFC000003) == 0x48000003 : w == pattern[k];
-		}
-		if (!match)
+		if (std::find(fix.titleIds.begin(), fix.titleIds.end(), titleId) == fix.titleIds.end())
 			continue;
-		const MPTR addr = module->regionMappingBase_text.GetMPTR() + (uint32)(i + count - 1) * 4;
-		text[i + count - 1] = 0x60000000; // nop
-		cemuLog_log(LogType::Force, "Ninja Gaiden 3: event flag reset race fixed at 0x{:08x}", addr);
-		return;
+		const size_t count = fix.pattern.size();
+		for (size_t i = 0; i + count <= words; i++)
+		{
+			bool match = true;
+			for (size_t k = 0; k < count && match; k++)
+			{
+				const uint32 w = text[i + k];
+				match = fix.pattern[k] == kAnyBranchAbs ? (w & 0xFC000003) == kAnyBranchAbs : w == fix.pattern[k];
+			}
+			if (!match)
+				continue;
+			for (size_t k = 0; k < fix.replacement.size(); k++)
+				text[i + fix.patchAt + k] = fix.replacement[k];
+			const MPTR addr = module->regionMappingBase_text.GetMPTR() + (uint32)(i + fix.patchAt) * 4;
+			cemuLog_log(LogType::Force, "Title fix applied at 0x{:08x}: {}", addr, fix.description);
+			break;
+		}
 	}
 }
 
