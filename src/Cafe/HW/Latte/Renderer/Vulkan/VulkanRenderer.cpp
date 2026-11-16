@@ -274,6 +274,14 @@ void VulkanRenderer::GetDeviceFeatures()
 	pcc.pNext = prevStruct;
 	prevStruct = &pcc;
 
+	VkPhysicalDeviceTransformFeedbackFeaturesEXT tff{};
+	if (m_featureControl.deviceExtensions.transform_feedback)
+	{
+		tff.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT;
+		tff.pNext = prevStruct;
+		prevStruct = &tff;
+	}
+
 	VkPhysicalDevicePresentIdFeaturesKHR pidf{};
 	pidf.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR;
 	pidf.pNext = prevStruct;
@@ -393,6 +401,14 @@ void VulkanRenderer::GetDeviceFeatures()
 	cemuLog_log(LogType::Force, "Vulkan: geometryShader {} vertexPipelineStoresAndAtomics {}",
 		m_featureControl.deviceFeatures.geometry_shader ? "yes" : "no",
 		m_featureControl.deviceFeatures.vertex_pipeline_stores_and_atomics ? "yes" : "no");
+	{
+		const sint64 soXfb = PerfLog::Tunable("so_xfb", -1);
+		const bool xfbAvailable = m_featureControl.deviceExtensions.transform_feedback && tff.transformFeedback;
+		m_xfbNative = xfbAvailable && (soXfb == 1 || (soXfb < 0 && !m_featureControl.deviceFeatures.vertex_pipeline_stores_and_atomics));
+		m_featureControl.deviceExtensions.transform_feedback = m_xfbNative; // the extension is only enabled when used
+		cemuLog_log(LogType::Force, "Vulkan: streamout via {} (transformFeedback {})", m_xfbNative ? "VK_EXT_transform_feedback" : "storage buffer",
+			xfbAvailable ? "yes" : "no");
+	}
 	/* Get Vulkan device properties and limits */
 	VkPhysicalDeviceFloatControlsPropertiesKHR pfcp{};
 	prevStruct = nullptr;
@@ -813,6 +829,16 @@ VulkanRenderer::VulkanRenderer() : Renderer(RendererAPI::Vulkan)
 		deviceExtensionFeatures = &cacheControlFeature;
 		cacheControlFeature.pipelineCreationCacheControl = VK_TRUE;
 	}
+	// enable VK_EXT_transform_feedback (streamout on drivers without vertexPipelineStoresAndAtomics)
+	VkPhysicalDeviceTransformFeedbackFeaturesEXT transformFeedbackFeature{};
+	if (m_xfbNative)
+	{
+		transformFeedbackFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT;
+		transformFeedbackFeature.pNext = deviceExtensionFeatures;
+		deviceExtensionFeatures = &transformFeedbackFeature;
+		transformFeedbackFeature.transformFeedback = VK_TRUE;
+	}
+
 	// enable VK_EXT_custom_border_color
 	VkPhysicalDeviceCustomBorderColorFeaturesEXT customBorderColorFeature{};
 	if (m_featureControl.deviceExtensions.custom_border_color_without_format)
@@ -1038,6 +1064,8 @@ VulkanRenderer::VulkanRenderer() : Renderer(RendererAPI::Vulkan)
 
 	// transform feedback ringbuffer
 	VkBufferUsageFlags xfbRingBufferUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	if (m_xfbNative)
+		xfbRingBufferUsage |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
 	memoryManager->CreateBuffer(LatteStreamout_GetRingBufferSize(), xfbRingBufferUsage, 0, m_xfbRingBuffer, m_xfbRingBufferMemory);
 
 	// occlusion query result buffer
@@ -1569,6 +1597,8 @@ VkDeviceCreateInfo VulkanRenderer::CreateDeviceCreateInfo(const std::vector<VkDe
 		used_extensions.emplace_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
 	if (m_featureControl.deviceExtensions.depth_clip_enable)
 		used_extensions.emplace_back(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
+	if (m_featureControl.deviceExtensions.transform_feedback)
+		used_extensions.emplace_back(VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
 	if (m_featureControl.deviceExtensions.present_wait)
 	{
 		used_extensions.emplace_back(VK_KHR_PRESENT_ID_EXTENSION_NAME);
@@ -1681,6 +1711,7 @@ bool VulkanRenderer::CheckDeviceExtensionSupport(const VkPhysicalDevice device, 
 	info.deviceExtensions.tooling_info = isExtensionAvailable(VK_EXT_TOOLING_INFO_EXTENSION_NAME);
 	info.deviceExtensions.depth_range_unrestricted = isExtensionAvailable(VK_EXT_DEPTH_RANGE_UNRESTRICTED_EXTENSION_NAME);
 	info.deviceExtensions.depth_clip_enable = isExtensionAvailable(VK_EXT_DEPTH_CLIP_ENABLE_EXTENSION_NAME);
+	info.deviceExtensions.transform_feedback = isExtensionAvailable(VK_EXT_TRANSFORM_FEEDBACK_EXTENSION_NAME);
 	// perf/tuning.txt fill_rectangle=0 draws rects through the emulation geometry shader even where VK_NV_fill_rectangle exists, the path every
 	// Android GPU takes, so a desktop NVIDIA run can reproduce it
 	info.deviceExtensions.nv_fill_rectangle = isExtensionAvailable(VK_NV_FILL_RECTANGLE_EXTENSION_NAME) && PerfLog::Tunable("fill_rectangle", 1) != 0;
@@ -3481,7 +3512,7 @@ void VulkanRenderer::GetTextureFormatInfoVK(Latte::E_GX2SURFFMT format, bool isD
 			else
 			{
 				formatInfoOut->vkImageFormat = VK_FORMAT_R8_UNORM;
-				formatInfoOut->decoder = TextureDecoder_BC4_To_R8::getInstance();
+				formatInfoOut->decoder = TextureDecoder_BC4_To_R8<decodeBC4Block_UNORM>::getInstance();
 			}
 			break;
 		case Latte::E_GX2SURFFMT::BC4_SNORM:
@@ -3493,7 +3524,7 @@ void VulkanRenderer::GetTextureFormatInfoVK(Latte::E_GX2SURFFMT format, bool isD
 			else
 			{
 				formatInfoOut->vkImageFormat = VK_FORMAT_R8_SNORM;
-				formatInfoOut->decoder = TextureDecoder_BC4_To_R8::getInstance();
+				formatInfoOut->decoder = TextureDecoder_BC4_To_R8<decodeBC4Block_SNORM>::getInstance();
 			}
 			break;
 		case Latte::E_GX2SURFFMT::BC5_UNORM:
@@ -5200,6 +5231,46 @@ void VulkanRenderer::streamout_begin()
 {
 }
 
+// transform feedback (m_xfbNative): the active streamout buffers are bound at their ring buffer offsets, the transform feedback
+// unit writes the vertices of the draw one after another from there, which is the order the GPU writes them in. Called inside
+// the render pass around the draw command
+void VulkanRenderer::draw_xfbBegin()
+{
+	extern bool _transformFeedbackIsActive;
+	if (!m_xfbNative || !_transformFeedbackIsActive)
+		return;
+	for (uint32 i = 0; i < 4; i++)
+	{
+		if (!m_streamoutState.buffer[i].enabled)
+			continue;
+		VkDeviceSize offset = (VkDeviceSize)m_streamoutState.buffer[i].ringBufferOffset;
+		VkDeviceSize size = VK_WHOLE_SIZE;
+		vkCmdBindTransformFeedbackBuffersEXT(m_state.currentCommandBuffer, i, 1, &m_xfbRingBuffer, &offset, &size);
+	}
+	vkCmdBeginTransformFeedbackEXT(m_state.currentCommandBuffer, 0, 0, nullptr, nullptr);
+	m_state.xfbActive = true;
+}
+
+void VulkanRenderer::draw_xfbEnd()
+{
+	if (!m_state.xfbActive)
+		return;
+	vkCmdEndTransformFeedbackEXT(m_state.currentCommandBuffer, 0, 0, nullptr, nullptr);
+	m_state.xfbActive = false;
+}
+
+// transform feedback writes are their own pipeline stage and access type, the storage buffer barriers don't cover them
+void VulkanRenderer::streamout_xfbWriteBarrier()
+{
+	if (!m_xfbNative)
+		return;
+	VkMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	barrier.srcAccessMask = VK_ACCESS_TRANSFORM_FEEDBACK_WRITE_BIT_EXT;
+	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	vkCmdPipelineBarrier(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+}
+
 void VulkanRenderer::streamout_rendererFinishDrawcall()
 {
 	m_streamoutState.buffer[0].enabled = false;
@@ -5247,6 +5318,7 @@ bool VulkanRenderer::streamout_queueReadback(uint32 ringBufferOffset, MPTR physA
 	const uint32 dstOffset = m_xfbReadbackWriteIndex;
 	m_xfbReadbackWriteIndex = (m_xfbReadbackWriteIndex + size + 255) & ~255u;
 
+	streamout_xfbWriteBarrier();
 	barrier_bufferRange<BUFFER_SHADER_WRITE, TRANSFER_READ>(m_xfbRingBuffer, ringBufferOffset, size);
 	VkBufferCopy bufferCopy{};
 	bufferCopy.srcOffset = ringBufferOffset;
@@ -5495,6 +5567,7 @@ void VulkanRenderer::bufferCache_copyStreamoutToMainBuffer(uint32 srcOffset, uin
 		bufferCache_markInUse(dstOffset, size);
 	}
 
+	streamout_xfbWriteBarrier();
 	barrier_bufferRange<BUFFER_SHADER_WRITE, TRANSFER_READ,
 		ANY_TRANSFER | BUFFER_SHADER_READ, TRANSFER_WRITE>(
 			m_xfbRingBuffer, srcOffset, size, // wait for all writes to finish

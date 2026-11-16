@@ -2099,12 +2099,14 @@ void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, 
 	MarkSampledTexturesUsed();
 	if (!DiagSkipDraw(m_state.activePixelDS, hostIndexCount))
 	{
+		draw_xfbBegin();
 		if (streamoutDeindex && hostIndexType != INDEX_TYPE::NONE)
 			vkCmdDraw(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseInstance);
 		else if (hostIndexType != INDEX_TYPE::NONE)
 			vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
 		else
 			vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
+		draw_xfbEnd();
 	}
 	PerfLog::DrawCall();
 	LatteStreamout_FinishDrawcall(m_useHostMemoryForCache);
@@ -2340,10 +2342,12 @@ void VulkanRenderer::draw_execute_continued(uint32 baseVertex, uint32 baseInstan
 	MarkSampledTexturesUsed();
 	if (!DiagSkipDraw(m_state.activePixelDS, hostIndexCount))
 	{
+		draw_xfbBegin();
 		if (hostIndexType != INDEX_TYPE::NONE)
 			vkCmdDrawIndexed(m_state.currentCommandBuffer, hostIndexCount, instanceCount, 0, baseVertex, baseInstance);
 		else
 			vkCmdDraw(m_state.currentCommandBuffer, count, instanceCount, baseVertex, baseInstance);
+		draw_xfbEnd();
 	}
 
 	PerfLog::DrawCall();

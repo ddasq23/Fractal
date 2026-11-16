@@ -193,6 +193,9 @@ VKFUNC_DEVICE(vkCmdBlitImage);
 VKFUNC_DEVICE(vkCmdPushConstants);
 VKFUNC_DEVICE(vkCmdSetBlendConstants);
 VKFUNC_DEVICE(vkCmdSetDepthBias);
+VKFUNC_DEVICE(vkCmdBindTransformFeedbackBuffersEXT);
+VKFUNC_DEVICE(vkCmdBeginTransformFeedbackEXT);
+VKFUNC_DEVICE(vkCmdEndTransformFeedbackEXT);
 
 // synchronization2
 

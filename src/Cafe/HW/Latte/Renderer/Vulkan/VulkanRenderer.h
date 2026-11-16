@@ -416,6 +416,7 @@ private:
 
 		// command buffer
 		VkCommandBuffer currentCommandBuffer{};
+		bool xfbActive{}; // inside vkCmdBeginTransformFeedbackEXT (draw_xfbBegin)
 
 		// pipeline
 		VkPipeline currentPipeline{ VK_NULL_HANDLE };
@@ -532,6 +533,7 @@ private:
 			bool shader_float_controls = false; // VK_KHR_shader_float_controls
 			bool present_wait = false; // VK_KHR_present_wait
 			bool depth_clip_enable = false; // VK_EXT_depth_clip_enable
+			bool transform_feedback = false; // VK_EXT_transform_feedback (only enabled when streamout uses it, see m_xfbNative)
 			bool pipeline_robustness = false; // VK_EXT_pipeline_robustness
 			bool vertex_attribute_divisor = false; // VK_KHR_vertex_attribute_divisor (with supportsNonZeroFirstInstance, vertexAttributeInstanceRateDivisor and maxVertexAttribDivisor >= 0xFFFF)
 			bool attachment_feedback_loop_layout = false; // VK_EXT_attachment_feedback_loop_layout
@@ -632,7 +634,7 @@ private:
 
 	bool UseTFViaSSBO() const override
 	{
-		return true;
+		return !m_xfbNative;
 	}
 
 	// drawcall emulation
@@ -744,6 +746,14 @@ private:
 	// buffers can be found without vkGetFenceStatus (which blocks until the GPU is done on Turnip/KGSL)
 	bool m_isTurnip{false};
 	bool m_isPanVK{false};
+	// streamout through VK_EXT_transform_feedback instead of storage buffer writes from the vertex shader. Drivers without
+	// vertexPipelineStoresAndAtomics (the Mali vendor driver) can't do the latter: the writes were dropped and games that build
+	// geometry with streamout drew garbage (black patches over the yarn in Yoshi's Woolly World). Tunable so_xfb: -1 automatic,
+	// 1 always (to compare on a GPU that has both), 0 never
+	bool m_xfbNative{false};
+	void draw_xfbBegin();
+	void draw_xfbEnd();
+	void streamout_xfbWriteBarrier();
 	bool m_useCompletionMarker{false};
 	VkBuffer m_completionMarkerBuffer{VK_NULL_HANDLE};
 	VkDeviceMemory m_completionMarkerMemory{VK_NULL_HANDLE};

@@ -35,6 +35,20 @@ void LatteDecompiler_emitAttributeDecodeGLSL(LatteDecompilerShader* shaderContex
 
 // local prototypes
 void _emitTypeConversionPrefix(LatteDecompilerShaderContext* shaderContext, sint32 sourceType, sint32 destinationType);
+
+// lvalue of dword <index> of the current vertex in transform feedback buffer <bufferIndex>, as declared in the header
+// (four dwords per ivec4 in sb<n>v[], the last stride % 16 bytes in sb<n>t)
+static void _emitXfbStore(LatteDecompilerShaderContext* shaderContext, uint32 bufferIndex, uint32 index)
+{
+	const uint32 dwords = shaderContext->output->streamoutBufferStride[bufferIndex] / 4;
+	const char comp = "xyzw"[index & 3];
+	if (index < (dwords & ~3u))
+		shaderContext->shaderSource->addFmt("sb{}v[{}].{}", bufferIndex, index / 4, comp);
+	else if ((dwords & 3) == 1)
+		shaderContext->shaderSource->addFmt("sb{}t", bufferIndex);
+	else
+		shaderContext->shaderSource->addFmt("sb{}t.{}", bufferIndex, comp);
+}
 void _emitTypeConversionSuffix(LatteDecompilerShaderContext* shaderContext, sint32 sourceType, sint32 destinationType);
 void LatteDecompiler_emitClauseCode(LatteDecompilerShaderContext* shaderContext, LatteDecompilerCFInstruction* cfInstruction, bool isSubroutine);
 
@@ -3470,7 +3484,7 @@ void _emitCFRingWriteCode(LatteDecompilerShaderContext* shaderContext, LatteDeco
 				}
 				else
 				{
-					src->addFmt("sb{}[{}]", streamWrite->bufferIndex, streamWrite->exportArrayBase + i);
+					_emitXfbStore(shaderContext, streamWrite->bufferIndex, streamWrite->exportArrayBase + i);
 				}
 
 				src->add(" = ");
@@ -3590,7 +3604,7 @@ void _emitStreamWriteCode(LatteDecompilerShaderContext* shaderContext, LatteDeco
 			}
 			else
 			{
-				src->addFmt("sb{}[{}]", streamoutBufferIndex, cfInstruction->exportArrayBase + i);
+				_emitXfbStore(shaderContext, streamoutBufferIndex, cfInstruction->exportArrayBase + i);
 			}
 
 			src->add(" = ");

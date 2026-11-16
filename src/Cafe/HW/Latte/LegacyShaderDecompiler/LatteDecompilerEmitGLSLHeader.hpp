@@ -383,6 +383,29 @@ namespace LatteDecompiler
 		}
 	}
 
+	// streamout written as transform feedback outputs (renderers without UseTFViaSSBO: OpenGL, Vulkan on drivers without
+	// vertexPipelineStoresAndAtomics such as the Mali vendor driver)
+	bool _xfbOutputs(LatteDecompilerShaderContext* ctx)
+	{
+		return !ctx->options->useTFViaSSBO && ctx->analyzer.hasStreamoutEnable && ctx->output->streamoutBufferWriteMask.any() &&
+			(ctx->shaderType == LatteConst::ShaderType::Vertex || ctx->shaderType == LatteConst::ShaderType::Geometry);
+	}
+
+	// first output location after the parameters passed on to the pixel shader
+	uint32 _xfbBaseLocation(LatteDecompilerShaderContext* ctx)
+	{
+		uint32 base = 0;
+		if (ctx->shaderType == LatteConst::ShaderType::Vertex)
+			base = (uint32)LatteSHRC_GetPSInputTable()->count;
+		else if (ctx->parsedGSCopyShader)
+		{
+			for (sint32 p = 0; p < ctx->parsedGSCopyShader->numParam; p++)
+				if (ctx->parsedGSCopyShader->paramMapping[p].exportType == 2)
+					base = std::max<uint32>(base, (ctx->parsedGSCopyShader->paramMapping[p].exportParam & 0x7F) + 1);
+		}
+		return std::min<uint32>(base, 32);
+	}
+
 	void _emitVSExports(LatteDecompilerShaderContext* shaderContext)
 	{
 		std::array<bool, 32> activePassParams{};
@@ -424,14 +447,17 @@ namespace LatteDecompiler
 		}
 
 		// TODO: fix this
-		for (uint32 i = 0; i < 32; i++)
+		// with streamout as transform feedback the captured values need output locations of their own after the ones the pixel
+		// shader reads (_xfbBaseLocation), so the unused dummies stop there instead of taking all 32
+		const uint32 dummyEnd = _xfbOutputs(shaderContext) ? _xfbBaseLocation(shaderContext) : 32;
+		for (uint32 i = 0; i < dummyEnd; i++)
 		{
 			if (!activePassParams[i])
 				src->addFmt("layout(location = {0}) out vec4 dummyPassParameterSem{0};" _CRLF, i);
 		}
 
 		src->add("void dummyPassParamInit() {" _CRLF);
-		for (uint32 i = 0; i < 32; i++)
+		for (uint32 i = 0; i < dummyEnd; i++)
 		{
 			if (!activePassParams[i])
 				src->addFmt("dummyPassParameterSem{} = vec4(0.0, 0.0, 0.0, 0.0);" _CRLF, i);
@@ -580,17 +606,25 @@ namespace LatteDecompiler
 			}
 			else
 			{
-				sint32 locationOffset = 0; // glslang wants a location for xfb outputs
+				// glslang wants a location for xfb outputs. They start after the outputs the pixel shader reads, and the dwords of a
+				// vertex are packed four per location (ivec4 sb<n>v[], the remainder in sb<n>t): one int per location took more
+				// locations than the 32 a vertex shader has (maxVertexOutputComponents 128). See _emitXfbStore
+				sint32 locationOffset = _xfbBaseLocation(decompilerContext);
 				for (uint32 i = 0; i < LATTE_NUM_STREAMOUT_BUFFER; i++)
 				{
 					if (!decompilerContext->output->streamoutBufferWriteMask[i])
 						continue;
 					uint32 bufferStride = decompilerContext->output->streamoutBufferStride[i];
+					uint32 dwords = bufferStride / 4;
 					src->addFmt("XFB_BLOCK_LAYOUT({}, {}, {}) out XfbBlock{} " _CRLF, i, bufferStride, locationOffset, i);
 					src->add("{" _CRLF);
-					src->addFmt("layout(xfb_buffer = {}, xfb_offset = 0) int sb{}[{}];" _CRLF, i, i, decompilerContext->output->streamoutBufferStride[i] / 4);
+					if (dwords / 4)
+						src->addFmt("layout(xfb_buffer = {}, xfb_offset = 0) ivec4 sb{}v[{}];" _CRLF, i, i, dwords / 4);
+					static const char* s_tailType[4] = { "", "int", "ivec2", "ivec3" };
+					if (dwords % 4)
+						src->addFmt("layout(xfb_buffer = {}, xfb_offset = {}) {} sb{}t;" _CRLF, i, (dwords / 4) * 16, s_tailType[dwords % 4], i);
 					src->add("};" _CRLF);
-					locationOffset += (decompilerContext->output->streamoutBufferStride[i] / 4);
+					locationOffset += (dwords + 3) / 4;
 				}
 			}
 		}

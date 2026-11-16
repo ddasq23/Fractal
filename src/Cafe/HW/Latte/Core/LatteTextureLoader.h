@@ -44,6 +44,14 @@ void decodeBC1Block(uint8* inputData, float* output4x4RGBA);
 void decodeBC2Block_UNORM(uint8* inputData, float* imageRGBA);
 void decodeBC3Block_UNORM(uint8* inputData, float* imageRGBA);
 void decodeBC4Block_UNORM(uint8* blockStorage, float* rOutput);
+void decodeBC4Block_SNORM(uint8* blockStorage, float* rOutput);
+// a decoded BC4/BC5 value as the byte of an R8/R8G8 texture: UNORM 0..255, SNORM two's complement -127..127 (GPUs without BCn)
+inline uint8 bcDecodedToByte(float v, bool snorm)
+{
+	if (snorm)
+		return (uint8)(sint8)std::lround(std::clamp(v, -1.0f, 1.0f) * 127.0f);
+	return (uint8)std::lround(std::clamp(v, 0.0f, 1.0f) * 255.0f);
+}
 void decodeBC5Block_UNORM(uint8* blockStorage, float* rgOutput);
 void decodeBC5Block_SNORM(uint8* blockStorage, float* rgOutput);
 using decodingFn = void (uint8 *, float *);
@@ -2101,7 +2109,8 @@ public:
 };
 
 
-class TextureDecoder_BC4_To_R8 : public TextureDecoder, public SingletonClass<TextureDecoder_BC4_To_R8>
+template<decodingFn fn>
+class TextureDecoder_BC4_To_R8 : public TextureDecoder, public SingletonClass<TextureDecoder_BC4_To_R8<fn>>
 {
 public:
 
@@ -2121,7 +2130,7 @@ public:
 				sint32 blockSizeY = (std::min)(4, textureLoader->height - y);
 				// decode 4x4 pixels at once
 				float rBlock[4 * 4 * 1];
-				decodeBC4Block_UNORM(blockData, rBlock);
+				fn(blockData, rBlock);
 
 				for (sint32 py = 0; py < blockSizeY; py++)
 				{
@@ -2130,7 +2139,7 @@ public:
 					{
 						sint32 pixelOffset = (x + px + yc * textureLoader->width); // write to target buffer
 						float red = rBlock[(px + py * 4) * 1 + 0];
-						*(outputData + pixelOffset + 0) = (uint8)(red * 255);
+						*(outputData + pixelOffset + 0) = bcDecodedToByte(red, fn == decodeBC4Block_SNORM);
 					}
 				}
 			}
@@ -2215,8 +2224,8 @@ public:
 						sint32 pixelOffset = (x + px + yc * textureLoader->width) * 2; // write to target buffer
 						float red = rgBlock[(px + py * 4) * 2 + 0];
 						float green = rgBlock[(px + py * 4) * 2 + 1];
-						*(outputData + pixelOffset + 0) = (uint8)(red * 255);
-						*(outputData + pixelOffset + 1) = (uint8)(green * 255);
+						*(outputData + pixelOffset + 0) = bcDecodedToByte(red, fn == decodeBC5Block_SNORM);
+						*(outputData + pixelOffset + 1) = bcDecodedToByte(green, fn == decodeBC5Block_SNORM);
 					}
 				}
 			}

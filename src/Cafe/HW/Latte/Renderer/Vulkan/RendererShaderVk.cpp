@@ -335,6 +335,8 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 			h2 ^= 0x52454C5731ull; // nor entries from before indexed GPR writes became a switch (array form crashes the Qualcomm compiler)
 		if (m_glslCode.find("uint keep = ") != std::string::npos)
 			h2 ^= 0x4E414E4231ull; // nor entries with the float multiply when it is done on the bits (Turnip on Adreno 8xx)
+		if (m_glslCode.find("out XfbBlock") != std::string::npos)
+			h2 ^= 0x5846424E31ull; // nor entries with streamout as storage buffer writes (now transform feedback, m_xfbNative)
 		std::vector<uint8> cacheFileData;
 		if (s_spirvCache->GetFile({ h1, h2 }, cacheFileData))
 		{
@@ -448,6 +450,10 @@ void RendererShaderVk::CompileInternal(bool isRenderThread)
 			h2 ^= 0x4C4F4F5031ull;
 		if (m_glslCode.find("relW0") != std::string::npos)
 			h2 ^= 0x52454C5731ull;
+		if (m_glslCode.find("uint keep = ") != std::string::npos)
+			h2 ^= 0x4E414E4231ull;
+		if (m_glslCode.find("out XfbBlock") != std::string::npos)
+			h2 ^= 0x5846424E31ull;
 		s_spirvCache->AddFile({ h1, h2 }, (const uint8*)spirvBuffer.data(), spirvBuffer.size() * sizeof(uint32));
 	}
 	if (useContentKey)

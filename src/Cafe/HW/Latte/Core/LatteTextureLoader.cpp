@@ -392,6 +392,37 @@ void decodeBC4Block_UNORM(uint8* blockStorage, float* rOutput)
 	}
 }
 
+// BC4 with signed endpoints (BC4_SNORM), result in -1.0 .. 1.0
+void decodeBC4Block_SNORM(uint8* blockStorage, float* rOutput)
+{
+	uint8* blockInput = (uint8*)blockStorage;
+	float red[8];
+	const sint8 e0 = *(sint8*)(blockInput + 0);
+	const sint8 e1 = *(sint8*)(blockInput + 1);
+	red[0] = std::max((float)e0 / 127.0f, -1.0f);
+	red[1] = std::max((float)e1 / 127.0f, -1.0f);
+	if (e0 > e1)
+	{
+		for (sint32 i = 0; i < 6; i++)
+			red[2 + i] = ((6 - i) * red[0] + (1 + i) * red[1]) / 7.0f;
+	}
+	else
+	{
+		for (sint32 i = 0; i < 4; i++)
+			red[2 + i] = ((4 - i) * red[0] + (1 + i) * red[1]) / 5.0f;
+		red[6] = -1.0f;
+		red[7] = 1.0f;
+	}
+	uint8* bitIndices = blockInput + 2;
+	uint32 redRow0 = (((uint32)bitIndices[2]) << 16) | (((uint32)bitIndices[1]) << 8) | (((uint32)bitIndices[0]) << 0);
+	uint32 redRow1 = (((uint32)bitIndices[5]) << 16) | (((uint32)bitIndices[4]) << 8) | (((uint32)bitIndices[3]) << 0);
+	for (sint32 i = 0; i < 8; i++)
+	{
+		rOutput[i] = red[(redRow0 >> (i * 3)) & 7];
+		rOutput[i + 8] = red[(redRow1 >> (i * 3)) & 7];
+	}
+}
+
 void decodeBC5Block_UNORM(uint8* blockStorage, float* rgOutput)
 {
 	uint8* blockInput = (uint8*)blockStorage;
@@ -485,10 +516,9 @@ void decodeBC5Block_SNORM(uint8* blockStorage, float* rgOutput) // todo - can me
 	float red[8];
 	float green[8];
 
-	red[0] = ((float)(*(sint8*)(blockInput + 0)) + 128.0f) / 255.0f;
-	red[1] = ((float)(*(sint8*)(blockInput + 1)) + 128.0f) / 255.0f;
-	red[0] = (red[0] * 2.0f - 1.0f);
-	red[1] = (red[1] * 2.0f - 1.0f);
+	// SNORM endpoints: -128 and -127 are both -1.0, 127 is 1.0
+	red[0] = std::max((float)(*(sint8*)(blockInput + 0)) / 127.0f, -1.0f);
+	red[1] = std::max((float)(*(sint8*)(blockInput + 1)) / 127.0f, -1.0f);
 
 	if (red[0] > red[1])
 	{
@@ -511,10 +541,8 @@ void decodeBC5Block_SNORM(uint8* blockStorage, float* rgOutput) // todo - can me
 		red[7] = 1.0f;                       // bit code 111
 	}
 
-	green[0] = ((float)(*(sint8*)(blockInput + 8)) + 128.0f) / 255.0f;
-	green[1] = ((float)(*(sint8*)(blockInput + 9)) + 128.0f) / 255.0f;
-	green[0] = (green[0] * 2.0f - 1.0f);
-	green[1] = (green[1] * 2.0f - 1.0f);
+	green[0] = std::max((float)(*(sint8*)(blockInput + 8)) / 127.0f, -1.0f);
+	green[1] = std::max((float)(*(sint8*)(blockInput + 9)) / 127.0f, -1.0f);
 
 	if (green[0] > green[1])
 	{
