@@ -1004,6 +1004,17 @@ namespace coreinit
 		thread->basePriority = newPriority;
 	}
 
+	// Fractal: priority inheritance for OSMutex, as Cafe OS does: a thread waiting for a mutex lends its priority to the
+	// owner (and down the chain when that owner waits for another mutex) until the owner unlocks it. Without it a low
+	// priority owner on a core kept busy by a middle priority thread never runs again: Smash Bros. froze loading a stage
+	// on the RP5 with ResourceSystem:Compaction (93) holding the mutex the loader (65) wanted while MultitaskEngine (80)
+	// kept core 0. tuning.txt mutex_inherit=0 turns it off.
+	static bool __OSMutexPriorityInheritance()
+	{
+		static const bool s_on = PerfLog::Tunable("mutex_inherit", 1) != 0;
+		return s_on;
+	}
+
 	void __OSUpdateThreadEffectivePriority(OSThread_t* thread)
 	{
 		if (thread->context.boostCount != 0)
@@ -1012,7 +1023,32 @@ namespace coreinit
 			thread->effectivePriority = 0;
 			return;
 		}
-		thread->effectivePriority = thread->basePriority;
+		sint32 priority = thread->basePriority;
+		if (__OSMutexPriorityInheritance())
+		{
+			// the most urgent thread waiting for a mutex this thread holds
+			uint32 guard = 0;
+			for (OSMutex* mutex = thread->mutexQueue.head.GetPtr(); mutex && guard < 4096; mutex = mutex->next.GetPtr(), guard++)
+				for (OSThread_t* waiter = mutex->threadQueue.head.GetPtr(); waiter && guard < 4096; waiter = waiter->waitQueueLink.next.GetPtr(), guard++)
+					priority = std::min<sint32>(priority, waiter->effectivePriority);
+		}
+		thread->effectivePriority = priority;
+	}
+
+	void __OSMutexLendPriority(OSMutex* mutex, OSThread_t* waiter)
+	{
+		cemu_assert_debug(__OSHasSchedulerLock());
+		if (!__OSMutexPriorityInheritance())
+			return;
+		const sint32 priority = waiter->effectivePriority;
+		for (int depth = 0; mutex && depth < 16; depth++)
+		{
+			OSThread_t* owner = mutex->owner.GetPtr();
+			if (!owner || owner == waiter || owner->effectivePriority <= priority)
+				break;
+			owner->effectivePriority = priority;
+			mutex = owner->waitingForMutex.GetPtr();
+		}
 	}
 
 	bool OSSetThreadPriority(OSThread_t* thread, sint32 newPriority)

@@ -108,6 +108,7 @@ namespace PerfLog
 	static bool s_stop = false;
 
 	static std::vector<ScriptedPress> s_inputScript; // set before s_active, read-only afterwards
+	static std::unique_ptr<std::atomic<uint64>[]> s_pressFirstFrame; // per press of s_inputScript: 1 + present count when a frame-counted hold began, 0 = not yet
 	static std::vector<ScriptedAxes> s_inputAxes; // same
 	// SYNC lines of the input script: recorded time, draw threshold, and the session time the sync happened (-1 pending)
 	struct ScriptSync { double recordedS; uint32 minDraws; };
@@ -188,6 +189,23 @@ namespace PerfLog
 		return now - at + s_scriptSyncs[segment - 1].recordedS;
 	}
 
+	bool PressHeld(const ScriptedPress& press)
+	{
+		const double t = ScriptSeconds(press.segment);
+		if (t < 0.0 || t < press.startS)
+			return false;
+		if (press.holdFrames == 0)
+			return t < press.endS;
+		const size_t index = (size_t)(&press - s_inputScript.data());
+		if (index >= s_inputScript.size())
+			return false;
+		const uint64 now = s_presentCount.load(std::memory_order_relaxed) + 1;
+		uint64 first = 0;
+		if (!s_pressFirstFrame[index].compare_exchange_strong(first, now, std::memory_order_relaxed))
+			return now - first < press.holdFrames;
+		return true;
+	}
+
 	const std::vector<ScriptedAxes>& InputAxes()
 	{
 		static const std::vector<ScriptedAxes> empty;
@@ -224,6 +242,7 @@ namespace PerfLog
 			double t;
 			std::string button;
 			double holdMs = 150.0;
+			uint32 holdFrames = 0;
 			if (!(ss >> t >> button))
 				continue;
 			if (button == "AXIS")
@@ -233,7 +252,13 @@ namespace PerfLog
 					s_inputAxes.push_back(a);
 				continue;
 			}
-			ss >> holdMs;
+			if (std::string hold; ss >> hold)
+			{
+				if (!hold.empty() && (hold.back() == 'f' || hold.back() == 'F'))
+					holdFrames = (uint32)std::max(1, atoi(hold.c_str()));
+				else
+					holdMs = atof(hold.c_str());
+			}
 			for (char& ch : button)
 				ch = (char)toupper((unsigned char)ch);
 			if (button == "SYNC")
@@ -242,8 +267,9 @@ namespace PerfLog
 					s_scriptSyncs.push_back({t, (uint32)holdMs});
 				continue;
 			}
-			script.push_back({t, t + holdMs / 1000.0, button, (int)s_scriptSyncs.size()});
+			script.push_back({t, t + holdMs / 1000.0, button, (int)s_scriptSyncs.size(), holdFrames});
 		}
+		s_pressFirstFrame = std::make_unique<std::atomic<uint64>[]>(std::max<size_t>(script.size(), 1));
 		cemuLog_log(LogType::Force, "Performance log: input script {} ({} presses)", _pathToUtf8(path), script.size());
 		return script;
 	}

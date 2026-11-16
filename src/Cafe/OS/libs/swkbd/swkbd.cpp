@@ -424,9 +424,8 @@ void SwkbdCalc(void* controllerInfo)
 		return;
 	static bool s_prevPlus = true;
 	bool plus = false;
-	const double now = PerfLog::SessionSeconds();
 	for (const auto& press : PerfLog::InputScript())
-		plus |= press.button == "PLUS" && now >= press.startS && now < press.endS;
+		plus |= press.button == "PLUS" && PerfLog::PressHeld(press);
 	if (plus && !s_prevPlus)
 	{
 		if (swkbdInternalState->formStringLength == 0)

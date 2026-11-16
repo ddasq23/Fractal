@@ -538,6 +538,7 @@ namespace coreinit
 
 	void __OSSetThreadBasePriority(OSThread_t* thread, sint32 newPriority);
 	void __OSUpdateThreadEffectivePriority(OSThread_t* thread);
+	void __OSMutexLendPriority(OSMutex* mutex, OSThread_t* waiter); // waiter is about to wait for mutex (scheduler locked)
 
 	bool OSSetThreadPriority(OSThread_t* thread, sint32 newPriority);
 	uint32 OSGetThreadAffinity(OSThread_t* thread);

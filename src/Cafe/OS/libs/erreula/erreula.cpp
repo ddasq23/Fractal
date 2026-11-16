@@ -494,10 +494,9 @@ namespace erreula
 				const auto& script = PerfLog::InputScript();
 				if (!script.empty())
 				{
-					const double now = PerfLog::SessionSeconds();
 					for (const auto& press : script)
 					{
-						if (now < press.startS || now >= press.endS)
+						if (!PerfLog::PressHeld(press))
 							continue;
 						aDown |= press.button == "A";
 						bDown |= press.button == "B";

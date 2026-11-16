@@ -68,6 +68,10 @@ before=$($A shell ls "$FILES/perf" | tr -d '\r' | grep "_$TID\$" | sort | tail -
 ACT=$($A shell cmd package resolve-activity --brief -c android.intent.category.LAUNCHER $PKG | tail -1 | tr -d '\r')
 $A shell am start -n "$ACT" >/dev/null 2>&1
 sleep 6
+# never tap on another app: when the emulator is force-stopped, Android brings back whatever task was below it
+in_front() { $A shell dumpsys window | grep -m1 mCurrentFocus | grep -q "$PKG"; }
+in_front || { $A shell am start -n "$ACT" >/dev/null 2>&1; sleep 6; }
+in_front || { echo "$SCENE: another app is in front ($($A shell dumpsys window | grep -m1 mCurrentFocus | tr -d '\r')), not tapping"; exit 1; }
 # the game may be below the visible rows: scroll down a few times until it shows up
 for try in 1 2 3 4 5; do
   ui=$($A exec-out uiautomator dump /dev/tty 2>/dev/null)
@@ -87,6 +91,7 @@ for try in 1 2 3; do
   sleep 4
   $A shell dumpsys window | grep -m1 mCurrentFocus | grep -q EmulationActivity && break
   echo "$SCENE: the game did not open, tapping again"
+  in_front || { echo "$SCENE: another app came to the front, not tapping"; break; }
   $A shell input tap $(( (x1 + x2) / 2 )) $ty
 done
 start=$(date +%s)

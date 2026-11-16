@@ -100,7 +100,9 @@ namespace PerfLog
 	void JitGlue(const void* hostCode, uint32 hostSize, const char* name);
 
 	// Input script for reproducible benchmark scenes: <user data>/perf/input_<titleid>.txt (or
-	// input.txt), one press per line: "<seconds since the game started> <button> [hold ms, default 150]".
+	// input.txt), one press per line: "<seconds since the game started> <button> [hold ms, default 150]"; a hold written
+	// as "<n>f" lasts n presented frames from the first frame its time has come, so cursors and menus that move a step
+	// per game frame travel the same distance on a device that renders the menu at 24 fps.
 	// Buttons: A B X Y L R ZL ZR PLUS MINUS UP DOWN LEFT RIGHT, and LUP LDOWN LLEFT LRIGHT RUP RDOWN
 	// RLEFT RRIGHT for the sticks. Only read while the performance log is on; the GamePad (VPAD)
 	// presses the buttons that are held at the current time.
@@ -112,8 +114,11 @@ namespace PerfLog
 		double endS;
 		std::string button;
 		int segment = 0; // number of SYNC lines before this press
+		uint32 holdFrames = 0; // "<n>f" holds; 0 = held until endS
 	};
 	const std::vector<ScriptedPress>& InputScript();
+	// whether a press of InputScript() is held right now
+	bool PressHeld(const ScriptedPress& press);
 	// "<seconds> AXIS <lx> <ly> <rx> <ry>" lines: analog stick positions from that time on (recorded with input_record=1)
 	struct ScriptedAxes
 	{

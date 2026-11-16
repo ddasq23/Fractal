@@ -1,0 +1,54 @@
+# title: Super Smash Bros. for Wii U
+# title_id: 0005000010144f00
+# duration: 260
+# window: 140 240
+# scene: save past the DLC notices (first boots show them for minutes: smash_notices.txt); A to the character select,
+# hand down to the bottom edge, right and up a little onto the P2 plate + A (CPU), left onto the P1 plate + A (CPU),
+# PLUS, stage cursor up and right into the corner, a little down and left onto Mario Galaxy + A: a 2 minute CPU vs
+# CPU match (the fighters stay random: their tokens would have to be dragged onto the grid). Hand moves are held in frames (the hand moves a step per game
+# frame and the RP5 draws this menu at 24 fps on Turnip)
+25 A
+27 A
+29 A
+31 A
+33 A
+35 A
+37 A
+39 A
+41 A
+43 A
+45 A
+47 A
+49 A
+51 A
+53 A
+55 A
+57 A
+59 A
+61 A
+63 A
+65 A
+67 A
+69 A
+71 A
+73 A
+75 A
+77 A
+79 A
+81 A
+83 A
+85 A
+87 A
+92 LDOWN 30f
+94 LRIGHT 17f
+96 LUP 4f
+97.5 A
+99 LLEFT 10f
+100.5 LDOWN 3f
+101.5 A
+104 PLUS
+107 LUP 60f
+110.5 LRIGHT 100f
+116 LDOWN 8f
+117 LLEFT 22f
+119.5 A

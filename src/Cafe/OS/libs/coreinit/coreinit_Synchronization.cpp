@@ -254,6 +254,7 @@ namespace coreinit
 				if (failedAttempts >= 0x800)
 					cemuLog_log(LogType::Force, "Detected long-term contested OSLockMutex");
 				currentThread->waitingForMutex = mutex;
+				__OSMutexLendPriority(mutex, currentThread);
 				mutex->threadQueue.queueAndWait(currentThread);
 				currentThread->waitingForMutex = nullptr;
 				failedAttempts++;
@@ -315,6 +316,8 @@ namespace coreinit
 		{
 			currentThread->mutexQueue.removeMutex(mutex);
 			mutex->owner = nullptr;
+			// give back the priority the waiters of this mutex lent (before waking one, so the reschedule sees it)
+			__OSUpdateThreadEffectivePriority(currentThread);
 			if (!mutex->threadQueue.isEmpty())
 				mutex->threadQueue.wakeupSingleThreadWaitQueue(true, true);
 		}
@@ -361,6 +364,7 @@ namespace coreinit
 		mutex->lockCount = 0;
 		currentThread->mutexQueue.removeMutex(mutex);
 		mutex->owner = nullptr;
+		__OSUpdateThreadEffectivePriority(currentThread); // the waiters of this mutex no longer lend their priority
 		if (!mutex->threadQueue.isEmpty())
 			mutex->threadQueue.wakeupEntireWaitQueue(false);
 		// wait on condition

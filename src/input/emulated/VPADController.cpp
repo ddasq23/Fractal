@@ -117,8 +117,7 @@ void VPADController::VPADRead(VPADStatus_t& status, const BtnRepeat& repeat)
 	{
 		for (const auto& press : script)
 		{
-			const double t = PerfLog::ScriptSeconds(press.segment);
-			if (t < 0.0 || t < press.startS || t >= press.endS)
+			if (!PerfLog::PressHeld(press))
 				continue;
 			const std::string& b = press.button;
 			if (b == "A") status.hold |= VPAD_A;
