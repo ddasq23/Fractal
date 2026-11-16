@@ -53,6 +53,8 @@ public:
 
 	sint32 GetMaximumFileIndex();
 
+	uint32 GetExtraVersion() const { return extraVersion; }
+
 private:
 	struct FileTableEntry
 	{

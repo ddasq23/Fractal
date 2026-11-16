@@ -11,6 +11,7 @@ add_library(CemuAndroid SHARED
         NativeEmulation.cpp
         NativeFrameGen.cpp
         NativeGameTitles.cpp
+        NativeShaderCache.cpp
         NativeGraphicPacks.cpp
         NativeInput.cpp
         NativeLib.cpp

@@ -3136,3 +3136,90 @@ msgstr "Al moverse por menús y portadas, cambiar de tema y abrir juegos y ajust
 
 msgid "Effects volume"
 msgstr "Volumen de los efectos"
+
+msgid "Added {0} shaders and {1} pipelines"
+msgstr "Se añadieron {0} shaders y {1} pipelines"
+
+msgid "Coming soon"
+msgstr "Próximamente"
+
+msgid "Community shaders"
+msgstr "Shaders de la comunidad"
+
+msgid "Could not reach the shader repository"
+msgstr "No se pudo acceder al repositorio de shaders"
+
+msgid "Download community shaders"
+msgstr "Descargar shaders de la comunidad"
+
+msgid "Downloading shaders"
+msgstr "Descargando shaders"
+
+msgid "Finishing…"
+msgstr "Finalizando…"
+
+msgid "GitHub sign-in was not completed"
+msgstr "No se completó el inicio de sesión en GitHub"
+
+msgid "Needs a GitHub account."
+msgstr "Necesita una cuenta de GitHub."
+
+msgid "Nobody has shared shaders for this game yet"
+msgstr "Nadie ha compartido shaders de este juego todavía"
+
+msgid "On the GitHub page that opened, enter this code (already copied):"
+msgstr "En la página de GitHub que se abrió, escribe este código (ya copiado):"
+
+msgid "Open GitHub"
+msgstr "Abrir GitHub"
+
+msgid "Play the game first: this device has no shaders for it yet"
+msgstr "Juega primero: este dispositivo aún no tiene shaders de este juego"
+
+msgid "Preparing…"
+msgstr "Preparando…"
+
+msgid "Shaders sent"
+msgstr "Shaders enviados"
+
+msgid "Share my shaders"
+msgstr "Compartir mis shaders"
+
+msgid "Sharing failed: {0}"
+msgstr "Error al compartir: {0}"
+
+msgid "Sharing shaders"
+msgstr "Compartiendo shaders"
+
+msgid "Sign in to GitHub"
+msgstr "Iniciar sesión en GitHub"
+
+msgid "Sign out of GitHub"
+msgstr "Cerrar sesión de GitHub"
+
+msgid "Signed in to GitHub as {0}."
+msgstr "Conectado a GitHub como {0}."
+
+msgid "Thank you! Your shaders were sent for review and will be available to everyone once approved."
+msgstr "¡Gracias! Tus shaders se enviaron para revisión y estarán disponibles para todos una vez aprobados."
+
+msgid "The shared cache was made by an incompatible emulator version"
+msgstr "La caché compartida se hizo con una versión incompatible del emulador"
+
+msgid "They show up for everyone after review."
+msgstr "Aparecen para todos tras la revisión."
+
+msgid "Uploading {0}…"
+msgstr "Subiendo {0}…"
+
+msgid "View on GitHub"
+msgstr "Ver en GitHub"
+
+msgid "You already had all of these shaders"
+msgstr "Ya tenías todos estos shaders"
+
+msgid "{0} shaders and {1} pipelines from {2} players ({3}); added to yours, nothing is replaced"
+msgstr "{0} shaders y {1} pipelines de {2} jugadores ({3}); se suman a los tuyos, nada se reemplaza"
+
+msgid "{0} shaders on this device."
+msgstr "{0} shaders en este dispositivo."

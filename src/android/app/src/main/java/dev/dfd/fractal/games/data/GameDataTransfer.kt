@@ -54,7 +54,7 @@ object GameDataTransfer {
     fun saveDir(titleId: Long): File = File(NativeActiveSettings.getMLCPath())
         .resolve("usr/save/%08x/%08x".format(titleId ushr 32, titleId and 0xFFFFFFFFL))
 
-    private fun transferableDir(): File = File(NativeActiveSettings.getUserDataPath()).resolve("shaderCache/transferable")
+    fun transferableDir(): File = File(NativeActiveSettings.getUserDataPath()).resolve("shaderCache/transferable")
 
     private fun userDataFile(path: String): File = File(NativeActiveSettings.getUserDataPath()).resolve(path)
 
@@ -253,6 +253,11 @@ object GameDataTransfer {
         }
         return backupFile?.relativeTo(File(NativeActiveSettings.getUserDataPath()))?.invariantSeparatorsPath
     }
+
+    /** Zips the game's shader caches into shaderCacheBackups/; returns the backup (relative path) or null if none. */
+    fun backupShaderCache(titleId: Long, gameName: String?): String? =
+        backup(shaderCacheFiles(titleId).map { it.name to it }, "shaderCacheBackups", TransferKind.SHADERS, titleId, gameName)
+            ?.relativeTo(File(NativeActiveSettings.getUserDataPath()))?.invariantSeparatorsPath
 
     fun importShaderCache(
         context: Context,

@@ -233,6 +233,7 @@ fun GameProfileEditScreen(
 
             // exporting or replacing a save or the shader cache of the game that is running could lose data
             if (inGame == null) SavesAndCacheSection(game, dataInfo, dataActions, context) { confirmRemoveShaders = true }
+            if (inGame == null) CommunityShadersSection(game, snackbar) { viewModel.refreshDataInfo() }
             Spacer(Modifier.height(24.dp))
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
