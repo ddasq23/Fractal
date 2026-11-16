@@ -5,29 +5,21 @@ import android.os.Build
 import dev.dfd.fractal.BuildConfig
 import dev.dfd.fractal.nativeinterface.NativeShaderCache
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import java.io.File
 import java.io.IOException
-import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Base64
 import kotlin.coroutines.coroutineContext
 
 /**
@@ -37,27 +29,23 @@ import kotlin.coroutines.coroutineContext
  * (`<title id>_shaders.bin`, `<title id>_vkpipeline.bin`). They are Cemu FileCache files, the same as desktop Cemu's,
  * and their entries are added to the game's own cache (nothing local is replaced).
  *
- * Share: the user signs in to GitHub with the device flow (a code typed on github.com; the app only holds the user's
- * token, no secret of its own). The app forks the repository, commits the game's cache under
- * `submissions/<title id>/<login>-<time>/` and opens a pull request; a workflow there checks it and, once the owner
- * merges it, adds it to the release.
+ * Share: no account. The caches go to the upload service [UPLOAD_URL] (a Cloudflare Worker, code in the repository's
+ * worker/ folder, which holds the repository token): it checks each file is a cache of that game, attaches it to the
+ * "submissions" release and opens a pull request; a workflow checks every entry and, once the owner merges it, adds
+ * it to the "caches" release.
  */
 object CommunityShaders {
     const val REPO = "dfdx047/Fractal_Shaders"
     const val REPO_URL = "https://github.com/$REPO"
 
-    /** OAuth App of the repository owner, device flow enabled; public by design (no client secret is used). */
-    private const val CLIENT_ID = ""
+    private const val UPLOAD_URL = "https://fractal-shaders.hiddenleaf.workers.dev"
 
     /** GitHub's limit for one file in a repository is 100 MB. */
     const val MAX_FILE_BYTES = 95L * 1024 * 1024
 
     private const val INDEX_URL = "https://raw.githubusercontent.com/$REPO/main/index.json"
     private const val ASSET_URL = "https://github.com/$REPO/releases/download/caches/"
-    private const val API = "https://api.github.com"
     private const val PREFS = "community_shaders"
-
-    val loginAvailable get() = CLIENT_ID.isNotEmpty()
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -186,215 +174,98 @@ object CommunityShaders {
 
     // endregion
 
-    // region GitHub sign-in (device flow)
-
-    data class Account(val login: String, val token: String)
-
-    fun account(context: Context): Account? {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val token = prefs.getString("token", null) ?: return null
-        return Account(prefs.getString("login", null) ?: return null, token)
-    }
-
-    fun signOut(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
-    }
-
-    data class DeviceCode(
-        val deviceCode: String,
-        val userCode: String,
-        val verificationUri: String,
-        val intervalSeconds: Int,
-        val expiresInSeconds: Int,
-    )
-
-    suspend fun startSignIn(): DeviceCode = withContext(Dispatchers.IO) {
-        val reply = form("https://github.com/login/device/code", mapOf("client_id" to CLIENT_ID, "scope" to "public_repo"))
-        DeviceCode(
-            deviceCode = reply.string("device_code") ?: throw IOException("GitHub sent no device code"),
-            userCode = reply.string("user_code") ?: throw IOException("GitHub sent no user code"),
-            verificationUri = reply.string("verification_uri") ?: "https://github.com/login/device",
-            intervalSeconds = reply.string("interval")?.toIntOrNull() ?: 5,
-            expiresInSeconds = reply.string("expires_in")?.toIntOrNull() ?: 900,
-        )
-    }
-
-    class SignInException(message: String) : IOException(message)
-
-    /** Waits until the user enters [code] on GitHub; saves and returns the account. */
-    suspend fun finishSignIn(context: Context, code: DeviceCode): Account = withContext(Dispatchers.IO) {
-        var interval = code.intervalSeconds.coerceAtLeast(5)
-        val deadline = System.currentTimeMillis() + code.expiresInSeconds * 1000L
-        while (System.currentTimeMillis() < deadline) {
-            delay(interval * 1000L)
-            val reply = form(
-                "https://github.com/login/oauth/access_token",
-                mapOf(
-                    "client_id" to CLIENT_ID,
-                    "device_code" to code.deviceCode,
-                    "grant_type" to "urn:ietf:params:oauth:grant-type:device_code",
-                ),
-            )
-            val token = reply.string("access_token")
-            if (token != null) {
-                val login = api("GET", "/user", token).jsonObject.string("login") ?: throw IOException("no GitHub login")
-                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                    .putString("token", token).putString("login", login).apply()
-                return@withContext Account(login, token)
-            }
-            when (reply.string("error")) {
-                "authorization_pending" -> Unit
-                "slow_down" -> interval += 5
-                "expired_token" -> throw SignInException("expired")
-                "access_denied" -> throw SignInException("denied")
-                else -> throw SignInException(reply.string("error_description") ?: reply.string("error") ?: "unknown")
-            }
-        }
-        throw SignInException("expired")
-    }
-
-    // endregion
-
     // region share
+
+    /** A random id of this installation: the upload service counts one contributor per installation. */
+    private fun installId(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.getString("installId", null) ?: java.util.UUID.randomUUID().toString().also {
+            prefs.edit().putString("installId", it).apply()
+        }
+    }
 
     data class ShareResult(val pullRequestUrl: String)
 
     /**
-     * Sends the game's caches as a pull request to [REPO]. [onStep] gets a short step name for the progress text.
-     * Fails with [IOException] when the cache is missing or too big.
+     * Sends the game's caches for review. [onProgress] gets bytes sent and the total.
+     * Fails with [IOException] when the cache is missing or too big, or the service refuses it.
      */
     suspend fun share(
-        account: Account,
+        context: Context,
         titleId: Long,
         gameName: String?,
-        onStep: (String) -> Unit,
+        onProgress: (Long, Long) -> Unit,
     ): ShareResult = withContext(Dispatchers.IO) {
-        val files = Kind.entries.map { localFile(titleId, it) }.filter { it.isFile && it.length() > 0 }
+        val files = Kind.entries.associateWith { localFile(titleId, it) }.filterValues { it.isFile && it.length() > 0 }
         if (files.isEmpty()) throw IOException("no shader cache")
-        files.firstOrNull { it.length() > MAX_FILE_BYTES }?.let { throw IOException("${it.name} is over 95 MB") }
-        val token = account.token
-
-        onStep("fork")
-        val fork = api("POST", "/repos/$REPO/forks", token, buildJsonObject { put("default_branch_only", true) })
-            .jsonObject.string("full_name") ?: throw IOException("GitHub did not create the fork")
-        // a new fork takes a few seconds to be ready
-        var baseSha: String? = null
-        for (attempt in 0 until 30) {
-            runCatching { api("POST", "/repos/$fork/merge-upstream", token, buildJsonObject { put("branch", "main") }) }
-            baseSha = runCatching {
-                api("GET", "/repos/$fork/git/ref/heads/main", token).jsonObject["object"]?.jsonObject?.string("sha")
-            }.getOrNull()
-            if (baseSha != null) break
-            delay(2000)
+        files.values.firstOrNull { it.length() > MAX_FILE_BYTES }?.let { throw IOException("${it.name} is over 95 MB") }
+        val id = installId(context)
+        val tid = GameDataTransfer.titleIdString(titleId)
+        val total = files.values.sumOf { it.length() }
+        var sent = 0L
+        val assets = files.mapValues { (kind, file) ->
+            val name = uploadFile("$UPLOAD_URL/v1/upload?titleId=$tid&kind=${kind.suffix}&installId=" +
+                    URLEncoder.encode(id, "UTF-8"), file) { n -> onProgress(sent + n, total) }
+            sent += file.length()
+            name
         }
-        val base = baseSha ?: throw IOException("the fork is not ready")
-        val baseTree = api("GET", "/repos/$fork/git/commits/$base", token).jsonObject["tree"]?.jsonObject?.string("sha")
-            ?: throw IOException("no tree for $base")
-
-        val time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
-        val folder = "submissions/${GameDataTransfer.titleIdString(titleId)}/${account.login}-$time"
-        val tree = mutableListOf<JsonObject>()
-        for (file in files) {
-            onStep(file.name)
-            val sha = uploadBlob(fork, token, file)
-            tree += blobEntry("$folder/${file.name}", sha)
-        }
-        val meta = buildJsonObject {
-            put("titleId", GameDataTransfer.titleIdString(titleId))
+        val body = buildJsonObject {
+            put("titleId", tid)
             put("gameName", gameName ?: "")
             put("appVersion", BuildConfig.VERSION_NAME)
             put("device", "${Build.MANUFACTURER} ${Build.MODEL}")
             put("gpu", Build.HARDWARE)
             put("driver", "")
+            put("installId", id)
             put("shaders", localEntries(titleId, Kind.SHADERS))
             put("pipelines", localEntries(titleId, Kind.PIPELINES))
+            put("assets", buildJsonObject { assets.forEach { (kind, name) -> put(kind.suffix, name) } })
         }
-        val metaSha = api(
-            "POST", "/repos/$fork/git/blobs", token,
-            buildJsonObject { put("content", meta.toString()); put("encoding", "utf-8") },
-        ).jsonObject.string("sha") ?: throw IOException("no sha for meta.json")
-        tree += blobEntry("$folder/meta.json", metaSha)
-
-        onStep("commit")
-        val treeSha = api(
-            "POST", "/repos/$fork/git/trees", token,
-            buildJsonObject { put("base_tree", baseTree); put("tree", JsonArray(tree)) },
-        ).jsonObject.string("sha") ?: throw IOException("no tree sha")
-        val title = "Shaders: ${gameName ?: GameDataTransfer.titleIdString(titleId)}"
-        val commit = api(
-            "POST", "/repos/$fork/git/commits", token,
-            buildJsonObject {
-                put("message", title)
-                put("tree", treeSha)
-                put("parents", buildJsonArray { add(JsonPrimitive(base)) })
-            },
-        ).jsonObject.string("sha") ?: throw IOException("no commit sha")
-        val branch = "shaders-${GameDataTransfer.titleIdString(titleId)}-$time"
-        api(
-            "POST", "/repos/$fork/git/refs", token,
-            buildJsonObject { put("ref", "refs/heads/$branch"); put("sha", commit) },
-        )
-
-        onStep("pull request")
-        val pr = api(
-            "POST", "/repos/$REPO/pulls", token,
-            buildJsonObject {
-                put("title", title)
-                put("head", "${account.login}:$branch")
-                put("base", "main")
-                put(
-                    "body",
-                    "Sent from Fractal ${BuildConfig.VERSION_NAME} on ${Build.MANUFACTURER} ${Build.MODEL}.\n\n" +
-                            "Shaders: ${localEntries(titleId, Kind.SHADERS)}, pipelines: ${localEntries(titleId, Kind.PIPELINES)}",
-                )
-            },
-        ).jsonObject
-        ShareResult(pr.string("html_url") ?: "$REPO_URL/pulls")
+        val reply = post("$UPLOAD_URL/v1/submit", body)
+        ShareResult(reply.string("pullRequest") ?: "$REPO_URL/pulls")
     }
 
-    private fun blobEntry(path: String, sha: String) = buildJsonObject {
-        put("path", path)
-        put("mode", "100644")
-        put("type", "blob")
-        put("sha", sha)
-    }
-
-    /** POST /git/blobs with the file streamed as base64 (a cache can be tens of MB). */
-    private suspend fun uploadBlob(repo: String, token: String, file: File): String {
-        val connection = open("$API/repos/$repo/git/blobs", token)
+    /** Streams [file] as the request body; returns the asset name the service gave it. */
+    private suspend fun uploadFile(url: String, file: File, onBytes: (Long) -> Unit): String {
+        val connection = open(url)
         connection.requestMethod = "POST"
         connection.doOutput = true
-        connection.setChunkedStreamingMode(64 * 1024)
-        connection.setRequestProperty("Content-Type", "application/json")
+        connection.setFixedLengthStreamingMode(file.length())
+        connection.setRequestProperty("Content-Type", "application/octet-stream")
         connection.readTimeout = 300_000
         try {
-            connection.outputStream.buffered().use { out ->
-                out.write("{\"encoding\":\"base64\",\"content\":\"".toByteArray())
-                val encoder = Base64.getEncoder().wrap(NonClosing(out))
+            connection.outputStream.use { out ->
                 file.inputStream().use { input ->
-                    val buffer = ByteArray(48 * 1024)
+                    val buffer = ByteArray(64 * 1024)
+                    var total = 0L
                     while (true) {
                         coroutineContext.ensureActive()
                         val n = input.read(buffer)
                         if (n < 0) break
-                        encoder.write(buffer, 0, n)
+                        out.write(buffer, 0, n)
+                        total += n
+                        onBytes(total)
                     }
                 }
-                encoder.close()
-                out.write("\"}".toByteArray())
             }
-            val reply = readReply(connection)
-            return json.parseToJsonElement(reply).jsonObject.string("sha") ?: throw IOException("no blob sha")
+            return json.parseToJsonElement(readReply(connection)).jsonObject.string("asset")
+                ?: throw IOException("the upload service sent no name")
         } finally {
             connection.disconnect()
         }
     }
 
-    /** Lets the base64 encoder flush its last bytes without closing the request body. */
-    private class NonClosing(private val out: OutputStream) : OutputStream() {
-        override fun write(b: Int) = out.write(b)
-        override fun write(b: ByteArray, off: Int, len: Int) = out.write(b, off, len)
-        override fun close() = out.flush()
+    private fun post(url: String, body: JsonObject): JsonObject {
+        val connection = open(url)
+        connection.requestMethod = "POST"
+        connection.doOutput = true
+        connection.setRequestProperty("Content-Type", "application/json")
+        try {
+            connection.outputStream.use { it.write(body.toString().toByteArray()) }
+            return json.parseToJsonElement(readReply(connection)).jsonObject
+        } finally {
+            connection.disconnect()
+        }
     }
 
     // endregion
@@ -403,17 +274,12 @@ object CommunityShaders {
 
     private class Reply(val code: Int, val body: String)
 
-    private fun open(url: String, token: String? = null): HttpURLConnection =
+    private fun open(url: String): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
             readTimeout = 60_000
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", "Fractal-emulator")
-            if (token != null) {
-                setRequestProperty("Authorization", "Bearer $token")
-                setRequestProperty("Accept", "application/vnd.github+json")
-                setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
-            }
         }
 
     private fun readReply(connection: HttpURLConnection): String {
@@ -421,8 +287,10 @@ object CommunityShaders {
         val stream = if (code in 200..299) connection.inputStream else connection.errorStream
         val body = stream?.bufferedReader()?.use { it.readText() } ?: ""
         if (code !in 200..299) {
-            val message = runCatching { json.parseToJsonElement(body).jsonObject.string("message") }.getOrNull()
-            throw IOException("GitHub HTTP $code" + (message?.let { ": $it" } ?: ""))
+            val message = runCatching {
+                json.parseToJsonElement(body).jsonObject.let { it.string("error") ?: it.string("message") }
+            }.getOrNull()
+            throw IOException("HTTP $code" + (message?.let { ": $it" } ?: ""))
         }
         return body
     }
@@ -431,38 +299,6 @@ object CommunityShaders {
         val connection = open(url)
         try {
             return Reply(connection.responseCode, readReply(connection))
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    private fun api(method: String, path: String, token: String, body: JsonObject? = null): JsonElement {
-        val connection = open(API + path, token)
-        connection.requestMethod = method
-        try {
-            if (body != null) {
-                connection.doOutput = true
-                connection.setRequestProperty("Content-Type", "application/json")
-                connection.outputStream.use { it.write(body.toString().toByteArray()) }
-            }
-            val text = readReply(connection)
-            return if (text.isBlank()) JsonObject(emptyMap()) else json.parseToJsonElement(text)
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    /** POST application/x-www-form-urlencoded to github.com (OAuth endpoints), JSON reply. */
-    private fun form(url: String, fields: Map<String, String>): JsonObject {
-        val connection = open(url)
-        connection.requestMethod = "POST"
-        connection.doOutput = true
-        connection.setRequestProperty("Accept", "application/json")
-        connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-        try {
-            val body = fields.entries.joinToString("&") { (k, v) -> "$k=" + URLEncoder.encode(v, "UTF-8") }
-            connection.outputStream.use { it.write(body.toByteArray()) }
-            return json.parseToJsonElement(readReply(connection)).jsonObject
         } finally {
             connection.disconnect()
         }

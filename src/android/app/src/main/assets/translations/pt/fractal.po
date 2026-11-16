@@ -3139,8 +3139,6 @@ msgstr "Volume dos efeitos"
 msgid "Added {0} shaders and {1} pipelines"
 msgstr "{0} shaders e {1} pipelines adicionados"
 
-msgid "Coming soon"
-msgstr "Em breve"
 
 msgid "Community shaders"
 msgstr "Shaders da comunidade"
@@ -3154,29 +3152,17 @@ msgstr "Baixar shaders da comunidade"
 msgid "Downloading shaders"
 msgstr "Baixando shaders"
 
-msgid "Finishing…"
-msgstr "Finalizando…"
 
-msgid "GitHub sign-in was not completed"
-msgstr "O login no GitHub não foi concluído"
 
-msgid "Needs a GitHub account."
-msgstr "Precisa de uma conta no GitHub."
 
 msgid "Nobody has shared shaders for this game yet"
 msgstr "Ninguém compartilhou shaders deste jogo ainda"
 
-msgid "On the GitHub page that opened, enter this code (already copied):"
-msgstr "Na página do GitHub que abriu, digite este código (já copiado):"
 
-msgid "Open GitHub"
-msgstr "Abrir o GitHub"
 
 msgid "Play the game first: this device has no shaders for it yet"
 msgstr "Jogue primeiro: este aparelho ainda não tem shaders deste jogo"
 
-msgid "Preparing…"
-msgstr "Preparando…"
 
 msgid "Shaders sent"
 msgstr "Shaders enviados"
@@ -3190,14 +3176,8 @@ msgstr "Falha ao compartilhar: {0}"
 msgid "Sharing shaders"
 msgstr "Compartilhando shaders"
 
-msgid "Sign in to GitHub"
-msgstr "Entrar no GitHub"
 
-msgid "Sign out of GitHub"
-msgstr "Sair do GitHub"
 
-msgid "Signed in to GitHub as {0}."
-msgstr "Conectado ao GitHub como {0}."
 
 msgid "Thank you! Your shaders were sent for review and will be available to everyone once approved."
 msgstr "Obrigado! Seus shaders foram enviados para revisão e ficam disponíveis para todos depois de aprovados."
@@ -3208,8 +3188,6 @@ msgstr "O cache compartilhado foi feito por uma versão incompatível do emulado
 msgid "They show up for everyone after review."
 msgstr "Eles aparecem para todos depois da revisão."
 
-msgid "Uploading {0}…"
-msgstr "Enviando {0}…"
 
 msgid "View on GitHub"
 msgstr "Ver no GitHub"
@@ -3217,8 +3195,8 @@ msgstr "Ver no GitHub"
 msgid "You already had all of these shaders"
 msgstr "Você já tinha todos estes shaders"
 
-msgid "{0} shaders and {1} pipelines from {2} players ({3}); added to yours, nothing is replaced"
-msgstr "{0} shaders e {1} pipelines de {2} jogadores ({3}); somados aos seus, nada é substituído"
+msgid "{0} shaders and {1} pipelines from {2,choice,1#1 player|1<{2} players} ({3}); added to yours, nothing is replaced"
+msgstr "{0} shaders e {1} pipelines de {2,choice,1#1 jogador|1<{2} jogadores} ({3}); somados aos seus, nada é substituído"
 
 msgid "{0} shaders on this device."
 msgstr "{0} shaders neste aparelho."
