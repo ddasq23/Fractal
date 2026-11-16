@@ -1007,6 +1007,9 @@ void LatteTexture_RecreateTextureWithDifferentMipSliceCount(LatteTexture* textur
 	else if (newDim == Latte::E_DIM::DIM_1D && newDepth > 1)
 		newDim = Latte::E_DIM::DIM_1D_ARRAY;
 	LatteTextureView* view = LatteTexture_CreateTexture(newDim, texture->physAddress, physMipAddr, texture->format, texture->width, texture->height, newDepth, texture->pitch, newMipCount, texture->swizzle, texture->tileMode, texture->isDepth);
+	if (view->baseTexture->mipLevels <= 1 && physMipAddr == MPTR_NULL && newMipCount > 1)
+		cemuLog_log(LogType::Force, "LatteTexture: recreate {:08x} fmt {:04x} {}x{}x{} mips {}->{} without a mip address (base got {} mips)",
+			texture->physAddress, (uint32)texture->format, texture->width, texture->height, newDepth, texture->mipLevels, newMipCount, view->baseTexture->mipLevels);
 	cemu_assert(!(view->baseTexture->mipLevels <= 1 && physMipAddr == MPTR_NULL && newMipCount > 1));
 	// copy data from old texture if its dynamically updated
 	if (texture->isUpdatedOnGPU)
@@ -1143,6 +1146,10 @@ LatteTextureView* LatteTexture_CreateMapping(MPTR physAddr, MPTR physMipAddr, si
 	sint32 relativeMipIndex;
 	sint32 relativeSliceIndex;
 	VIEWCOMPATIBILITY viewCompatibility = LatteTexture_CanTextureBeRepresentedAsView(newTexture, physAddr, width, height, pitch, dimView, format, isDepth, firstMip, numMip, firstSlice, numSlice, relativeMipIndex, relativeSliceIndex);
+	if (viewCompatibility != VIEW_COMPATIBLE)
+		cemuLog_log(LogType::Force, "LatteTexture: new texture {:08x} (mip {:08x}) fmt {:04x} {}x{}x{} pitch {} tile {} dim {}/{} mips {}+{} slices {}+{} depth {} is not view compatible ({}); base {}x{}x{} fmt {:04x} mips {}",
+			physAddr, physMipAddr, (uint32)format, width, height, depth, pitch, (uint32)tileMode, (uint32)dimBase, (uint32)dimView, firstMip, numMip, firstSlice, numSlice, isDepth,
+			(int)viewCompatibility, newTexture->width, newTexture->height, newTexture->depth, (uint32)newTexture->format, newTexture->mipLevels);
 	cemu_assert(viewCompatibility == VIEW_COMPATIBLE);
 	return view->baseTexture->GetOrCreateView(dimView, format, relativeMipIndex + firstMip, numMip, relativeSliceIndex + firstSlice, numSlice);
 }

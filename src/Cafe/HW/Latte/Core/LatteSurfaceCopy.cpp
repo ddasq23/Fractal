@@ -113,6 +113,8 @@ void LatteSurfaceCopy_copySurfaceNew(const LatteSurfaceCopyParam& src, const Lat
 		auto dimBase = dst.dim;
 		if (dst.dim == Latte::E_DIM::DIM_CUBEMAP)
 			dimBase = dst.sliceIndex > 0 ? Latte::E_DIM::DIM_2D_ARRAY : Latte::E_DIM::DIM_2D; // cubemaps need to have a depth that is a multiple of 6, so instead we create the target as 2D/2D_ARRAY
+		else if (dst.dim == Latte::E_DIM::DIM_1D || dst.dim == Latte::E_DIM::DIM_1D_ARRAY)
+			dimBase = dst.sliceIndex > 0 ? Latte::E_DIM::DIM_2D_ARRAY : Latte::E_DIM::DIM_2D; // the copy goes through a 2D view and a 2D->1D image copy is not allowed; 1D users get their own texture synced by copies (Splinter Cell Blacklist)
 		destinationView = LatteTexture_CreateMapping(dst.physDataAddr, MPTR_NULL, dstSurfaceWidth, dstSurfaceHeight, dst.sliceIndex + 1, dst.pitch, Latte::MakeHWTileMode(dst.tilemode), dst.swizzle, 0, 1, dst.sliceIndex, 1, dst.surfaceFormat, dimBase, Latte::IsMSAA(dst.dim) ? Latte::E_DIM::DIM_2D_MSAA : Latte::E_DIM::DIM_2D, false);
 		destinationTexture = destinationView->baseTexture;
 	}
