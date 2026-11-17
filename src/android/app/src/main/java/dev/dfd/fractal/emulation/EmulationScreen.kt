@@ -671,11 +671,12 @@ private fun EmulationQuitConfirmationDialog(onQuit: () -> Unit, onDismiss: () ->
 
 @Composable
 private fun EmulationLoadingDialog() {
-    AlertDialog(
+    FractalAlertDialog(
         title = { Text(tr("Initializing emulation")) },
         text = { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) },
         confirmButton = {},
         onDismissRequest = {},
+        hints = emptyList(),
     )
 }
 

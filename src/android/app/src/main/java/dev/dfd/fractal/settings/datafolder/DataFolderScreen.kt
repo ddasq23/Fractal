@@ -174,8 +174,13 @@ fun DataFolderScreen(navigateBack: () -> Unit) {
         null -> {}
         is Step.ConfirmMove -> {
             val free = DataFolder.freeBytes(s.target)
+            // the Fractal subfolder was created when the folder was picked: don't leave it behind empty
+            val cancel = {
+                s.target.delete()
+                step = null
+            }
             FractalAlertDialog(
-                onDismissRequest = { step = null },
+                onDismissRequest = cancel,
                 title = { Text(tr("Move the data?")) },
                 text = {
                     Text(
@@ -186,7 +191,7 @@ fun DataFolderScreen(navigateBack: () -> Unit) {
                 confirmButton = {
                     if (free >= s.size) TextButton(onClick = { applyAndRestart(s.target, moveData = true) }) { Text(tr("Move")) }
                 },
-                dismissButton = { TextButton(onClick = { step = null }) { Text(tr("Cancel")) } },
+                dismissButton = { TextButton(onClick = cancel) { Text(tr("Cancel")) } },
             )
         }
         is Step.ExistingData -> FractalAlertDialog(
@@ -194,24 +199,16 @@ fun DataFolderScreen(navigateBack: () -> Unit) {
             title = { Text(tr("This folder already has Fractal data")) },
             text = { Text(tr("{0} already holds a data folder. Use it as it is (the current data stays where it is), or move the current data ({1}) there, replacing files with the same name?", s.target.absolutePath, bytes(s.size))) },
             confirmButton = { TextButton(onClick = { applyAndRestart(s.target, moveData = false) }) { Text(tr("Use it as it is")) } },
-            dismissButton = {
-                Column {
-                    TextButton(onClick = { applyAndRestart(s.target, moveData = true) }) { Text(tr("Move the current data")) }
-                    TextButton(onClick = { step = null }) { Text(tr("Cancel")) }
-                }
-            },
+            neutralButton = { TextButton(onClick = { applyAndRestart(s.target, moveData = true) }) { Text(tr("Move the current data")) } },
+            dismissButton = { TextButton(onClick = { step = null }) { Text(tr("Cancel")) } },
         )
         is Step.ConfirmDefault -> FractalAlertDialog(
             onDismissRequest = { step = null },
             title = { Text(tr("Use the default folder")) },
             text = { Text(tr("Move the data ({0}) back to {1}? Without moving, the default folder is used as it is and the data stays in the chosen folder.", bytes(s.size), s.target.absolutePath)) },
             confirmButton = { TextButton(onClick = { applyAndRestart(s.target, moveData = true) }) { Text(tr("Move")) } },
-            dismissButton = {
-                Column {
-                    TextButton(onClick = { applyAndRestart(null, moveData = false) }) { Text(tr("Don't move")) }
-                    TextButton(onClick = { step = null }) { Text(tr("Cancel")) }
-                }
-            },
+            neutralButton = { TextButton(onClick = { applyAndRestart(null, moveData = false) }) { Text(tr("Don't move")) } },
+            dismissButton = { TextButton(onClick = { step = null }) { Text(tr("Cancel")) } },
         )
         is Step.Moving -> FractalAlertDialog(
             onDismissRequest = {},

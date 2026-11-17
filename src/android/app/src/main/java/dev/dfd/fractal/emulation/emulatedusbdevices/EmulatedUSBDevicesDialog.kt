@@ -1,5 +1,6 @@
 package dev.dfd.fractal.emulation.emulatedusbdevices
 
+import dev.dfd.fractal.common.ui.components.FractalAlertDialog
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -157,7 +158,7 @@ fun EmulatedUSBDevicesDialog(
     }
 
     if (lastFailedEvent != null) {
-        AlertDialog(
+        FractalAlertDialog(
             onDismissRequest = { lastFailedEvent = null },
             confirmButton = {
                 TextButton(onClick = { lastFailedEvent = null }) { Text(tr("Close")) }

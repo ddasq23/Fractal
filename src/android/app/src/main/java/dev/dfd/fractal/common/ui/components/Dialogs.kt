@@ -19,12 +19,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
+import dev.dfd.fractal.common.ui.theme.FractalTheme
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -76,13 +82,15 @@ fun GenericDialog(
  * Material alert dialog with the gamepad legend (A Confirm, B Cancel by default) under its buttons.
  * Same slots as [androidx.compose.material3.AlertDialog].
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FractalAlertDialog(
     onDismissRequest: () -> Unit,
     confirmButton: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     dismissButton: (@Composable () -> Unit)? = null,
+    /** A third choice, placed before the dismiss button ("Don't move" next to "Cancel" and "Move"). */
+    neutralButton: (@Composable () -> Unit)? = null,
     icon: (@Composable () -> Unit)? = null,
     title: (@Composable () -> Unit)? = null,
     text: (@Composable () -> Unit)? = null,
@@ -96,7 +104,8 @@ fun FractalAlertDialog(
             tonalElevation = AlertDialogDefaults.TonalElevation,
         ) {
             val buttonsFocus = remember { FocusRequester() }
-            Column(Modifier.padding(24.dp)) {
+            // as wide as the widest content (title, text or the buttons side by side), so the buttons can fill it
+            Column(Modifier.width(IntrinsicSize.Max).padding(24.dp)) {
                 if (icon != null) {
                     CompositionLocalProvider(LocalContentColor provides AlertDialogDefaults.iconContentColor) {
                         Box(Modifier.padding(bottom = 16.dp).align(Alignment.CenterHorizontally)) { icon() }
@@ -122,19 +131,102 @@ fun FractalAlertDialog(
                         }
                     }
                 }
-                CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) {
-                    ProvideTextStyle(MaterialTheme.typography.labelLarge) {
-                        FlowRow(
-                            Modifier.align(Alignment.End).focusRequester(buttonsFocus),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                        ) {
-                            dismissButton?.invoke()
-                            // focus on the confirm button, or the other one when there is none (progress dialogs)
-                            Box(Modifier.focusOnOpen(fallback = buttonsFocus)) { confirmButton() }
-                        }
-                    }
-                }
+                DialogButtons(
+                    neutral = neutralButton,
+                    dismiss = dismissButton,
+                    confirm = confirmButton,
+                    confirmModifier = Modifier.focusOnOpen(fallback = buttonsFocus),
+                    modifier = Modifier.fillMaxWidth().focusRequester(buttonsFocus),
+                )
                 DialogButtonLegend(hints)
+            }
+        }
+    }
+}
+
+/**
+ * Dialog buttons drawn like the app's buttons: confirm in the accent color, the others outlined. They share the dialog
+ * width in equal parts (cancel on the left, confirm on the right) when every label fits, else they are stacked at full
+ * width with confirm on top and cancel at the bottom. The slots hold TextButtons, which stretch to the cell and take its text color. An empty
+ * slot (a progress dialog with no button) takes no room.
+ */
+private val ROW_ORDER = listOf(1, 0, 2)
+private val STACK_ORDER = listOf(2, 0, 1)
+
+@Composable
+private fun DialogButtons(
+    neutral: (@Composable () -> Unit)?,
+    dismiss: (@Composable () -> Unit)?,
+    confirm: @Composable () -> Unit,
+    confirmModifier: Modifier,
+    modifier: Modifier,
+) {
+    val colors = FractalTheme.colors
+    val shape = FractalTheme.shapes.button
+    val accentBrush = colors.accentBrush
+
+    @Composable
+    fun Cell(primary: Boolean, cellModifier: Modifier = Modifier, content: @Composable () -> Unit) {
+        Box(
+            cellModifier
+                .clip(shape)
+                .then(
+                    when {
+                        primary && accentBrush != null -> Modifier.background(accentBrush)
+                        primary -> Modifier.background(colors.accent)
+                        // the button surface is the dialog's own color: a light fill and an outline set it apart
+                        else -> Modifier
+                            .background(colors.text.copy(alpha = 0.08f))
+                            .border(1.dp, colors.text.copy(alpha = 0.22f), shape)
+                    }
+                ),
+            contentAlignment = Alignment.Center,
+            propagateMinConstraints = true,
+        ) {
+            val textColor = if (primary) colors.onAccent else colors.text
+            MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(primary = textColor)) {
+                ProvideTextStyle(MaterialTheme.typography.labelLarge) { content() }
+            }
+        }
+    }
+
+    Layout(
+        contents = listOf(
+            { if (neutral != null) Cell(false) { neutral() } },
+            { if (dismiss != null) Cell(false) { dismiss() } },
+            { Cell(true, confirmModifier) { confirm() } },
+        ),
+        modifier = modifier,
+    ) { slots, constraints ->
+        val spacing = 10.dp.roundToPx()
+        val minHeight = 48.dp.roundToPx()
+        // index 0 neutral, 1 dismiss, 2 confirm; a slot whose content draws nothing has no width
+        val present = slots.mapIndexedNotNull { i, list ->
+            list.firstOrNull()?.takeIf { it.maxIntrinsicWidth(Constraints.Infinity) > 0 }?.let { i to it }
+        }
+        if (present.isEmpty()) return@Layout layout(0, 0) {}
+        val n = present.size
+        val natural = present.maxOf { it.second.maxIntrinsicWidth(Constraints.Infinity) }
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth else natural * n + spacing * (n - 1)
+        val cell = (width - spacing * (n - 1)) / n
+        if (present.all { it.second.maxIntrinsicWidth(Constraints.Infinity) <= cell }) {
+            val height = maxOf(minHeight, present.maxOf { it.second.maxIntrinsicHeight(cell) })
+            // in a row: dismiss, neutral, confirm (confirm on the right)
+            val placeables = present.sortedBy { ROW_ORDER.indexOf(it.first) }.map { it.second.measure(Constraints.fixed(cell, height)) }
+            layout(width, height) {
+                placeables.forEachIndexed { i, p -> p.placeRelative(i * (cell + spacing), 0) }
+            }
+        } else {
+            // stacked: confirm, neutral, dismiss (cancel last)
+            val placeables = present.sortedBy { STACK_ORDER.indexOf(it.first) }
+                .map { it.second.measure(Constraints(minWidth = width, maxWidth = width, minHeight = minHeight)) }
+            val height = placeables.sumOf { it.height } + spacing * (placeables.size - 1)
+            layout(width, height) {
+                var y = 0
+                placeables.forEach { p ->
+                    p.placeRelative(0, y)
+                    y += p.height + spacing
+                }
             }
         }
     }
@@ -169,12 +261,11 @@ fun ScrollableDialog(
 
 @Composable
 private fun ColumnScope.DefaultDialogButtons(onDismissRequest: () -> Unit) {
-    TextButton(
-        onClick = onDismissRequest,
-        modifier = Modifier
-            .padding(8.dp)
-            .align(Alignment.End),
-    ) {
-        Text(tr("Cancel"))
-    }
+    DialogButtons(
+        neutral = null,
+        dismiss = { TextButton(onClick = onDismissRequest) { Text(tr("Cancel")) } },
+        confirm = {},
+        confirmModifier = Modifier,
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+    )
 }
