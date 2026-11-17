@@ -365,6 +365,7 @@ fun MenuSoundSettings(gui: GuiSettings, update: ((GuiSettings) -> GuiSettings) -
             MenuSounds.preview(MenuSfx.CONFIRM, v)
         }
     }
+    CustomSoundSettings(gui, update)
 }
 
 /** 0..100 % in steps of 5, saved when the thumb is let go. */

@@ -60,6 +60,12 @@ data class GuiSettings(
     /** Sound effects of the library and settings screens and their volume, 0..100. */
     val menuSfxEnabled: Boolean = true,
     val menuSfxVolume: Int = DEFAULT_MENU_VOLUME,
+    /** The user's own library music (the app's copy of the file), played instead of the theme's track when on. */
+    val customMusicPath: String? = null,
+    val customMusicEnabled: Boolean = false,
+    /** The user's own sound effects by [dev.dfd.fractal.common.sound.MenuSfx] name (the app's copies), used when on. */
+    val customSfxPaths: Map<String, String> = emptyMap(),
+    val customSfxEnabled: Boolean = false,
 )
 
 /** Comfortable menu volume: there, not in the way. */

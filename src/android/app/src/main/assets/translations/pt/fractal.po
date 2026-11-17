@@ -3359,3 +3359,60 @@ msgstr "Build experimental para uma GPU"
 
 msgid "Experimental: RADV (Mesa) drivers for Samsung Xclipse are listed below. If a driver fails, Fractal goes back to the system driver."
 msgstr "Experimental: drivers RADV (Mesa) para Samsung Xclipse estão listados abaixo. Se um driver falhar, o Fractal volta para o driver do sistema."
+
+msgid "Moving through menus"
+msgstr "Navegar pelos menus"
+
+msgid "Moving through game covers"
+msgstr "Passar pelas capas dos jogos"
+
+msgid "Switching theme, wallpaper or view"
+msgstr "Trocar tema, papel de parede ou visualização"
+
+msgid "Opening a game, a screen or a button"
+msgstr "Abrir um jogo, uma tela ou um botão"
+
+msgid "Your sounds"
+msgstr "Seus sons"
+
+msgid "Use your own music and sound effects instead of the Fractal ones. MP3, OGG, M4A, WAV or FLAC; effects up to 5 seconds. The files are copied into the app."
+msgstr "Use sua própria música e seus efeitos sonoros no lugar dos do Fractal. MP3, OGG, M4A, WAV ou FLAC; efeitos de até 5 segundos. Os arquivos são copiados para o app."
+
+msgid "Use my music"
+msgstr "Usar minha música"
+
+msgid "Plays in the library instead of the theme's track: {0}"
+msgstr "Toca na biblioteca no lugar da música do tema: {0}"
+
+msgid "No music chosen yet"
+msgstr "Nenhuma música escolhida ainda"
+
+msgid "Choose music"
+msgstr "Escolher música"
+
+msgid "Use my sound effects"
+msgstr "Usar meus efeitos sonoros"
+
+msgid "Pick a sound for any of the effects below; the others keep the Fractal sound"
+msgstr "Escolha um som para qualquer um dos efeitos abaixo; os outros continuam com o som do Fractal"
+
+msgid "Effects without a sound of yours keep the Fractal one"
+msgstr "Efeitos sem um som seu continuam com o do Fractal"
+
+msgid "Fractal sound"
+msgstr "Som do Fractal"
+
+msgid "Choose"
+msgstr "Escolher"
+
+msgid "Couldn't open the file."
+msgstr "Não foi possível abrir o arquivo."
+
+msgid "{0} is not an audio file Android can play."
+msgstr "{0} não é um arquivo de áudio que o Android consegue tocar."
+
+msgid "{0} is {1} seconds long: sound effects can be up to 5 seconds."
+msgstr "{0} tem {1} segundos: efeitos sonoros podem ter até 5 segundos."
+
+msgid "Listen"
+msgstr "Ouvir"

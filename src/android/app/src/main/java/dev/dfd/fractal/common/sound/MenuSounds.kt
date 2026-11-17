@@ -10,6 +10,7 @@ import android.os.SystemClock
 import android.util.Log
 import dev.dfd.fractal.common.settings.GuiSettings
 import dev.dfd.fractal.common.ui.theme.FractalThemeId
+import java.io.File
 
 /** Short sounds of the library and settings screens; the same in every theme. */
 enum class MenuSfx(val fileName: String) {
@@ -30,8 +31,9 @@ enum class MenuSfx(val fileName: String) {
  * `music/<theme>.ogg` (solid, liquid_glass, blur, material_you, synthwave; `music/default.ogg` is used by themes
  * without one of their own), optionally `music/<theme>_intro.ogg` played once before it, and `sfx/<effect>.ogg`
  * (navigate, cover, swap, confirm; `.mp3`/`.wav` also work). The loop file is cut so its end flows into its start;
- * Ogg Vorbis because MP3 adds silence at both ends. Missing files are silent. Everything plays only while the library
- * is on screen: never over a game.
+ * Ogg Vorbis because MP3 adds silence at both ends. Missing files are silent. The user can also pick their own music
+ * and effects (GuiSettings.customMusicPath / customSfxPaths), which replace the built-in ones while turned on.
+ * Everything plays only while the library is on screen: never over a game.
  */
 object MenuSounds {
     private const val TAG = "MenuSounds"
@@ -44,6 +46,11 @@ object MenuSounds {
     private lateinit var assets: AssetManager
     private var pool: SoundPool? = null
     private val soundIds = mutableMapOf<MenuSfx, Int>()
+    /** The user's own effects, loaded from [customSfxPaths]. */
+    private val customIds = mutableMapOf<MenuSfx, Int>()
+    private var customSfxPaths: Map<String, String> = emptyMap()
+    private var customSfxEnabled = false
+    private var customMusic: String? = null
     private var lastSfxAt = 0L
 
     private var musicEnabled = true
@@ -77,7 +84,11 @@ object MenuSounds {
     fun apply(gui: GuiSettings) {
         sfxEnabled = gui.menuSfxEnabled
         sfxVolume = gui.menuSfxVolume / 100f
-        val musicChanged = gui.menuMusicEnabled != musicEnabled || gui.theme != theme
+        customSfxEnabled = gui.customSfxEnabled
+        if (gui.customSfxPaths != customSfxPaths) loadCustomSfx(gui.customSfxPaths)
+        val wantedCustomMusic = gui.customMusicPath?.takeIf { gui.customMusicEnabled && File(it).isFile }
+        val musicChanged = gui.menuMusicEnabled != musicEnabled || gui.theme != theme || wantedCustomMusic != customMusic
+        customMusic = wantedCustomMusic
         musicEnabled = gui.menuMusicEnabled
         musicVolume = gui.menuMusicVolume / 100f
         theme = gui.theme
@@ -86,7 +97,7 @@ object MenuSounds {
 
     fun play(sfx: MenuSfx) {
         if (!active || !sfxEnabled || sfxVolume <= 0f) return
-        val id = soundIds[sfx] ?: return
+        val id = idFor(sfx) ?: return
         val now = SystemClock.uptimeMillis()
         if (now - lastSfxAt < MIN_GAP_MS) return
         lastSfxAt = now
@@ -95,9 +106,30 @@ object MenuSounds {
 
     /** Plays [sfx] at [volumePercent] (0..100) right away, for the volume slider. */
     fun preview(sfx: MenuSfx, volumePercent: Int) {
-        val id = soundIds[sfx] ?: return
+        val id = idFor(sfx) ?: return
         val v = volumePercent / 100f
         if (active && v > 0f) pool?.play(id, v, v, 1, 0, 1f)
+    }
+
+    /** Plays the user's own [sfx] (or the default one when there is none) at the effects volume, for its "Play" button. */
+    fun previewCustom(sfx: MenuSfx) {
+        val id = customIds[sfx] ?: soundIds[sfx] ?: return
+        val v = if (sfxVolume > 0f) sfxVolume else 0.25f
+        pool?.play(id, v, v, 1, 0, 1f)
+    }
+
+    private fun idFor(sfx: MenuSfx): Int? =
+        (if (customSfxEnabled) customIds[sfx] else null) ?: soundIds[sfx]
+
+    private fun loadCustomSfx(paths: Map<String, String>) {
+        val soundPool = pool ?: return
+        customIds.values.forEach { soundPool.unload(it) }
+        customIds.clear()
+        for (sfx in MenuSfx.entries) {
+            val path = paths[sfx.name]?.takeIf { File(it).isFile } ?: continue
+            runCatching { customIds[sfx] = soundPool.load(path, 1) }.onFailure { Log.w(TAG, "can't load $path", it) }
+        }
+        customSfxPaths = paths
     }
 
     /** The library came on screen. */
@@ -122,7 +154,8 @@ object MenuSounds {
         }
         if (file != playerFile) {
             releasePlayer()
-            player = runCatching { MusicTrack(assets, introFile(file), file) }
+            val intro = if (file == customMusic) null else introFile(file)
+            player = runCatching { MusicTrack(assets, intro, file) }
                 .onFailure { Log.w(TAG, "can't play $file", it) }.getOrNull()
             playerFile = if (player != null) file else null
         }
@@ -131,7 +164,9 @@ object MenuSounds {
         fadeTo(musicVolume)
     }
 
+    /** The user's own track when chosen, else the theme's (or the default) track in the assets. */
     private fun musicFile(): String? {
+        customMusic?.let { return it }
         val name = theme?.name?.lowercase() ?: return null
         return listOf(name, "default").flatMap { n -> listOf("ogg", "mp3").map { "$MUSIC_DIR/$n.$it" } }
             .firstOrNull(::assetExists)
@@ -211,7 +246,20 @@ private class MusicTrack(private val assets: AssetManager, introFile: String?, p
         next = null
     }
 
-    private fun create(file: String): MediaPlayer = assets.openFd(file).use { fd ->
+    /** [file] is an asset path, or an absolute path for the user's own music. */
+    private fun create(file: String): MediaPlayer = if (file.startsWith("/")) {
+        MediaPlayer().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build(),
+            )
+            setDataSource(file)
+            setVolume(volume, volume)
+            prepare()
+        }
+    } else assets.openFd(file).use { fd ->
         MediaPlayer().apply {
             setAudioAttributes(
                 AudioAttributes.Builder()
