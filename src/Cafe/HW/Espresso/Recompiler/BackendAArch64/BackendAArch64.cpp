@@ -652,6 +652,7 @@ static_assert(isAdrImmRangeValidGPR(offsetof(PPCInterpreter_t, spr.UGQR), sizeof
 static_assert(isAdrImmRangeValidGPR(offsetof(PPCInterpreter_t, temporaryGPR_reg), sizeof(uint32) * 3));
 static_assert(isAdrImmValidGPR(offsetof(PPCInterpreter_t, xer_ca), 8));
 static_assert(isAdrImmValidGPR(offsetof(PPCInterpreter_t, xer_so), 8));
+static_assert(isAdrImmValidGPR(offsetof(PPCInterpreter_t, xer_ov), 8));
 static_assert(isAdrImmRangeValidGPR(offsetof(PPCInterpreter_t, cr), PPCREC_NAME_CR_LAST - PPCREC_NAME_CR, 8));
 static_assert(isAdrImmValidGPR(offsetof(PPCInterpreter_t, reservedMemAddr)));
 static_assert(isAdrImmValidGPR(offsetof(PPCInterpreter_t, reservedMemValue)));
@@ -697,6 +698,10 @@ void AArch64GenContext_t::r_name(IMLInstruction* imlInstruction)
 		else if (name == PPCREC_NAME_XER_SO)
 		{
 			ldrb(regR, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, xer_so)));
+		}
+		else if (name == PPCREC_NAME_XER_OV)
+		{
+			ldrb(regR, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, xer_ov)));
 		}
 		else if (name >= PPCREC_NAME_CR && name <= PPCREC_NAME_CR_LAST)
 		{
@@ -778,6 +783,10 @@ void AArch64GenContext_t::name_r(IMLInstruction* imlInstruction)
 		else if (name == PPCREC_NAME_XER_SO)
 		{
 			strb(regR, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, xer_so)));
+		}
+		else if (name == PPCREC_NAME_XER_OV)
+		{
+			strb(regR, AdrUimm(HCPU_REG, offsetof(PPCInterpreter_t, xer_ov)));
 		}
 		else if (name >= PPCREC_NAME_CR && name <= PPCREC_NAME_CR_LAST)
 		{

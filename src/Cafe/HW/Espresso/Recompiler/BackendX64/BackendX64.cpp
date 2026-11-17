@@ -1220,6 +1220,10 @@ void PPCRecompilerX64Gen_imlInstruction_r_name(PPCRecFunction_t* PPCRecFunction,
 		{
 			x64Emit_movZX_reg64_mem8(x64GenContext, regR, REG_RESV_HCPU, offsetof(PPCInterpreter_t, xer_so));
 		}
+		else if (name == PPCREC_NAME_XER_OV)
+		{
+			x64Emit_movZX_reg64_mem8(x64GenContext, regR, REG_RESV_HCPU, offsetof(PPCInterpreter_t, xer_ov));
+		}
 		else if (name >= PPCREC_NAME_CR && name <= PPCREC_NAME_CR_LAST)
 		{
 			x64Emit_movZX_reg64_mem8(x64GenContext, regR, REG_RESV_HCPU, offsetof(PPCInterpreter_t, cr) + (name - PPCREC_NAME_CR));
@@ -1297,6 +1301,10 @@ void PPCRecompilerX64Gen_imlInstruction_name_r(PPCRecFunction_t* PPCRecFunction,
 		else if (name == PPCREC_NAME_XER_SO)
 		{
 			x64GenContext->emitter->MOV_bb_l(REG_RESV_HCPU, offsetof(PPCInterpreter_t, xer_so), X86_REG_NONE, 0, _reg8_from_reg64(regR));
+		}
+		else if (name == PPCREC_NAME_XER_OV)
+		{
+			x64GenContext->emitter->MOV_bb_l(REG_RESV_HCPU, offsetof(PPCInterpreter_t, xer_ov), X86_REG_NONE, 0, _reg8_from_reg64(regR));
 		}
 		else if (name >= PPCREC_NAME_CR && name <= PPCREC_NAME_CR_LAST)
 		{

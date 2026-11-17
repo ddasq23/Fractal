@@ -563,7 +563,11 @@ void PPCRecompiler_recompileAtAddress(uint32 address)
 	// size only the range that holds the address is translated and the other ranges are reached as far jumps.
 	static const uint32 s_maxFunctionBytes = (uint32)PerfLog::Tunable("jit_max_function_kb", 48) * 1024;
 	if (funcBoundaries.GetTotalSize() > s_maxFunctionBytes)
+	{
 		funcBoundaries.RestrictToRangeOf(address);
+		funcBoundaries.RestrictToWindow(address, s_maxFunctionBytes);
+		funcBoundaries.getRangeForAddress(address, range);
+	}
 
 	// collect all currently known entry points for this range
 	s_ppcRecompilerState.recompilerSpinlock.lock();

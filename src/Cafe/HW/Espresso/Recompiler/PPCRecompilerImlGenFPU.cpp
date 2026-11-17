@@ -627,10 +627,13 @@ bool PPCRecompilerImlGen_FNMSUBS(ppcImlGenContext_t* ppcImlGenContext, uint32 op
 	return true;
 }
 
+bool PPCRecompilerImlGen_FCMPU(ppcImlGenContext_t* ppcImlGenContext, uint32 opcode);
+
+// fcmpo differs from fcmpu only in FPSCR exception bits for quiet NaNs, which fcmpu doesn't model either (Teslagrad:
+// 57 functions in the interpreter because of it)
 bool PPCRecompilerImlGen_FCMPO(ppcImlGenContext_t* ppcImlGenContext, uint32 opcode)
 {
-	// Not implemented
-	return false;
+	return PPCRecompilerImlGen_FCMPU(ppcImlGenContext, opcode);
 }
 
 bool PPCRecompilerImlGen_FCMPU(ppcImlGenContext_t* ppcImlGenContext, uint32 opcode)

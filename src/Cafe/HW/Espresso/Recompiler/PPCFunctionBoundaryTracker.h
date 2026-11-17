@@ -83,6 +83,50 @@ public:
 		}
 	}
 
+	// After RestrictToRangeOf a single range can still be huge: Teslagrad has 955 KB of contiguous code (a giant switch
+	// whose cases are entered through bctr), and every new case translated all of it again (22 times, 92 MB of host
+	// code, the recompiler thread busy for the whole session on an Adreno 610). This keeps the part from the address
+	// to the first unconditional branch past maxBytes; branches out of it leave through the jump table.
+	void RestrictToWindow(uint32 address, uint32 maxBytes)
+	{
+		if (map_ranges.size() != 1)
+			return;
+		PPCRange_t* r = *map_ranges.begin();
+		if (r->length <= maxBytes || address < r->startAddress || address >= r->getEndAddress())
+			return;
+		const uint32 end = r->getEndAddress();
+		uint32 newEnd = end;
+		for (uint32 a = address + maxBytes; a < end; a += 4)
+		{
+			if (EndsFlowUnconditionally(memory_readU32(a)))
+			{
+				newEnd = a + 4;
+				break;
+			}
+		}
+		if (address == r->startAddress && newEnd == end)
+			return;
+		map_ranges.erase(map_ranges.begin());
+		r->startAddress = address;
+		r->length = newEnd - address;
+		map_ranges.emplace(r);
+	}
+
+	// b, blr or bctr without link and without condition: the code after it is not reached by falling through
+	static bool EndsFlowUnconditionally(uint32 opcode)
+	{
+		const uint32 primary = opcode >> 26;
+		if (primary == 18)
+			return (opcode & 1) == 0;
+		if (primary == 19)
+		{
+			const uint32 xo = (opcode >> 1) & 0x3FF;
+			const uint32 BO = (opcode >> 21) & 0x1F;
+			return (xo == 16 || xo == 528) && (opcode & 1) == 0 && (BO & 0x14) == 0x14;
+		}
+		return false;
+	}
+
 	bool ContainsAddress(uint32 addr) const
 	{
 		for (auto& it : map_ranges)
