@@ -78,8 +78,12 @@ void LatteTextureReadback_NotifyTextureDeletion(LatteTexture* texture)
 	}
 }
 
+bool FrameMap_Enabled(); void FrameMap_Note(const std::string& text); // VulkanRendererCore.cpp, perf/tuning.txt frame_map
+
 void LatteTextureReadback_Initate(LatteTextureView* textureView)
 {
+	if (FrameMap_Enabled())
+		FrameMap_Note(fmt::format("READBACK {:08x} {}x{} fmt {:04x}", textureView->baseTexture->physAddress, textureView->baseTexture->width, textureView->baseTexture->height, (uint32)textureView->baseTexture->format));
 	// currently we don't support readback for resized textures
 	if (textureView->baseTexture->overwriteInfo.hasResolutionOverwrite)
 	{
@@ -237,6 +241,10 @@ void LatteTextureReadback_UpdateFinishedTransfers(bool forceFinish)
 #endif
 		uint8* pixelData = readbackInfo->GetData();
 		LatteTextureReadback_CheckData(readbackInfo, pixelData);
+		// diagnostics: perf/tuning.txt readback_fill_r8=<byte> overwrites every R8 readback (GPU occlusion results in Splinter Cell Blacklist) with that byte
+		static const sint64 s_fillR8 = PerfLog::Tunable("readback_fill_r8", -1);
+		if (s_fillR8 >= 0 && readbackInfo->hostTextureCopy.format == Latte::E_GX2SURFFMT::R8_UNORM)
+			memset(pixelData, (int)s_fillR8, (size_t)readbackInfo->m_rowPitch * readbackInfo->hostTextureCopy.height);
 		LatteTextureLoader_writeReadbackTextureToMemory(&readbackInfo->hostTextureCopy, readbackInfo->m_firstSlice, readbackInfo->m_firstMip, pixelData, readbackInfo->m_rowPitch);
 		readbackInfo->ReleaseData();
 		// get the original texture if it still exists and invalidate the current data hash

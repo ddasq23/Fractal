@@ -1799,35 +1799,70 @@ static void DiagFrameDraws()
 
 // frame_map=N: every Nth frame, each run of draws with the same render targets, shaders and textures, written to
 // framemap_f<frame>.txt in the session folder: what the frame is made of, to compare a good frame against a broken one
-static void FrameMapDraw(VkDescriptorSetInfo* pixelDS, uint32 count)
+static uint32 s_fmFrame = 0xFFFFFFFF;
+static std::string s_fmText, s_fmKey;
+static uint32 s_fmRunDraws = 0, s_fmRunCount = 0;
+
+static void FrameMapFlushRun()
+{
+	if (s_fmRunDraws)
+		s_fmText += fmt::format("{} x{} n{}\n", s_fmKey, s_fmRunDraws, s_fmRunCount);
+	s_fmRunDraws = s_fmRunCount = 0;
+}
+
+// returns true when the current frame is one that frame_map=<n> records
+static bool FrameMapBegin()
 {
 	static const sint64 s_every = PerfLog::Tunable("frame_map", 0);
 	if (s_every <= 0)
-		return;
-	static uint32 s_frame = 0xFFFFFFFF;
-	static std::string s_text, s_key;
-	static uint32 s_runDraws = 0, s_runCount = 0;
-	auto flushRun = [] {
-		if (s_runDraws)
-			s_text += fmt::format("{} x{} n{}\n", s_key, s_runDraws, s_runCount);
-		s_runDraws = s_runCount = 0;
-	};
+		return false;
 	const uint32 f = LatteGPUState.frameCounter;
-	if (f != s_frame)
+	if (f != s_fmFrame)
 	{
-		if (!s_text.empty())
+		if (!s_fmText.empty())
 		{
-			flushRun();
-			PerfLog::SessionFile(fmt::format("framemap_f{:06}.txt", s_frame), s_text);
-			s_text.clear();
+			FrameMapFlushRun();
+			PerfLog::SessionFile(fmt::format("framemap_f{:06}.txt", s_fmFrame), s_fmText);
+			s_fmText.clear();
 		}
-		s_frame = f;
-		s_key.clear();
+		s_fmFrame = f;
+		s_fmKey.clear();
 	}
 	if ((f % (uint32)s_every) != 0)
+		return false;
+	if (s_fmText.empty())
+		s_fmText = fmt::format("frame {} t {:.2f}\n", f, PerfLog::SessionSeconds());
+	return true;
+}
+
+// true when perf/tuning.txt frame_map=<n> is set; callers check it before formatting a note
+bool FrameMap_Enabled()
+{
+	static const bool s_enabled = PerfLog::Tunable("frame_map", 0) > 0;
+	return s_enabled;
+}
+
+// a non-draw GPU operation (copy, clear, readback) in the order it happens between the draws of a recorded frame
+void FrameMap_Note(const std::string& text)
+{
+	if (!FrameMapBegin())
 		return;
-	if (s_text.empty())
-		s_text = fmt::format("frame {} t {:.2f}\n", f, PerfLog::SessionSeconds());
+	FrameMapFlushRun();
+	s_fmKey.clear();
+	s_fmText += "  ";
+	s_fmText += text;
+	s_fmText += "\n";
+}
+
+static void FrameMapDraw(VkDescriptorSetInfo* pixelDS, uint32 count)
+{
+	if (!FrameMapBegin())
+		return;
+	std::string& s_text = s_fmText;
+	std::string& s_key = s_fmKey;
+	uint32& s_runDraws = s_fmRunDraws;
+	uint32& s_runCount = s_fmRunCount;
+	auto flushRun = [] { FrameMapFlushRun(); };
 	const uint32* regs = LatteGPUState.contextRegister;
 	LatteDecompilerShader* vs = LatteSHRC_GetActiveVertexShader();
 	LatteDecompilerShader* ps = LatteSHRC_GetActivePixelShader();
@@ -1837,7 +1872,13 @@ static void FrameMapDraw(VkDescriptorSetInfo* pixelDS, uint32 count)
 		vs ? vs->baseHash : 0, ps ? ps->baseHash : 0);
 	if (pixelDS)
 		for (LatteTextureViewVk* view : pixelDS->list_referencedViews)
-			key += fmt::format(" {:08x}:{}x{}:{:04x}", view->baseTexture->physAddress, view->baseTexture->width, view->baseTexture->height, (uint32)view->baseTexture->format);
+			key += fmt::format(" {:08x}:{}x{}:{:04x}:m{}+{}/{}", view->baseTexture->physAddress, view->baseTexture->width, view->baseTexture->height, (uint32)view->baseTexture->format,
+				view->firstMip, view->numMip, view->baseTexture->mipLevels);
+	// the real depth buffer address (GX2SetDepthBuffer puts it in DB_HTILE_DATA_BASE), its size and the vertex shader textures
+	key += fmt::format(" | dbh {:08x} dbsz {:08x} vtex", regs[mmDB_HTILE_DATA_BASE] << 8, regs[mmDB_DEPTH_SIZE]);
+	if (VkDescriptorSetInfo* vds = VulkanRenderer::GetInstance()->GetActiveVertexDSForDiag())
+		for (LatteTextureViewVk* view : vds->list_referencedViews)
+			key += fmt::format(" {:08x}:{}x{}:{:04x}:d{}", view->baseTexture->physAddress, view->baseTexture->width, view->baseTexture->height, (uint32)view->baseTexture->format, (uint32)view->baseTexture->dim);
 	if (key != s_key)
 	{
 		flushRun();

@@ -211,6 +211,7 @@ public:
 	virtual ~VulkanRenderer();
 
 	static VulkanRenderer* GetInstance();
+	VkDescriptorSetInfo* GetActiveVertexDSForDiag() const { return m_state.activeVertexDS; } // frame_map (perf/tuning.txt)
 
 	void UnrecoverableError(const char* errMsg) const;
 

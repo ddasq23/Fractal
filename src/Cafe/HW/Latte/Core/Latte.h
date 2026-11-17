@@ -163,6 +163,7 @@ void LatteQuery_BeginOcclusionQuery(MPTR queryMPTR);
 void LatteQuery_EndOcclusionQuery(MPTR queryMPTR);
 void LatteQuery_UpdateFinishedQueries();
 void LatteQuery_UpdateFinishedQueriesForceFinishAll();
+bool LatteQuery_HasPendingGX2Queries();
 void LatteQuery_CancelActiveGPU7Queries();
 
 // streamout

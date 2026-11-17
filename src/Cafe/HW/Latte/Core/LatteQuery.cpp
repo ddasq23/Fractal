@@ -105,6 +105,11 @@ void LatteQuery_UpdateFinishedQueries()
 	}
 }
 
+bool LatteQuery_HasPendingGX2Queries()
+{
+	return !list_activeGX2Queries2.empty();
+}
+
 void LatteQuery_UpdateFinishedQueriesForceFinishAll()
 {
 	cemu_assert_debug(_currentlyActiveRendererQuery == nullptr);

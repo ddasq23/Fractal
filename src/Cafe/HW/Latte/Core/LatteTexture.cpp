@@ -366,8 +366,14 @@ bool LatteTexture_DoesWidthHeightMatch(Latte::E_GX2SURFFMT format1, uint32 width
 		return width1 == width2 || height1 == height2;
 }
 
+bool FrameMap_Enabled(); void FrameMap_Note(const std::string& text); // VulkanRendererCore.cpp, perf/tuning.txt frame_map
+
 void LatteTexture_CopySlice(LatteTexture* srcTexture, sint32 srcSlice, sint32 srcMip, LatteTexture* dstTexture, sint32 dstSlice, sint32 dstMip, sint32 srcX, sint32 srcY, sint32 dstX, sint32 dstY, sint32 width, sint32 height)
 {
+	if (FrameMap_Enabled())
+		FrameMap_Note(fmt::format("SYNC {:08x} {}x{} fmt {:04x} d{} m{} s{} -> {:08x} {}x{} fmt {:04x} d{} mips {} m{} s{} size {}x{}",
+		srcTexture->physAddress, srcTexture->width, srcTexture->height, (uint32)srcTexture->format, srcTexture->isDepth, srcMip, srcSlice,
+		dstTexture->physAddress, dstTexture->width, dstTexture->height, (uint32)dstTexture->format, dstTexture->isDepth, dstTexture->mipLevels, dstMip, dstSlice, width, height));
 	if (srcTexture->isDepth != dstTexture->isDepth)
 	{
 		g_renderer->surfaceCopy_copySurfaceWithFormatConversion(srcTexture, srcMip, srcSlice, dstTexture, dstMip, dstSlice, width, height);

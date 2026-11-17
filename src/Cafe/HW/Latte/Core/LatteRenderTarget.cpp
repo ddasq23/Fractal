@@ -771,6 +771,13 @@ void LatteRenderTarget_itHLEClearColorDepthStencil(uint32 clearMask,
 	bool hasColorClear = (clearMask & 1);
 	bool hasDepthClear = (clearMask & 2);
 	bool hasStencilClear = (clearMask & 4);
+	{
+		bool FrameMap_Enabled(); void FrameMap_Note(const std::string& text); // VulkanRendererCore.cpp, perf/tuning.txt frame_map
+		if (FrameMap_Enabled())
+			FrameMap_Note(fmt::format("CLEAR mask {} color {:08x} fmt {:04x} {}x{} depth {:08x} fmt {:04x} {}x{} value {}",
+			clearMask, colorBufferMPTR, (uint32)colorBufferFormat, colorBufferWidth, colorBufferHeight,
+			depthBufferMPTR, (uint32)depthBufferFormat, depthBufferWidth, depthBufferHeight, clearDepth));
+	}
 
 	// extract swizzle offset from pointer
 	uint32 colorBufferSwizzle = 0;

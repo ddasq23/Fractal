@@ -230,6 +230,12 @@ uint32 LatteCP_readU32Deprc()
 		// still no command data available, do some other tasks
 		LatteTiming_HandleTimedVsync();
 		LatteAsyncCommands_checkAndExecute();
+		// Fractal: occlusion query results reach the guest as soon as the GPU is done with them, not only on the next
+		// (virtual) vsync. A title that waits on GX2QueryGetOcclusionResult after each query otherwise loses up to a
+		// vsync per query: Splinter Cell Blacklist runs 3 per frame and was locked at 20 fps. perf/tuning.txt idle_query_poll=0 turns this off
+		static const bool s_idleQueryPoll = PerfLog::Tunable("idle_query_poll", 1) != 0;
+		if (s_idleQueryPoll && LatteQuery_HasPendingGX2Queries())
+			LatteQuery_UpdateFinishedQueries();
 		if (kSpinRoundsBeforeSleep == 0 || ++idleRounds < kSpinRoundsBeforeSleep)
 			std::this_thread::yield();
 		else

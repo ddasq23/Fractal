@@ -36,8 +36,14 @@ void LatteSurfaceCopy_CopyInRAM(const LatteSurfaceCopyParam& src, const LatteSur
 		copyWidth, copyHeight, dstBpp);
 }
 
+bool FrameMap_Enabled(); void FrameMap_Note(const std::string& text); // VulkanRendererCore.cpp, perf/tuning.txt frame_map
+
 void LatteSurfaceCopy_copySurfaceNew(const LatteSurfaceCopyParam& src, const LatteSurfaceCopyParam& dst, const LatteSurfaceCopyRect& rect)
 {
+	if (FrameMap_Enabled())
+		FrameMap_Note(fmt::format("COPY {:08x} fmt {:04x} tm {} dim {} pitch {} h {} slice {} -> {:08x} fmt {:04x} tm {} dim {} pitch {} h {} slice {} rect {}x{}",
+		src.physDataAddr, (uint32)src.surfaceFormat, (uint32)src.tilemode, (uint32)src.dim, src.pitch, src.heightInTexels, src.sliceIndex,
+		dst.physDataAddr, (uint32)dst.surfaceFormat, (uint32)dst.tilemode, (uint32)dst.dim, dst.pitch, dst.heightInTexels, dst.sliceIndex, rect.width, rect.height));
 	cemu_assert_debug(rect.x == 0 && rect.y == 0); // origin offset not yet supported
 
 	cemu_assert_debug((rect.x + rect.width) <= dst.pitch * (Latte::IsCompressedFormat(dst.surfaceFormat)?4:1));

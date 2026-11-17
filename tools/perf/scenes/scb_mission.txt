@@ -1,0 +1,20 @@
+# duration: 180
+# scene: from the Benghazi autosave (saves/scb_benghazi): PLUS on the title, A to continue, then idle
+# title_id: 000500001010e300
+# title: Splinter Cell Blacklist
+# save: scb_benghazi
+# window: 100 175
+18 PLUS
+22 PLUS
+26 PLUS
+30 PLUS
+34 A
+38 A
+42 A
+46 A
+50 A
+54 A
+58 A
+62 A
+66 A
+70 A

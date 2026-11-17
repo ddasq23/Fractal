@@ -76,6 +76,8 @@ in_front || { echo "$SCENE: another app is in front ($($A shell dumpsys window |
 for try in 1 2 3 4 5; do
   ui=$($A exec-out uiautomator dump /dev/tty 2>/dev/null)
   read -r x1 y1 x2 y2 < <(echo "$ui" | grep -o "text=\"$TITLE\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o 'bounds=.*' | grep -o '[0-9]\+' | tr '\n' ' ')
+  # narrow screens (Mi A3 in portrait) show the short name of combo titles: "New SUPER MARIO BROS. U" for "... + New SUPER LUIGI U"
+  [ -z "${y2:-}" ] && [ "${TITLE%% +*}" != "$TITLE" ] && read -r x1 y1 x2 y2 < <(echo "$ui" | grep -o "text=\"${TITLE%% +*}\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o 'bounds=.*' | grep -o '[0-9]\+' | tr '\n' ' ')
   # screen size in the current orientation = bounds of the root node ("wm size" is the natural orientation)
   read -r _ _ W H < <(echo "$ui" | grep -o 'bounds="[^"]*"' | head -1 | grep -o '[0-9]\+' | tr '\n' ' ')
   [ -n "${y2:-}" ] && break
