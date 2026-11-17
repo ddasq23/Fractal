@@ -1297,7 +1297,9 @@ void nsysnetExport_getsockname(PPCInterpreter_t* hCPU)
 	virtualSocket_t* vs = nsysnet_getVirtualSocketObject(s);
 	if (vs == NULL)
 	{
-		assert_dbg();
+		// not a socket of this process: an error for the game, not a stop (Disney Infinity 3.0 hit SIGTRAP here)
+		_setSockError(WU_SO_EINVAL);
+		r = -1;
 	}
 	else
 	{
@@ -1308,10 +1310,12 @@ void nsysnetExport_getsockname(PPCInterpreter_t* hCPU)
 		{
 			addr->sa_family = _swapEndianU16(hostAddr.sa_family);
 			memcpy(addr->sa_data, hostAddr.sa_data, 14);
+			if (lenPtr)
+				*lenPtr = _swapEndianU32(16);
 		}
 		else
 		{
-			assert_dbg();
+			r = _translateError(hr, GETLASTERR);
 		}
 		//sint32 hr = listen(vs->s, queueSize);
 		//if (hr != 0)
