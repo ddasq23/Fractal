@@ -64,7 +64,7 @@ namespace PerfLog
 	void BufferUploadFallback(int reason); // diagnostics: why a buffer upload could not be written directly (0 blocked, 1 used by the command buffer being recorded, 2 used by a submitted one)
 	void SelfDependencyOtherSubresource(); // sampled another mip/slice of an attachment: no longer treated as a self dependency // a draw sampled an attachment nobody wrote in this render pass: the pass was kept
 	void GpuWait(uint64 ns); // the GPU thread blocked waiting for a command buffer to finish
-	enum class GpuWaitReason : uint8 { Other, Present, Readback, Query, Flush, CommandBufferPool, UniformRing, Count };
+	enum class GpuWaitReason : uint8 { Other, Present, Readback, Query, Flush, CommandBufferPool, UniformRing, LinearCopy, Count };
 	// tags the GPU waits of the current thread until destroyed (diagnostics: which sync point blocks)
 	struct GpuWaitScope
 	{

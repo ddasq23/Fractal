@@ -267,7 +267,11 @@ bool LatteTextureReadback_ReadbackToLinearBlocking(LatteTextureView* sourceView,
 		return false;
 
 	info->StartTransfer();
-	info->ForceFinish();
+	{
+		// a surface copy into a TM_LINEAR_SPECIAL buffer waits here for all GPU work queued before it (gw_linearcopy_ms)
+		PerfLog::GpuWaitScope waitScope(PerfLog::GpuWaitReason::LinearCopy);
+		info->ForceFinish();
+	}
 	cemu_assert(info->IsFinished());
 
 	uint8* data = info->GetData(); // returned pixel format should match Latte format
