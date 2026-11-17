@@ -4,6 +4,10 @@ object NativeSettings {
     @JvmStatic
     external fun saveSettings()
 
+    /** Reads settings.xml again (the game process saves what its menu changes). */
+    @JvmStatic
+    external fun reloadSettings()
+
     @JvmStatic
     external fun addGamesPath(uri: String?)
 

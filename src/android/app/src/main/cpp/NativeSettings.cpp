@@ -509,3 +509,11 @@ Java_dev_dfd_fractal_nativeinterface_NativeSettings_saveSettings([[maybe_unused]
 {
 	GetConfigHandle().Save();
 }
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeSettings_reloadSettings([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	// the game runs in another process and saves what its menu changes: the library reads it back before its own next
+	// save, which would otherwise write its older copy over it
+	GetConfigHandle().Load();
+}

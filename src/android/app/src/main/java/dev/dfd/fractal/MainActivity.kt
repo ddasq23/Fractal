@@ -10,6 +10,9 @@ import dev.dfd.fractal.games.library.CrashCheck
 import androidx.compose.runtime.rememberCoroutineScope
 import android.widget.Toast
 import dev.dfd.fractal.common.android.context.DataFolder
+import android.util.Log
+import dev.dfd.fractal.nativeinterface.NativeGraphicPacks
+import dev.dfd.fractal.common.android.context.internalFolder
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -83,8 +86,32 @@ import dev.dfd.fractal.settings.settingsNavigation
 import dev.dfd.fractal.titlemanager.TitleManagerRoute
 import dev.dfd.fractal.titlemanager.titleManagerNavigation
 
+/**
+ * settings.xml as this process last saved or read it. The game runs in its own process and saves what its menu
+ * changes (graphics, graphic packs, sound...); without reading that back, this process's next save (on pause) would put
+ * its older copy over it. Kept for the process, not the activity: coming back from a landscape game recreates the
+ * library activity on a portrait screen.
+ */
+private var settingsSeen = 0L
+
 class MainActivity : AppCompatActivity() {
     private val autoControllerMapping = AutoControllerMappingListener(this)
+
+    private fun settingsFile() = File(internalFolder(), "settings.xml")
+
+    private fun reloadSettingsChangedElsewhere() {
+        val modified = settingsFile().lastModified()
+        if (settingsSeen == 0L || modified == settingsSeen) {
+            settingsSeen = modified
+            return
+        }
+        settingsSeen = modified
+        runCatching {
+            NativeSettings.reloadSettings()
+            // graphic packs keep their on/off state and presets from the settings when they're loaded
+            NativeGraphicPacks.refreshGraphicPacks()
+        }.onFailure { Log.w("MainActivity", "can't reload the settings", it) }
+    }
 
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
         GamepadUi.onMotion(event)
@@ -152,19 +179,28 @@ class MainActivity : AppCompatActivity() {
         MenuSounds.onLibraryStopped()
     }
 
+    /** Saves this process's settings, after reading back what the game saved since (it would be lost otherwise). */
+    private fun saveSettings() {
+        if (DataFolder.switching) return
+        reloadSettingsChangedElsewhere()
+        NativeSettings.saveSettings()
+        settingsSeen = settingsFile().lastModified()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        if (!DataFolder.switching) NativeSettings.saveSettings()
+        saveSettings()
     }
 
     override fun onPause() {
         super.onPause()
         autoControllerMapping.unregister()
-        if (!DataFolder.switching) NativeSettings.saveSettings()
+        saveSettings()
     }
 
     override fun onResume() {
         super.onResume()
+        reloadSettingsChangedElsewhere()
         autoControllerMapping.register()
     }
 }
