@@ -22,6 +22,17 @@ object NativeGraphicPacks {
     @JvmStatic
     external fun getGraphicPackPresets(id: Long): Array<GraphicPackPreset>
 
+    /**
+     * Applies the pack's saved state to the game that is running, as Cemu on PC does.
+     * [APPLY_NO_GAME]: no game of this pack is running, [APPLY_DONE]: applied now,
+     * [APPLY_ON_RESTART]: the pack changes textures (most resolution packs) and applies when the game starts again.
+     */
+    @JvmStatic
+    external fun applyToRunningGame(id: Long): Int
+    const val APPLY_NO_GAME = 0
+    const val APPLY_DONE = 1
+    const val APPLY_ON_RESTART = 2
+
     @Keep
     data class GraphicPackBasicInfo(
         val id: Long,

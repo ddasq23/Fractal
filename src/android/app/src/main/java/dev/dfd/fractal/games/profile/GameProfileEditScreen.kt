@@ -61,6 +61,7 @@ import dev.dfd.fractal.games.library.regionName
 import dev.dfd.fractal.graphicpacks.GraphicPacksDownloadStatus
 import dev.dfd.fractal.nativeinterface.NativeEmulation
 import dev.dfd.fractal.nativeinterface.NativeGameTitles
+import dev.dfd.fractal.nativeinterface.NativeGraphicPacks
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.DriverSettingMode
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
 
@@ -72,6 +73,8 @@ fun GameProfileEditScreen(
     onPlay: ((Game) -> Unit)? = null,
     /** Set when the screen is opened over the running game, from the in-game menu. */
     inGame: InGameProfile? = null,
+    /** Only the graphic packs and cheats, with every pack listed (the in-game menu's shortcut). */
+    packsOnly: Boolean = false,
     viewModel: GameProfileEditViewModel = viewModel(
         factory = GameProfileEditViewModel.Factory,
         extras = MutableCreationExtras().apply {
@@ -110,6 +113,18 @@ fun GameProfileEditScreen(
         )
     }
 
+    if (inGame != null) {
+        LaunchedEffect(viewModel) {
+            viewModel.packApplied.collect { result ->
+                snackbar.currentSnackbarData?.dismiss()
+                snackbar.showSnackbar(
+                    if (result == NativeGraphicPacks.APPLY_DONE) tr("Applied to the running game")
+                    else tr("This pack changes textures: restart the game to apply it")
+                )
+            }
+        }
+    }
+
     // the save / cache sizes change after an import or export finishes
     LaunchedEffect(dataViewModel.busy == null) { if (dataViewModel.busy == null) viewModel.refreshDataInfo() }
     LaunchedEffect(downloadStatus) {
@@ -125,11 +140,11 @@ fun GameProfileEditScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        FractalScreen(title = tr("Game settings"), onBack = navigateBack) {
+        FractalScreen(title = if (packsOnly) tr("Graphic packs and cheats") else tr("Game settings"), onBack = navigateBack) {
             GameHeader(game, onPlay)
             if (inGame != null) {
                 SettingPanel {
-                    HintText(tr("Changes are saved to this game's profile right away and apply the next time the game starts."))
+                    HintText(tr("Changes are saved to this game's profile right away. Graphic packs and cheats apply to the running game when they can; resolution packs and the other settings apply the next time the game starts."))
                     FractalButton(tr("Restart game"), onClick = inGame.onRestart, icon = FractalIcons.Refresh, primary = true)
                 }
             }
@@ -141,111 +156,113 @@ fun GameProfileEditScreen(
                 GamePackSettings(packs, packsDownloaded, downloading, packActions)
             }
 
-            val v = values
-            SectionTitle(tr("CPU"))
-            if (v == null) {
-                HintText(tr("Loading…"))
-            } else {
-                ChoiceRow(
-                    title = tr("CPU mode"),
-                    description = tr("Multi-core recompiler is the fastest for most games"),
-                    value = v.cpuMode,
-                    choices = listOf(
-                        NativeGameTitles.CPUMode.AUTO,
-                        NativeGameTitles.CPUMode.MULTICORERECOMPILER,
-                        NativeGameTitles.CPUMode.SINGLECORERECOMPILER,
-                        NativeGameTitles.CPUMode.SINGLECOREINTERPRETER,
-                    ),
-                    label = ::cpuModeToString,
-                    onSelect = viewModel::setCpuMode,
-                )
-                ChoiceRow(
-                    title = tr("Thread quantum"),
-                    description = tr("Emulated CPU cycles a thread runs before the next one gets a turn"),
-                    value = v.threadQuantum,
-                    choices = (NativeGameTitles.THREAD_QUANTUM_VALUES + v.threadQuantum).distinct().sorted(),
-                    label = { it.toString() },
-                    onSelect = viewModel::setThreadQuantum,
-                )
-                ToggleRow(
-                    title = tr("Load shared libraries"),
-                    description = tr("Load libraries from the cafeLibs directory"),
-                    checked = v.loadSharedLibraries,
-                    onChange = viewModel::setLoadSharedLibraries,
-                )
-
-                SectionTitle(tr("Graphics"))
-                ToggleRow(
-                    title = tr("Shader multiplication accuracy"),
-                    description = tr("Controls the accuracy of floating point multiplication in shaders"),
-                    checked = v.shaderMulAccuracy,
-                    onChange = viewModel::setShaderMulAccuracy,
-                )
-                ToggleRow(
-                    title = tr("Full sync at GX2DrawDone()"),
-                    description = tr("If synchronization is requested by the game, the emulated CPU will wait for the GPU to finish all operations.\nThis is more accurate behavior, but may cause lower performance"),
-                    checked = v.fullSyncAtGX2DrawDone,
-                    onChange = viewModel::setFullSync,
-                )
-            }
-
-            SectionTitle(tr("Driver"))
-            if (supportsLoadingCustomDrivers) {
-                ChoiceRow(
-                    title = tr("Custom driver"),
-                    description = tr("Vulkan driver used for this game"),
-                    value = selectedDriverSetting,
-                    choices = driverSettingChoices.ifEmpty { listOf(selectedDriverSetting) },
-                    label = ::customDriverSettingChoiceToString,
-                    onSelect = viewModel::setSelectedDriverSetting,
-                )
-            }
-            if (v != null) {
-                ToggleRow(
-                    title = tr("Turnip: render in system memory"),
-                    description = tr("Turnip only: render in system memory instead of tiles. Faster on Adreno 6xx and avoids GPU hangs in some games. Other drivers ignore it."),
-                    checked = v.turnipSysmem,
-                    onChange = viewModel::setTurnipSysmem,
-                )
-            }
-
-            controllerProfiles?.let { profiles ->
-                SectionTitle(tr("Controllers"))
-                ChoiceRow(
-                    title = tr("Player 1 controller"),
-                    description = tr("Some games only read the Wii U GamePad, others only a Pro Controller or Wii Remote. Your gamepad and the touch controls become this controller in this game only."),
-                    value = profiles.player1Type,
-                    choices = listOf<Int?>(null) + GameControllerType.CHOICES,
-                    label = { it?.let(::controllerTypeToString) ?: tr("Same as the input settings") },
-                    onSelect = viewModel::setPlayer1Type,
-                )
-                HintText(
-                    if (profiles.available.isEmpty()) tr("Save a controller profile in Settings > Controllers to use it here, e.g. a Wii U GamePad setup for a game that needs one.")
-                    else tr("The game loads these controller profiles when it starts; the input settings stay as they are.")
-                )
-                // four players cover most games; a slot further down shows when it has a profile
-                profiles.perSlot.forEachIndexed { index, slotProfile ->
-                    // a type choice above is no profile of the user's
-                    val profile = slotProfile?.takeUnless { GameControllerType.isTypeProfile(it) }
-                    if (index >= 4 && profile == null) return@forEachIndexed
+            if (!packsOnly) {
+                val v = values
+                SectionTitle(tr("CPU"))
+                if (v == null) {
+                    HintText(tr("Loading…"))
+                } else {
                     ChoiceRow(
-                        title = tr("Controller {0}", index + 1),
-                        description = null,
-                        value = profile,
-                        choices = listOf<String?>(null) + (profiles.available + listOfNotNull(profile)).distinct(),
-                        label = { it ?: tr("Same as the input settings") },
-                        onSelect = { viewModel.setControllerProfile(index, it) },
-                        enabled = profiles.available.isNotEmpty() || profile != null,
+                        title = tr("CPU mode"),
+                        description = tr("Multi-core recompiler is the fastest for most games"),
+                        value = v.cpuMode,
+                        choices = listOf(
+                            NativeGameTitles.CPUMode.AUTO,
+                            NativeGameTitles.CPUMode.MULTICORERECOMPILER,
+                            NativeGameTitles.CPUMode.SINGLECORERECOMPILER,
+                            NativeGameTitles.CPUMode.SINGLECOREINTERPRETER,
+                        ),
+                        label = ::cpuModeToString,
+                        onSelect = viewModel::setCpuMode,
                     )
+                    ChoiceRow(
+                        title = tr("Thread quantum"),
+                        description = tr("Emulated CPU cycles a thread runs before the next one gets a turn"),
+                        value = v.threadQuantum,
+                        choices = (NativeGameTitles.THREAD_QUANTUM_VALUES + v.threadQuantum).distinct().sorted(),
+                        label = { it.toString() },
+                        onSelect = viewModel::setThreadQuantum,
+                    )
+                    ToggleRow(
+                        title = tr("Load shared libraries"),
+                        description = tr("Load libraries from the cafeLibs directory"),
+                        checked = v.loadSharedLibraries,
+                        onChange = viewModel::setLoadSharedLibraries,
+                    )
+
+                    SectionTitle(tr("Graphics"))
+                    ToggleRow(
+                        title = tr("Shader multiplication accuracy"),
+                        description = tr("Controls the accuracy of floating point multiplication in shaders"),
+                        checked = v.shaderMulAccuracy,
+                        onChange = viewModel::setShaderMulAccuracy,
+                    )
+                    ToggleRow(
+                        title = tr("Full sync at GX2DrawDone()"),
+                        description = tr("If synchronization is requested by the game, the emulated CPU will wait for the GPU to finish all operations.\nThis is more accurate behavior, but may cause lower performance"),
+                        checked = v.fullSyncAtGX2DrawDone,
+                        onChange = viewModel::setFullSync,
+                    )
+                }
+
+                SectionTitle(tr("Driver"))
+                if (supportsLoadingCustomDrivers) {
+                    ChoiceRow(
+                        title = tr("Custom driver"),
+                        description = tr("Vulkan driver used for this game"),
+                        value = selectedDriverSetting,
+                        choices = driverSettingChoices.ifEmpty { listOf(selectedDriverSetting) },
+                        label = ::customDriverSettingChoiceToString,
+                        onSelect = viewModel::setSelectedDriverSetting,
+                    )
+                }
+                if (v != null) {
+                    ToggleRow(
+                        title = tr("Turnip: render in system memory"),
+                        description = tr("Turnip only: render in system memory instead of tiles. Faster on Adreno 6xx and avoids GPU hangs in some games. Other drivers ignore it."),
+                        checked = v.turnipSysmem,
+                        onChange = viewModel::setTurnipSysmem,
+                    )
+                }
+
+                controllerProfiles?.let { profiles ->
+                    SectionTitle(tr("Controllers"))
+                    ChoiceRow(
+                        title = tr("Player 1 controller"),
+                        description = tr("Some games only read the Wii U GamePad, others only a Pro Controller or Wii Remote. Your gamepad and the touch controls become this controller in this game only."),
+                        value = profiles.player1Type,
+                        choices = listOf<Int?>(null) + GameControllerType.CHOICES,
+                        label = { it?.let(::controllerTypeToString) ?: tr("Same as the input settings") },
+                        onSelect = viewModel::setPlayer1Type,
+                    )
+                    HintText(
+                        if (profiles.available.isEmpty()) tr("Save a controller profile in Settings > Controllers to use it here, e.g. a Wii U GamePad setup for a game that needs one.")
+                        else tr("The game loads these controller profiles when it starts; the input settings stay as they are.")
+                    )
+                    // four players cover most games; a slot further down shows when it has a profile
+                    profiles.perSlot.forEachIndexed { index, slotProfile ->
+                        // a type choice above is no profile of the user's
+                        val profile = slotProfile?.takeUnless { GameControllerType.isTypeProfile(it) }
+                        if (index >= 4 && profile == null) return@forEachIndexed
+                        ChoiceRow(
+                            title = tr("Controller {0}", index + 1),
+                            description = null,
+                            value = profile,
+                            choices = listOf<String?>(null) + (profiles.available + listOfNotNull(profile)).distinct(),
+                            label = { it ?: tr("Same as the input settings") },
+                            onSelect = { viewModel.setControllerProfile(index, it) },
+                            enabled = profiles.available.isNotEmpty() || profile != null,
+                        )
+                    }
                 }
             }
 
             SectionTitle(tr("Graphic packs"))
-            GamePacksSection(packs, packsDownloaded, downloading, packActions)
+            GamePacksSection(packs, packsDownloaded, downloading, packActions, startWithAll = packsOnly)
 
             // exporting or replacing a save or the shader cache of the game that is running could lose data
-            if (inGame == null) SavesAndCacheSection(game, dataInfo, dataActions, context) { confirmRemoveShaders = true }
-            if (inGame == null) CommunityShadersSection(game, snackbar) { viewModel.refreshDataInfo() }
+            if (inGame == null && !packsOnly) SavesAndCacheSection(game, dataInfo, dataActions, context) { confirmRemoveShaders = true }
+            if (inGame == null && !packsOnly) CommunityShadersSection(game, snackbar) { viewModel.refreshDataInfo() }
             Spacer(Modifier.height(24.dp))
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))

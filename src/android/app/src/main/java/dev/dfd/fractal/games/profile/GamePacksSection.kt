@@ -209,6 +209,8 @@ fun GamePacksSection(
     packsDownloaded: Boolean,
     downloading: Boolean,
     actions: PackActions,
+    /** List every pack (cheats and mods too) instead of only the enabled ones. */
+    startWithAll: Boolean = false,
 ) {
     when {
         packs == null -> HintText(tr("Loading graphic packs…"))
@@ -218,7 +220,7 @@ fun GamePacksSection(
         )
 
         else -> {
-            var showAll by rememberSaveable { mutableStateOf(false) }
+            var showAll by rememberSaveable { mutableStateOf(startWithAll) }
             val enabled = packs.filter { it.active }
             val shown = if (showAll) packs else enabled
             if (enabled.isEmpty() && !showAll) HintText(tr("No graphic pack is enabled for this game."))

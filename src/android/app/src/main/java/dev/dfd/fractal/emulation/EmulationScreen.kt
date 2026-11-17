@@ -419,6 +419,14 @@ fun EmulationScreen(
                 panel = EmulationPanel.GameSettings(game)
                 closeDrawer()
             }
+
+            override fun gamePacks() {
+                val game = RunningGame.current(gamePath) ?: return
+                pausedBeforeGameSettings = viewModel.sideMenuState.value.isPaused
+                viewModel.setPaused(true)
+                panel = EmulationPanel.GamePacks(game)
+                closeDrawer()
+            }
         }
     }
 
@@ -529,7 +537,7 @@ fun EmulationScreen(
         panel = panel,
         onPanelChange = { next ->
             if (next == null || next is EmulationPanel.Controller || next == EmulationPanel.Hotkeys) closeDrawer()
-            if (next == null && panel is EmulationPanel.GameSettings && !pausedBeforeGameSettings) viewModel.setPaused(false)
+            if (next == null && (panel is EmulationPanel.GameSettings || panel is EmulationPanel.GamePacks) && !pausedBeforeGameSettings) viewModel.setPaused(false)
             panel = next
         },
         onRestartGame = onRestartGame,

@@ -1,6 +1,7 @@
 #include "Cafe/CafeSystem.h"
 #include "config/CemuConfig.h"
 #include "Cafe/GraphicPack/GraphicPack2.h"
+#include "Cafe/HW/Latte/Core/LatteAsyncCommands.h"
 #include "JNIUtils.h"
 
 namespace NativeGraphicPacks
@@ -161,4 +162,60 @@ extern "C" [[maybe_unused]] JNIEXPORT jobjectArray JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeGraphicPacks_getGraphicPackPresets(JNIEnv* env, [[maybe_unused]] jclass clazz, jlong id)
 {
 	return NativeGraphicPacks::GetGraphicPresets(env, NativeGraphicPacks::g_graphicPacks.at(id), id);
+}
+
+namespace
+{
+	// same as the PC graphic packs window: shaders of the pack are dropped from the runtime cache so they compile again
+	void DeleteShadersFromRuntimeCache(const GraphicPackPtr& graphicPack)
+	{
+		for (const auto& shader : graphicPack->GetCustomShaders())
+		{
+			LatteConst::ShaderType shaderType;
+			if (shader.type == GraphicPack2::GP_SHADER_TYPE::VERTEX)
+				shaderType = LatteConst::ShaderType::Vertex;
+			else if (shader.type == GraphicPack2::GP_SHADER_TYPE::GEOMETRY)
+				shaderType = LatteConst::ShaderType::Geometry;
+			else
+				shaderType = LatteConst::ShaderType::Pixel;
+			LatteAsyncCommands_queueDeleteShader(shader.shader_base_hash, shader.shader_aux_hash, shaderType);
+		}
+	}
+
+	void ReloadPack(const GraphicPackPtr& graphicPack)
+	{
+		if (graphicPack->HasShaders() || graphicPack->HasPatches() || graphicPack->HasCustomVSyncFrequency())
+		{
+			if (graphicPack->Reload())
+				DeleteShadersFromRuntimeCache(graphicPack);
+		}
+	}
+} // namespace
+
+// Brings the running game in line with the pack's saved state, like Cemu on PC does when a pack is toggled or a preset
+// changes while a game runs. 0: no game of this pack is running, 1: applied now, 2: applies when the game starts again
+// (packs with texture rules, e.g. most resolution packs).
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeGraphicPacks_applyToRunningGame([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jlong id)
+{
+	const auto it = NativeGraphicPacks::g_graphicPacks.find(id);
+	if (it == NativeGraphicPacks::g_graphicPacks.end())
+		return 0;
+	const auto& graphicPack = it->second;
+	if (!CafeSystem::IsTitleRunning() || !graphicPack->ContainsTitleId(CafeSystem::GetForegroundTitleId()))
+		return 0;
+	if (graphicPack->RequiresRestart(true, true))
+		return 2;
+	if (graphicPack->IsEnabled())
+	{
+		if (!graphicPack->IsActivated())
+			GraphicPack2::ActivateGraphicPack(graphicPack);
+		ReloadPack(graphicPack);
+	}
+	else if (graphicPack->IsActivated())
+	{
+		DeleteShadersFromRuntimeCache(graphicPack);
+		GraphicPack2::DeactivateGraphicPack(graphicPack);
+	}
+	return 1;
 }

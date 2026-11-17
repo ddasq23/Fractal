@@ -43,6 +43,8 @@ sealed interface EmulationPanel {
     data object Hotkeys : EmulationPanel
     /** The running game's profile, the same screen the library opens. */
     data class GameSettings(val game: Game) : EmulationPanel
+    /** Only the running game's graphic packs and cheats. */
+    data class GamePacks(val game: Game) : EmulationPanel
 }
 
 /**
@@ -77,6 +79,10 @@ fun EmulationPanels(
 
         is EmulationPanel.GameSettings -> FullScreenPanel(key = "game-${panel.game.titleId}", onClose = close) { back ->
             GameProfileEditScreen(game = panel.game, navigateBack = back, inGame = InGameProfile(onRestart = onRestartGame))
+        }
+
+        is EmulationPanel.GamePacks -> FullScreenPanel(key = "packs-${panel.game.titleId}", onClose = close) { back ->
+            GameProfileEditScreen(game = panel.game, navigateBack = back, inGame = InGameProfile(onRestart = onRestartGame), packsOnly = true)
         }
     }
 }

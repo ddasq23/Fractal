@@ -119,6 +119,7 @@ interface EmulationMenuActions {
     fun hotkeys()
     fun emulatedUsbDevices()
     fun gameSettings()
+    fun gamePacks()
 }
 
 val ScalingFilterChoices = listOf(
@@ -211,6 +212,12 @@ fun EmulationMenuContent(
             title = tr("Game settings"),
             description = tr("This game's profile: CPU, driver, graphic packs and controllers. The game pauses while it is open"),
             onClick = actions::gameSettings,
+        )
+        MenuActionRow(
+            icon = FractalIcons.Layers,
+            title = tr("Graphic packs and cheats"),
+            description = tr("Turn this game's packs, mods and cheats on or off. Most apply right away; resolution packs need a restart"),
+            onClick = actions::gamePacks,
         )
 
         MenuSection(tr("Display"))

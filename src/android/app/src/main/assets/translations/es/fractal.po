@@ -3561,8 +3561,8 @@ msgstr "Fotogramas que el juego muestra por segundo"
 msgid "The device's graphics chip"
 msgstr "El chip gráfico del dispositivo"
 
-msgid "How busy the GPU is. Many phones don't let apps read it: it shows N/A then"
-msgstr "Qué tan ocupada está la GPU. Muchos teléfonos no dejan que las apps lo lean: entonces muestra N/A"
+msgid "How busy the GPU is with the game, measured by Fractal itself, so it works on any phone and driver"
+msgstr "Cuánto está ocupada la GPU con el juego, medido por el propio Fractal: funciona en cualquier móvil y driver"
 
 msgid "Of the whole device. Where Android hides the load, it is estimated from the clock speeds"
 msgstr "De todo el dispositivo. Donde Android oculta la carga, se estima a partir de las frecuencias"
@@ -3584,3 +3584,18 @@ msgstr "Leída del sistema, funciona en todos los dispositivos"
 
 msgid "CHG while the device is charging"
 msgstr "CHG mientras el dispositivo se carga"
+
+msgid "Changes are saved to this game's profile right away. Graphic packs and cheats apply to the running game when they can; resolution packs and the other settings apply the next time the game starts."
+msgstr "Los cambios se guardan en el perfil de este juego al momento. Los graphic packs y trucos se aplican al juego abierto cuando pueden; los packs de resolución y las demás opciones se aplican la próxima vez que se abra el juego."
+
+msgid "Applied to the running game"
+msgstr "Aplicado al juego abierto"
+
+msgid "This pack changes textures: restart the game to apply it"
+msgstr "Este pack cambia texturas: reinicia el juego para aplicarlo"
+
+msgid "Graphic packs and cheats"
+msgstr "Graphic packs y trucos"
+
+msgid "Turn this game's packs, mods and cheats on or off. Most apply right away; resolution packs need a restart"
+msgstr "Activa o desactiva los packs, mods y trucos de este juego. La mayoría se aplica al momento; los packs de resolución piden reiniciar"

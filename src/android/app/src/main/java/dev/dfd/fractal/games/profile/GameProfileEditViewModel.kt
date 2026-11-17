@@ -23,7 +23,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -202,10 +204,22 @@ class GameProfileEditViewModel(val game: Game) : ViewModel() {
     private fun updatePack(id: Long, transform: (GamePack) -> GamePack) =
         _packs.update { list -> list?.map { if (it.id == id) transform(it) else it } }
 
+    private val _packApplied = MutableSharedFlow<Int>(extraBufferCapacity = 4)
+
+    /** What happened to the running game after a pack change: one of NativeGraphicPacks.APPLY_*. */
+    val packApplied = _packApplied.asSharedFlow()
+
+    /** Over the running game, packs that can are applied right away, like on PC. */
+    private fun applyToRunningGame(id: Long) {
+        val result = runCatching { NativeGraphicPacks.applyToRunningGame(id) }.getOrDefault(NativeGraphicPacks.APPLY_NO_GAME)
+        if (result != NativeGraphicPacks.APPLY_NO_GAME) _packApplied.tryEmit(result)
+    }
+
     fun setPackActive(id: Long, active: Boolean) {
         updatePack(id) { it.copy(active = active) }
         viewModelScope.launch(profileDispatcher) {
             runCatching { NativeGraphicPacks.setGraphicPackActive(id, active) }
+            applyToRunningGame(id)
         }
     }
 
@@ -226,6 +240,7 @@ class GameProfileEditViewModel(val game: Game) : ViewModel() {
                 }
                 updatePack(id) { it.copy(presets = presets) }
             }
+            applyToRunningGame(id)
         }
     }
 
