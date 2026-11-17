@@ -1,5 +1,8 @@
 package dev.dfd.fractal.games.library
 
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
+import android.content.Context
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -55,4 +58,30 @@ object DebugReport {
             ?.sortedByDescending { it.name }
             ?.take(SESSIONS)
             .orEmpty()
+}
+
+/**
+ * Tells whether a Fractal process (the library or a game) crashed since the last check, from the exit reasons Android
+ * keeps (ApplicationExitInfo): a Java or native crash, or "not responding". Closing the app from recents or the
+ * restart after a settings change are not crashes. The first check after install only records where it starts.
+ */
+object CrashCheck {
+    private const val PREFS = "crash_check"
+    private const val KEY_SEEN_UNTIL = "seen_until"
+    private val CRASH_REASONS = setOf(
+        ApplicationExitInfo.REASON_CRASH,
+        ApplicationExitInfo.REASON_CRASH_NATIVE,
+        ApplicationExitInfo.REASON_ANR,
+    )
+
+    fun newCrash(context: Context): ApplicationExitInfo? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val activityManager = context.getSystemService(ActivityManager::class.java) ?: return null
+        val exits = runCatching { activityManager.getHistoricalProcessExitReasons(null, 0, 16) }.getOrNull().orEmpty()
+        val seenUntil = prefs.getLong(KEY_SEEN_UNTIL, -1L)
+        val newest = exits.maxOfOrNull { it.timestamp } ?: 0L
+        if (newest > seenUntil) prefs.edit().putLong(KEY_SEEN_UNTIL, newest).apply()
+        if (seenUntil < 0) return null
+        return exits.filter { it.timestamp > seenUntil && it.reason in CRASH_REASONS }.maxByOrNull { it.timestamp }
+    }
 }

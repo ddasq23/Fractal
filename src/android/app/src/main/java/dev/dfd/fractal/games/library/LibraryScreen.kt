@@ -608,7 +608,7 @@ fun SheetAction(text: String, icon: ImageVector, onClick: () -> Unit) {
 
 // region helpers kept from the original game list screen
 
-private fun tryShareDebugReport(context: Context): Boolean = try {
+internal fun tryShareDebugReport(context: Context): Boolean = try {
     val fileUri = DocumentsContract.buildDocumentUri(
         DocumentsProvider.AUTHORITY,
         DocumentsProvider.ROOT_ID + "/${DebugReport.FILE_NAME}"

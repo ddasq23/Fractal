@@ -1,5 +1,14 @@
 package dev.dfd.fractal
 
+import java.io.File
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import dev.dfd.fractal.nativeinterface.NativeActiveSettings
+import dev.dfd.fractal.games.library.tryShareDebugReport
+import dev.dfd.fractal.games.library.DebugReport
+import dev.dfd.fractal.games.library.CrashCheck
+import androidx.compose.runtime.rememberCoroutineScope
+import android.widget.Toast
 import dev.dfd.fractal.common.android.context.DataFolder
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -178,8 +187,15 @@ private fun MainNav() {
     // checked on every resume: in release builds the game runs in its own process, so a crash there
     // brings this activity back without restarting it
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    // a crash of the last game (or of the app): offer the debug report, unless the driver warning already explains it
+    var crashOffer by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(lifecycleState) {
-        if (lifecycleState == Lifecycle.State.RESUMED) DriverGuard.recover(context)?.let { driverWarning = it }
+        if (lifecycleState == Lifecycle.State.RESUMED) {
+            DriverGuard.recover(context)?.let { driverWarning = it }
+            val crashed = withContext(Dispatchers.IO) { CrashCheck.newCrash(context) } != null
+            if (crashed && driverWarning == null) crashOffer = true
+        }
     }
 
     Box(Modifier.fillMaxSize().onPreviewKeyEvent(introKeyFilter({ introPlaying }, endIntro))) {
@@ -213,6 +229,29 @@ private fun MainNav() {
     }
     }
     if (introPlaying) IntroAnimation(long = introLong, onFinished = endIntro)
+    }
+    if (crashOffer && !introPlaying && driverWarning == null) {
+        FractalAlertDialog(
+            onDismissRequest = { crashOffer = false },
+            title = { Text(tr("Fractal closed unexpectedly")) },
+            text = {
+                Text(
+                    tr("The last session ended with an error. A debug report (logs, device and settings, game session data; no saves or game files) helps find the cause: share it in an issue at github.com/dfdx047/Fractal/issues. It is also in Options › Share debug report.")
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    crashOffer = false
+                    scope.launch {
+                        val userData = File(NativeActiveSettings.getUserDataPath())
+                        val report = withContext(Dispatchers.IO) { runCatching { DebugReport.build(userData) }.getOrNull() }
+                        if (report == null || !tryShareDebugReport(context))
+                            Toast.makeText(context, tr("Failed to create the debug report"), Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text(tr("Share report")) }
+            },
+            dismissButton = { TextButton(onClick = { crashOffer = false }) { Text(tr("Not now")) } },
+        )
     }
     driverWarning?.takeIf { !introPlaying }?.let { text ->
         FractalAlertDialog(

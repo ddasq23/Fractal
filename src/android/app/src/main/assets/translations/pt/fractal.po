@@ -3416,3 +3416,15 @@ msgstr "{0} tem {1} segundos: efeitos sonoros podem ter até 5 segundos."
 
 msgid "Listen"
 msgstr "Ouvir"
+
+msgid "Fractal closed unexpectedly"
+msgstr "O Fractal fechou inesperadamente"
+
+msgid "The last session ended with an error. A debug report (logs, device and settings, game session data; no saves or game files) helps find the cause: share it in an issue at github.com/dfdx047/Fractal/issues. It is also in Options › Share debug report."
+msgstr "A última sessão terminou com um erro. Um relatório de depuração (logs, aparelho e configurações, dados da sessão do jogo; sem saves nem arquivos dos jogos) ajuda a achar a causa: compartilhe numa issue em github.com/dfdx047/Fractal/issues. Ele também fica em Opções › Compartilhar relatório de depuração."
+
+msgid "Share report"
+msgstr "Compartilhar relatório"
+
+msgid "Not now"
+msgstr "Agora não"
