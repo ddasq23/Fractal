@@ -281,6 +281,36 @@ fun EmulationScreen(
         HotkeyManager.actions.collect { action -> perform(action) }
     }
 
+    // a game well below full speed that has a lower resolution in its graphic packs: say so once
+    LaunchedEffect(isEmulationInitialized) {
+        if (!isEmulationInitialized) return@LaunchedEffect
+        val titleId = runCatching { NativeEmulation.getForegroundTitleId() }.getOrDefault(0L)
+        if (titleId == 0L || ResolutionHint.wasShown(context, titleId)) return@LaunchedEffect
+        val suggestion = ResolutionHint.watch(titleId) {
+            viewModel.sideMenuState.value.isPaused || editorSession != null
+        } ?: return@LaunchedEffect
+        ResolutionHint.markShown(context, titleId)
+        snackbarHostState.currentSnackbarData?.dismiss()
+        val result = snackbarHostState.showSnackbar(
+            message = ResolutionHint.message(suggestion),
+            actionLabel = ResolutionHint.action(suggestion),
+            withDismissAction = true,
+            duration = SnackbarDuration.Indefinite,
+        )
+        if (result != SnackbarResult.ActionPerformed) return@LaunchedEffect
+        if (!ResolutionHint.apply(suggestion)) {
+            snackbarHostState.showMessage(scope, tr("Couldn't change the resolution"))
+            return@LaunchedEffect
+        }
+        val restart = snackbarHostState.showSnackbar(
+            message = tr("{0} is set for this game: it takes effect when the game starts again. You can change it in the game's settings.", suggestion.resolution),
+            actionLabel = tr("Restart now"),
+            withDismissAction = true,
+            duration = SnackbarDuration.Long,
+        )
+        if (restart == SnackbarResult.ActionPerformed) onRestartGame()
+    }
+
     // the game reads the GamePad only (or never), and the player's input goes to the other kind: say so once
     LaunchedEffect(isEmulationInitialized) {
         if (!isEmulationInitialized) return@LaunchedEffect

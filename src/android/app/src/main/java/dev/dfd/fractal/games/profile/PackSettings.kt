@@ -6,6 +6,9 @@
 
 package dev.dfd.fractal.games.profile
 
+import dev.dfd.fractal.graphicpacks.Preset
+import dev.dfd.fractal.nativeinterface.NativeGraphicPacks
+
 /**
  * One choice of a [PackSetting]: a preset of one of the game's graphic packs, or a whole pack
  * when the pack has no presets ([choice] null, like the "60FPS" packs).
@@ -129,3 +132,23 @@ fun List<GamePack>.fpsSetting(): PackSetting? = mapNotNull { pack ->
             } else null
         }
 }.toSetting()
+
+private fun readPack(info: NativeGraphicPacks.GraphicPackBasicInfo): GamePack? {
+    val pack = NativeGraphicPacks.getGraphicPack(info.id) ?: return null
+    val segments = info.virtualPath.split('/')
+    return GamePack(
+        id = info.id,
+        path = info.virtualPath,
+        name = pack.name.ifBlank { segments.last() },
+        group = if (segments.size > 2) segments.subList(1, segments.size - 1).joinToString(" / ") else "",
+        description = pack.description,
+        active = pack.isActive(),
+        presets = Preset.fromNativeGraphicPack(pack),
+    )
+}
+
+/** The graphic packs of [titleId], ungrouped ones first, then by group and name. */
+fun loadGamePacks(titleId: Long): List<GamePack> = NativeGraphicPacks.getGraphicPackBasicInfos()
+    .filter { titleId in it.titleIds }
+    .mapNotNull { runCatching { readPack(it) }.getOrNull() }
+    .sortedWith(compareBy<GamePack>({ it.group.isNotEmpty() }, { it.group.lowercase() }, { it.name.lowercase() }))

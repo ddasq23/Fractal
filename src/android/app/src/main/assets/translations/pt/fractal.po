@@ -3472,3 +3472,18 @@ msgstr "Jogador {0} · {1}"
 
 msgid "They drive player {0}: {1}"
 msgstr "Comandam o jogador {0}: {1}"
+
+msgid "This game runs at {0} fps here. At {1} it usually runs close to twice as fast on lighter GPUs, with a softer picture."
+msgstr "Este jogo está rodando a {0} fps aqui. Em {1} ele costuma ficar perto do dobro da velocidade em GPUs mais fracas, com a imagem menos nítida."
+
+msgid "Use {0}"
+msgstr "Usar {0}"
+
+msgid "Couldn't change the resolution"
+msgstr "Não foi possível mudar a resolução"
+
+msgid "{0} is set for this game: it takes effect when the game starts again. You can change it in the game's settings."
+msgstr "{0} ficou definida para este jogo: vale quando o jogo abrir de novo. Dá para mudar nas configurações do jogo."
+
+msgid "Restart now"
+msgstr "Reiniciar agora"

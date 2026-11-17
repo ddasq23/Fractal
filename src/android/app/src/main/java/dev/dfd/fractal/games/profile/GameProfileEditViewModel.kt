@@ -191,24 +191,7 @@ class GameProfileEditViewModel(val game: Game) : ViewModel() {
     private val _packs = MutableStateFlow<List<GamePack>?>(null)
     val packs = _packs.asStateFlow()
 
-    private fun readPack(info: NativeGraphicPacks.GraphicPackBasicInfo): GamePack? {
-        val pack = NativeGraphicPacks.getGraphicPack(info.id) ?: return null
-        val segments = info.virtualPath.split('/')
-        return GamePack(
-            id = info.id,
-            path = info.virtualPath,
-            name = pack.name.ifBlank { segments.last() },
-            group = if (segments.size > 2) segments.subList(1, segments.size - 1).joinToString(" / ") else "",
-            description = pack.description,
-            active = pack.isActive(),
-            presets = Preset.fromNativeGraphicPack(pack),
-        )
-    }
-
-    private fun loadPacks(): List<GamePack> = NativeGraphicPacks.getGraphicPackBasicInfos()
-        .filter { titleId in it.titleIds }
-        .mapNotNull { runCatching { readPack(it) }.getOrNull() }
-        .sortedWith(compareBy<GamePack>({ it.group.isNotEmpty() }, { it.group.lowercase() }, { it.name.lowercase() }))
+    private fun loadPacks(): List<GamePack> = loadGamePacks(titleId)
 
     fun refreshPacks() {
         viewModelScope.launch(profileDispatcher) {

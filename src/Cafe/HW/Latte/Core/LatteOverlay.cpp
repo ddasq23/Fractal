@@ -664,8 +664,17 @@ static void UpdateStats_PresentedFrames()
 	g_state.frame_gen_ratio = realDelta > 0 ? (double)(realDelta + generatedDelta) / (double)realDelta : 1.0;
 }
 
+// the game's frame rate even with the overlay off: the app reads it to point out a game running too slow
+static std::atomic<double> s_lastFps{0.0};
+
+double LatteOverlay_GetFps()
+{
+	return s_lastFps.load();
+}
+
 void LatteOverlay_updateStats(double fps, sint32 drawcalls, sint32 fastDrawcalls)
 {
+	s_lastFps = fps;
 	if (GetConfig().overlay.position == ScreenPosition::kDisabled)
 		return;
 

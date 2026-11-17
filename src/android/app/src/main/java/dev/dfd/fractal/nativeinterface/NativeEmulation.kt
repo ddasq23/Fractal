@@ -46,6 +46,10 @@ object NativeEmulation {
     @JvmStatic
     external fun getForegroundTitleId(): Long
 
+    /** Frames per second of the running game in the last second (0 before the first frames). */
+    @JvmStatic
+    external fun getFps(): Double
+
     @JvmStatic
     external fun getForegroundTitleName(): String
 

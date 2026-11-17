@@ -423,6 +423,12 @@ Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getForegroundTitleId([[mayb
 	return static_cast<jlong>(CafeSystem::GetForegroundTitleId());
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT jdouble JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getFps([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return LatteOverlay_GetFps();
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT jstring JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getForegroundTitleName(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
