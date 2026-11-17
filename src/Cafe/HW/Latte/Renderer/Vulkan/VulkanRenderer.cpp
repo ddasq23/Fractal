@@ -3422,6 +3422,13 @@ void VulkanRenderer::GetTextureFormatInfoVK(Latte::E_GX2SURFFMT format, bool isD
 			formatInfoOut->decoder = TextureDecoder_R10_G10_B10_A2_SNORM_To_RGBA16::getInstance();
 			formatInfoOut->isAlternateFormat = true;
 			break;
+		case Latte::E_GX2SURFFMT::A2_B10_G10_R10_UNORM:
+			// render target in Resident Evil Revelations. Unhandled it left VK_FORMAT_UNDEFINED: Mali's driver crashed
+			// creating the image
+			formatInfoOut->vkImageFormat = VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+			formatInfoOut->decoder = TextureDecoder_A2_B10_G10_R10_UNORM_To_A2B10G10R10::getInstance();
+			formatInfoOut->isAlternateFormat = true;
+			break;
 		case Latte::E_GX2SURFFMT::R10_G10_B10_A2_SRGB:
 			//formatInfoOut->vkImageFormat = VK_FORMAT_R16G16B16A16_SNORM; // Vulkan has no uncompressed SRGB format with more than 8 bits per channel
 			//formatInfoOut->decoder = TextureDecoder_R10_G10_B10_A2_SNORM_To_RGBA16::getInstance();

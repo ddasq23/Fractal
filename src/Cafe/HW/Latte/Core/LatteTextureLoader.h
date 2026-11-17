@@ -1556,6 +1556,44 @@ public:
 	}
 };
 
+// A2_B10_G10_R10 (Resident Evil Revelations) for VK_FORMAT_A2B10G10R10_UNORM_PACK32: same fields as OpenGL's
+// GL_UNSIGNED_INT_10_10_10_2 upload (R bits 22-31, G 12-21, B 2-11, A 0-1); the view swizzle then reverses them
+class TextureDecoder_A2_B10_G10_R10_UNORM_To_A2B10G10R10 : public TextureDecoder, public SingletonClass<TextureDecoder_A2_B10_G10_R10_UNORM_To_A2B10G10R10>
+{
+public:
+	sint32 getBytesPerTexel(LatteTextureLoaderCtx* textureLoader) override
+	{
+		return 4;
+	}
+
+	static uint32 convert(uint32 v)
+	{
+		return ((v >> 22) & 0x3FF) | (((v >> 12) & 0x3FF) << 10) | (((v >> 2) & 0x3FF) << 20) | ((v & 0x3) << 30);
+	}
+
+	void decode(LatteTextureLoaderCtx* textureLoader, uint8* outputData) override
+	{
+		for (sint32 y = 0; y < textureLoader->height; y += textureLoader->stepY)
+		{
+			for (sint32 x = 0; x < textureLoader->width; x += textureLoader->stepX)
+			{
+				uint8* blockData = LatteTextureLoader_GetInput(textureLoader, x, y);
+				sint32 pixelOffset = (x + y * textureLoader->width) * sizeof(uint32);
+				*(uint32*)(outputData + pixelOffset) = convert(*(uint32*)blockData);
+			}
+		}
+	}
+
+	void decodePixelToRGBA(uint8* blockData, uint8* outputPixel, uint8 blockOffsetX, uint8 blockOffsetY) override
+	{
+		const uint32 v = convert(*(uint32*)blockData);
+		*(outputPixel + 0) = (uint8)(((v >> 0) & 0x3FF) >> 2);
+		*(outputPixel + 1) = (uint8)(((v >> 10) & 0x3FF) >> 2);
+		*(outputPixel + 2) = (uint8)(((v >> 20) & 0x3FF) >> 2);
+		*(outputPixel + 3) = (uint8)(((v >> 30) & 0x3) * 85);
+	}
+};
+
 class TextureDecoder_R11_G11_B10_FLOAT : public TextureDecoder, public SingletonClass<TextureDecoder_R11_G11_B10_FLOAT>
 {
 public:
