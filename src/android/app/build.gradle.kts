@@ -47,7 +47,11 @@ android {
     compileSdk = 36
     ndkVersion = "29.0.14206865"
     defaultConfig {
-        applicationId = "dev.dfd.fractal"
+        // FRACTAL_TEST_BUILD=1: a release build for testers that installs next to the official app (own package, data
+        // folder and name), so a test version never replaces the one people play on
+        val testBuild = System.getenv("FRACTAL_TEST_BUILD") == "1"
+        applicationId = if (testBuild) "dev.dfd.fractal.teste" else "dev.dfd.fractal"
+        manifestPlaceholders["appLabel"] = if (testBuild) "Fractal Teste" else "@string/app_name"
         minSdk = 30
         targetSdk = 35
         versionName = getVersionName()
