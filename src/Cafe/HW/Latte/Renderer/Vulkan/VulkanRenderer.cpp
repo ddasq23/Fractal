@@ -2565,7 +2565,7 @@ void VulkanRenderer::ProcessFinishedCommandBuffers()
 void VulkanRenderer::PerfTimestampBegin()
 {
 	m_perfQueryWritten[m_commandBufferIndex] = false;
-	if (!m_perfTimestampsSupported || !PerfLog::IsFull())
+	if (!m_perfTimestampsSupported || !(PerfLog::IsFull() || PerfLog::GpuLoadWanted()))
 		return;
 	if (m_perfQueryPool == VK_NULL_HANDLE)
 	{

@@ -3,8 +3,9 @@
 // Based on WinlatorHUD and CPUStatus from Winlator-Ludashi by StevenMXZ
 // (https://github.com/StevenMXZ/Winlator-Ludashi), licensed under the GPL-3.0.
 // Ported to Kotlin and adapted to Fractal: the sysfs nodes are probed once and only the ones that answered are read,
-// and the statistics nobody shows are not read at all. The Adreno memstore fallback (KgslLoadFallback) needs
-// Winlator's native gpuusage library and is not part of this port.
+// and the statistics nobody shows are not read at all. GPU usage comes first from Fractal's own command buffer
+// timestamps (any driver, no sysfs needed); the sysfs nodes are the fallback. Winlator's Adreno memstore fallback
+// (KgslLoadFallback, native gpuusage library) is not part of this port.
 
 package dev.dfd.fractal.emulation.hud
 
@@ -15,6 +16,7 @@ import android.os.BatteryManager
 import android.os.SystemClock
 import dev.dfd.fractal.common.gpu.GpuInfo
 import dev.dfd.fractal.common.settings.HudItem
+import dev.dfd.fractal.nativeinterface.NativeEmulation
 import java.io.File
 import java.io.FileInputStream
 import java.util.Locale
@@ -33,7 +35,9 @@ internal class HudSensors(context: Context) {
 
     /** Readings, by [HudItem] ordinal; [HudItem.CHARGING] is 1 or 0. */
     fun sample(mask: Int, out: IntArray) {
-        if (mask and HudItem.GPU_USAGE.bit != 0) out[HudItem.GPU_USAGE.ordinal] = readGpu()
+        val wantsGpu = mask and HudItem.GPU_USAGE.bit != 0
+        setEmulatorGpuLoad(wantsGpu)
+        if (wantsGpu) out[HudItem.GPU_USAGE.ordinal] = readGpu()
         if (mask and HudItem.CPU_USAGE.bit != 0) out[HudItem.CPU_USAGE.ordinal] = readCpuUsage()
         if (mask and HudItem.CPU_TEMP.bit != 0) out[HudItem.CPU_TEMP.ordinal] = readCpuTemp()
         if (mask and HudItem.RAM.bit != 0) out[HudItem.RAM.ordinal] = readRam()
@@ -52,7 +56,18 @@ internal class HudSensors(context: Context) {
     private var maliGpuMs = -1L
     private var maliWallMs = 0L
 
+    private var emulatorGpuLoadOn = false
+
+    /** The emulator's own GPU timestamps: they work on any driver, also where the system hides the load files. */
+    fun setEmulatorGpuLoad(on: Boolean) {
+        if (on == emulatorGpuLoadOn) return
+        emulatorGpuLoadOn = on
+        runCatching { NativeEmulation.setGpuLoadWanted(on) }
+    }
+
     private fun readGpu(): Int {
+        val emulator = runCatching { NativeEmulation.getGpuLoadPercent() }.getOrDefault(-1)
+        if (emulator >= 0) return emulator
         var paths = gpuPaths ?: detectGpuPaths().also { gpuPaths = it }
         for (path in paths) {
             val value = readGpuSample(path)

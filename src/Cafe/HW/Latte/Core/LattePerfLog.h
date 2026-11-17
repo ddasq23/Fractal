@@ -39,6 +39,12 @@ namespace PerfLog
 	void SetGpuInfo(std::string_view gpu, std::string_view driver);
 	// a command buffer ran on the GPU from startNs to endNs (GPU clock); overlapping work is counted once
 	void GpuWork(uint64 startNs, uint64 endNs);
+	// performance HUD: asks for command buffer timestamps (cheap: two per command buffer) to show the GPU load on any
+	// device, also where the system hides the GPU load files. GpuLoadPercent: busy share of the time since the last
+	// call, -1 when there are no timestamps (not wanted yet, or the driver has none)
+	void SetGpuLoadWanted(bool wanted);
+	bool GpuLoadWanted();
+	int GpuLoadPercent();
 	// render thread: one per render pass begun / per draw submitted to the host API
 	// experiment knobs: "key=value" lines in <user data>/perf/tuning.txt, read once per process (default if absent)
 	sint64 Tunable(std::string_view key, sint64 defaultValue);

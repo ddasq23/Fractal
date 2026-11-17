@@ -391,6 +391,8 @@ class PerformanceHudView(context: Context) : View(context) {
         statsLoop?.let {
             it.alive = false
             it.handler.removeCallbacks(it)
+            // the GPU timestamps cost a little: off while nobody looks (runs before the quit below)
+            sensors?.let { s -> it.handler.post { s.setEmulatorGpuLoad(false) } }
         }
         statsThread?.quitSafely()
         statsThread = null

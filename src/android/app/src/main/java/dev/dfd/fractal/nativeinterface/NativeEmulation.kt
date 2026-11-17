@@ -50,6 +50,14 @@ object NativeEmulation {
     @JvmStatic
     external fun getFps(): Double
 
+    /** Performance HUD: turns on the cheap per command buffer GPU timestamps behind [getGpuLoadPercent]. */
+    @JvmStatic
+    external fun setGpuLoadWanted(wanted: Boolean)
+
+    /** Share of the time since the last call the GPU spent on the game's work, -1 when the driver gives no timestamps. */
+    @JvmStatic
+    external fun getGpuLoadPercent(): Int
+
     @JvmStatic
     external fun getForegroundTitleName(): String
 

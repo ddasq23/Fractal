@@ -2,6 +2,7 @@
 #include "AndroidInputHelpers.h"
 #include "Cafe/CafeSystem.h"
 #include "Cafe/HW/Latte/Core/LatteOverlay.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
 #include "Cafe/OS/libs/snd_core/ax.h"
@@ -421,6 +422,18 @@ extern "C" [[maybe_unused]] JNIEXPORT jlong JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getForegroundTitleId([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
 {
 	return static_cast<jlong>(CafeSystem::GetForegroundTitleId());
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_setGpuLoadWanted([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean wanted)
+{
+	PerfLog::SetGpuLoadWanted(wanted);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jint JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getGpuLoadPercent([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	return PerfLog::GpuLoadPercent();
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT jdouble JNICALL

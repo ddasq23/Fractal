@@ -26,7 +26,7 @@ fun hudItemName(item: HudItem): String = when (item) {
 fun hudItemDescription(item: HudItem): String = when (item) {
     HudItem.FPS -> tr("Frames the game shows per second")
     HudItem.GPU_NAME -> tr("The device's graphics chip")
-    HudItem.GPU_USAGE -> tr("How busy the GPU is. Many phones don't let apps read it: it shows N/A then")
+    HudItem.GPU_USAGE -> tr("How busy the GPU is with the game, measured by Fractal itself, so it works on any phone and driver")
     HudItem.CPU_USAGE -> tr("Of the whole device. Where Android hides the load, it is estimated from the clock speeds")
     HudItem.CPU_TEMP -> tr("From a CPU sensor the system lets apps read")
     HudItem.RAM -> tr("Memory in use on the device, in percent")

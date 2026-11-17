@@ -1108,9 +1108,39 @@ namespace PerfLog
 		}
 	}
 
+	// GPU load for the performance HUD: command buffer timestamps also run without the full log while the HUD asks
+	static std::atomic<bool> s_gpuLoadWanted{false};
+	static std::atomic<uint64> s_gpuLoadBusyNs{0};
+	static std::atomic<bool> s_gpuLoadSampled{false};
+
+	void SetGpuLoadWanted(bool wanted)
+	{
+		s_gpuLoadWanted.store(wanted, std::memory_order_relaxed);
+	}
+
+	bool GpuLoadWanted()
+	{
+		return s_gpuLoadWanted.load(std::memory_order_relaxed);
+	}
+
+	int GpuLoadPercent()
+	{
+		static std::chrono::steady_clock::time_point s_last{};
+		const auto now = std::chrono::steady_clock::now();
+		const uint64 busyNs = s_gpuLoadBusyNs.exchange(0, std::memory_order_relaxed);
+		const auto last = s_last;
+		s_last = now;
+		if (!s_gpuLoadSampled.load(std::memory_order_relaxed) || last.time_since_epoch().count() == 0)
+			return -1;
+		const double wallNs = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(now - last).count();
+		if (wallNs <= 0.0)
+			return -1;
+		return (int)std::clamp(busyNs * 100.0 / wallNs + 0.5, 0.0, 100.0);
+	}
+
 	void GpuWork(uint64 startNs, uint64 endNs)
 	{
-		if (!IsActive())
+		if (!IsActive() && !GpuLoadWanted())
 			return;
 		constexpr uint64 kSecondNs = 1000000000ull;
 		if (endNs - startNs > kSecondNs)
@@ -1119,7 +1149,15 @@ namespace PerfLog
 			s_gpuLastEndNs = 0; // the GPU clock went backwards (or an earlier timestamp was bogus)
 		const uint64 from = std::max(startNs, s_gpuLastEndNs);
 		if (endNs > from)
-			s_counters.gpuBusyNs += endNs - from;
+		{
+			if (IsActive())
+				s_counters.gpuBusyNs += endNs - from;
+			if (GpuLoadWanted())
+			{
+				s_gpuLoadBusyNs.fetch_add(endNs - from, std::memory_order_relaxed);
+				s_gpuLoadSampled.store(true, std::memory_order_relaxed);
+			}
+		}
 		s_gpuLastEndNs = std::max(s_gpuLastEndNs, endNs);
 	}
 
