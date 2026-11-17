@@ -1525,7 +1525,10 @@ public:
 	}
 
 	// drops everything from the cache that isn't considered in use or unrestorable due to containing streamout data
-	static void CleanupCacheAggressive(MPTR excludedRangeBegin, MPTR excludedRangeEnd)
+	// dropStreamoutOlderThanFrames > 0: last resort, also drops ranges holding streamout output that no draw used for that
+	// many frames (their data is lost, the range reloads from RAM when used again). Without it a game with a lot of
+	// streamout (Disney Infinity 3.0) filled the heap with ranges that can never be freed and stopped on an assert
+	static void CleanupCacheAggressive(MPTR excludedRangeBegin, MPTR excludedRangeEnd, uint32 dropStreamoutOlderThanFrames = 0)
 	{
 		size_t i = 0;
 		while (i < s_allCacheNodes.size())
@@ -1536,7 +1539,7 @@ public:
 				i++;
 				continue;
 			}
-			if(!node->isRAMOnly())
+			if(!node->isRAMOnly() && (dropStreamoutOlderThanFrames == 0 || node->GetFrameAge() < dropStreamoutOlderThanFrames))
 			{
 				i++;
 				continue;
@@ -1576,6 +1579,11 @@ public:
 			{
 				cemuLog_log(LogType::Force, "Out-of-memory in GPU buffer (trying to allocate: {}KB) Cleaning up cache...", (rangeEnd - rangeBegin + 1023) / 1024);
 				CleanupCacheAggressive(rangeBegin, rangeEnd);
+				if (!newRange->allocateCacheMemory())
+				{
+					cemuLog_log(LogType::Force, "GPU buffer still full: dropping streamout ranges unused for 2 frames");
+					CleanupCacheAggressive(rangeBegin, rangeEnd, 2);
+				}
 				if (!newRange->allocateCacheMemory())
 				{
 					cemuLog_log(LogType::Force, "Failed to free enough memory in GPU buffer");
