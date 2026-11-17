@@ -141,6 +141,11 @@ enum class IMLOperation : uint8
 	OP_FPR_ROUND_TO_SINGLE_PRECISION_BOTTOM, // round 64bit double to 64bit double with 32bit float precision (in bottom half of xmm register)
 	OP_FPR_FCTIWZ,
 	OP_FPR_SELECT, // selectively copy bottom value from operand B or C based on value in operand A
+	// fused multiply-add (FPR_R_R_R_R), one rounding like Espresso: R = A*C + B, A*C - B, -(A*C + B), -(A*C - B)
+	OP_FPR_FMADD,
+	OP_FPR_FMSUB,
+	OP_FPR_FNMADD,
+	OP_FPR_FNMSUB,
 	// Conversion (FPR_R_R)
 	OP_FPR_INT_TO_FLOAT, // convert integer value in gpr to floating point value in fpr
 	OP_FPR_FLOAT_TO_INT, // convert floating point value in fpr to integer value in gpr

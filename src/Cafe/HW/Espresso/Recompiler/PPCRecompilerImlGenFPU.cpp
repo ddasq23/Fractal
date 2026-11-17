@@ -268,6 +268,21 @@ bool PPCRecompilerImlGen_FDIV(ppcImlGenContext_t* ppcImlGenContext, uint32 opcod
 	return true;
 }
 
+// Espresso fuses fmadd/fmsub/fnmadd/fnmsub (one rounding) and the interpreter does too (clang contracts a*c+b on
+// AArch64). Emitting a multiply and an add rounds twice and loses the low bits that games use for precise math
+// (a*c - p is the exact rounding error of p = a*c only when fused; Splinter Cell Blacklist overexposed without it).
+// AArch64 has fused instructions; perf/tuning.txt jit_fma=<mask> picks where they are used (1 double precision ops,
+// 2 single precision ops, default 3; 0 restores the old two-step code for comparisons)
+static bool _UseFusedMultiplyAdd(bool singlePrecision)
+{
+#if defined(__aarch64__)
+	static const uint32 s_fma = (uint32)PerfLog::Tunable("jit_fma", 3);
+	return (s_fma & (singlePrecision ? 2 : 1)) != 0;
+#else
+	return false;
+#endif
+}
+
 bool PPCRecompilerImlGen_FMADD(ppcImlGenContext_t* ppcImlGenContext, uint32 opcode)
 {
 	sint32 frD, frA, frB, frC;
@@ -276,6 +291,11 @@ bool PPCRecompilerImlGen_FMADD(ppcImlGenContext_t* ppcImlGenContext, uint32 opco
 	DefinePS0(fprB, frB);
 	DefinePS0(fprC, frC);
 	DefinePS0(fprD, frD);
+	if (_UseFusedMultiplyAdd(false))
+	{
+		ppcImlGenContext->emitInst().make_fpr_r_r_r_r(IMLOperation::OP_FPR_FMADD, fprD, fprA, fprB, fprC);
+		return true;
+	}
 	// if frB is already in frD we need a temporary register to store the product of frA*frC
 	if( frB == frD )
 	{
@@ -314,6 +334,15 @@ bool PPCRecompilerImlGen_FMSUB(ppcImlGenContext_t* ppcImlGenContext, uint32 opco
 	DefinePS0(fprB, frB);
 	DefinePS0(fprC, frC);
 	DefinePS0(fprD, frD);
+	// frB == frD leaves the function to the interpreter, as before fused ops existed: recompiling those 38 functions of
+	// Splinter Cell Blacklist ended in a guest null write once (1 of 4 runs), not worth the risk
+	if (frB == frD)
+		return false;
+	if (_UseFusedMultiplyAdd(false))
+	{
+		ppcImlGenContext->emitInst().make_fpr_r_r_r_r(IMLOperation::OP_FPR_FMSUB, fprD, fprA, fprB, fprC);
+		return true;
+	}
 	if( frB == frD )
 	{
 		// if frB is already in frD we need a temporary register to store the product of frA*frC
@@ -349,6 +378,11 @@ bool PPCRecompilerImlGen_FNMSUB(ppcImlGenContext_t* ppcImlGenContext, uint32 opc
 	DefinePS0(fprB, frB);
 	DefinePS0(fprC, frC);
 	DefinePS0(fprD, frD);
+	if (_UseFusedMultiplyAdd(false))
+	{
+		ppcImlGenContext->emitInst().make_fpr_r_r_r_r(IMLOperation::OP_FPR_FNMSUB, fprD, fprA, fprB, fprC);
+		return true;
+	}
 	// if frB is already in frD we need a temporary register to store the product of frA*frC
 	if( frB == frD )
 	{
@@ -499,6 +533,13 @@ bool PPCRecompilerImlGen_FMADDS(ppcImlGenContext_t* ppcImlGenContext, uint32 opc
 	DefinePS0(fprB, frB);
 	DefinePS0(fprC, frC);
 	DefinePS0(fprD, frD);
+	if (_UseFusedMultiplyAdd(true))
+	{
+		ppcImlGenContext->emitInst().make_fpr_r_r_r_r(IMLOperation::OP_FPR_FMADD, fprD, fprA, fprB, fprC);
+		PPRecompilerImmGen_roundToSinglePrecision(ppcImlGenContext, fprD);
+		PSE_CopyResultToPs1();
+		return true;
+	}
 	// if none of the operand registers overlap with the result register then we can avoid the usage of a temporary register
 	IMLReg fprRegisterTemp;
 	if( frD != frA && frD != frB && frD != frC )
@@ -526,6 +567,13 @@ bool PPCRecompilerImlGen_FMSUBS(ppcImlGenContext_t* ppcImlGenContext, uint32 opc
 	DefinePS0(fprB, frB);
 	DefinePS0(fprC, frC);
 	DefinePS0(fprD, frD);
+	if (_UseFusedMultiplyAdd(true))
+	{
+		ppcImlGenContext->emitInst().make_fpr_r_r_r_r(IMLOperation::OP_FPR_FMSUB, fprD, fprA, fprB, fprC);
+		PPRecompilerImmGen_roundToSinglePrecision(ppcImlGenContext, fprD);
+		PSE_CopyResultToPs1();
+		return true;
+	}
 
 	IMLReg fprRegisterTemp;
 	// if none of the operand registers overlap with the result register then we can avoid the usage of a temporary register
@@ -554,6 +602,13 @@ bool PPCRecompilerImlGen_FNMSUBS(ppcImlGenContext_t* ppcImlGenContext, uint32 op
 	DefinePS0(fprB, frB);
 	DefinePS0(fprC, frC);
 	DefinePS0(fprD, frD);
+	if (_UseFusedMultiplyAdd(true))
+	{
+		ppcImlGenContext->emitInst().make_fpr_r_r_r_r(IMLOperation::OP_FPR_FNMSUB, fprD, fprA, fprB, fprC);
+		PPRecompilerImmGen_roundToSinglePrecision(ppcImlGenContext, fprD);
+		PSE_CopyResultToPs1();
+		return true;
+	}
 	IMLReg fprRegisterTemp;
 	// if none of the operand registers overlap with the result register then we can avoid the usage of a temporary register
 	if( frD != frA && frD != frB && frD != frC )

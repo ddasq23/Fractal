@@ -1717,6 +1717,25 @@ void AArch64GenContext_t::fpr_r_r_r_r(IMLInstruction* imlInstruction)
 		fcmp(regA, 0.0);
 		fcsel(regR, regC, regB, Cond::GE);
 	}
+	else if (imlInstruction->operation == IMLOperation::OP_FPR_FMADD)
+	{
+		fmadd(regR, regA, regC, regB); // B + A*C
+	}
+	else if (imlInstruction->operation == IMLOperation::OP_FPR_FMSUB)
+	{
+		fnmsub(regR, regA, regC, regB); // A*C - B
+	}
+	else if (imlInstruction->operation == IMLOperation::OP_FPR_FNMADD)
+	{
+		// negate after the fused op so an exact zero becomes -0 like on Espresso
+		fmadd(regR, regA, regC, regB);
+		fneg(regR, regR);
+	}
+	else if (imlInstruction->operation == IMLOperation::OP_FPR_FNMSUB)
+	{
+		fnmsub(regR, regA, regC, regB);
+		fneg(regR, regR);
+	}
 	else
 	{
 		cemu_assert_suspicious();
