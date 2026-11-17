@@ -95,25 +95,33 @@ namespace NativeEmulation
 	void CreateCemuDirectories()
 	{
 		const auto mlc = ActiveSettings::GetMlcPath();
+		// a folder that cannot be created is logged instead of ending the app with an uncaught filesystem_error (GitHub
+		// issue #1: permission denied on Android/data on a custom ROM)
+		auto createDir = [](const fs::path& path) {
+			std::error_code ec;
+			fs::create_directories(path, ec);
+			if (ec)
+				cemuLog_log(LogType::Force, "Unable to create folder {}: {}", _pathToUtf8(path), ec.message());
+		};
 
 		// create sys/usr folder in mlc01
 		const auto sysFolder = mlc / "sys";
-		fs::create_directories(sysFolder);
+		createDir(sysFolder);
 
 		const auto usrFolder = mlc / "usr";
-		fs::create_directories(usrFolder);
-		fs::create_directories(usrFolder / "title/00050000"); // base
-		fs::create_directories(usrFolder / "title/0005000c"); // dlc
-		fs::create_directories(usrFolder / "title/0005000e"); // update
+		createDir(usrFolder);
+		createDir(usrFolder / "title/00050000"); // base
+		createDir(usrFolder / "title/0005000c"); // dlc
+		createDir(usrFolder / "title/0005000e"); // update
 
 		// Mii Maker save folders {0x500101004A000, 0x500101004A100, 0x500101004A200},
-		fs::create_directories(mlc / "usr/save/00050010/1004a100/user/common/db");
-		fs::create_directories(mlc / "usr/save/00050010/1004a000/user/common/db");
-		fs::create_directories(mlc / "usr/save/00050010/1004a200/user/common/db");
+		createDir(mlc / "usr/save/00050010/1004a100/user/common/db");
+		createDir(mlc / "usr/save/00050010/1004a000/user/common/db");
+		createDir(mlc / "usr/save/00050010/1004a200/user/common/db");
 
 		// lang files
 		auto langDir = mlc / "sys/title/0005001b/1005c000/content";
-		fs::create_directories(langDir);
+		createDir(langDir);
 
 		auto langFile = langDir / "language.txt";
 
@@ -144,8 +152,8 @@ namespace NativeEmulation
 		}
 
 		// cemu directories
-		fs::create_directories(ActiveSettings::GetConfigPath("controllerProfiles"));
-		fs::create_directories(ActiveSettings::GetUserDataPath("memorySearcher"));
+		createDir(ActiveSettings::GetConfigPath("controllerProfiles"));
+		createDir(ActiveSettings::GetUserDataPath("memorySearcher"));
 	}
 
 	enum PrepareTitleResult : sint32

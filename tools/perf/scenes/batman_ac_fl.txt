@@ -2,7 +2,7 @@
 # title_id: 000500001010ab00
 # duration: 300
 # window: 150 290
-# scene: first look from a new save: A every 3 s through logos, title and menus (PLUS at 31/61/91 for "press start"), then the opening
+# scene: first look: A every 3 s through logos, title and menus (PLUS at 31 for "press start"), New Game Options at ~45 s: DOWN x4 to Start Game, A; then A every 3 s through the opening (A cycles the difficulty while still on the options screen, so the DOWNs repeat at 70)
 20 A
 23 A
 26 A
@@ -12,24 +12,20 @@
 35 A
 38 A
 41 A
-44 A
-47 A
-50 A
-53 A
-56 A
-59 A
-61 PLUS
-62 A
-65 A
-68 A
-71 A
-74 A
-77 A
+50 DOWN
+51 DOWN
+52 DOWN
+53 DOWN
+55 A
+70 DOWN
+71 DOWN
+72 DOWN
+73 DOWN
+75 A
 80 A
 83 A
 86 A
 89 A
-91 PLUS
 92 A
 95 A
 98 A
@@ -96,4 +92,3 @@
 281 A
 284 A
 287 A
-290 A

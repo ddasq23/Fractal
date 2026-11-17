@@ -397,7 +397,10 @@ LatteFetchShader* LatteShaderRecompiler_createFetchShader(LatteFetchShader::Cach
 		return newFetchShader;
 	}
 
-	if ((fsProgramCode[0] & 1) == 0 && fsProgramCode[0] <= 0x30 && (fsProgramCode[1]&~((3 << 10)| (1 << 19))) == 0x01800000)
+	// the mask leaves out the clause instruction count: bits 10-12 plus bit 19. Bit 12 was missing, so a clause of 5-8 or
+	// 13-16 fetch instructions went to the legacy parser, which misread it and aborted on a bogus attribute format (BotW
+	// with a community shader cache from chriztr closed while loading it)
+	if ((fsProgramCode[0] & 1) == 0 && fsProgramCode[0] <= 0x30 && (fsProgramCode[1]&~((7 << 10)| (1 << 19))) == 0x01800000)
 	{
 		// very likely a CF instruction
 		_fetchShaderDecompiler_parseCF(newFetchShader, contextRegister, { (uint8*)fsProgramCode, fsProgramSize });
