@@ -72,6 +72,11 @@ sleep 6
 in_front() { $A shell dumpsys window | grep -m1 mCurrentFocus | grep -q "$PKG"; }
 in_front || { $A shell am start -n "$ACT" >/dev/null 2>&1; sleep 6; }
 in_front || { echo "$SCENE: another app is in front ($($A shell dumpsys window | grep -m1 mCurrentFocus | tr -d '\r')), not tapping"; exit 1; }
+# LAUNCH_PATH=<path from title_list_cache.xml>: open the game directly (a title the library does not list, seen on the RP5)
+if [ -n "${LAUNCH_PATH:-}" ]; then
+  $A shell am start -n $PKG/.emulation.EmulationActivity --es $PKG.LaunchPath "'$LAUNCH_PATH'" >/dev/null
+  sleep 4
+else
 # the game may be below the visible rows: scroll down a few times until it shows up
 for try in 1 2 3 4 5; do
   ui=$($A exec-out uiautomator dump /dev/tty 2>/dev/null)
@@ -96,6 +101,7 @@ for try in 1 2 3; do
   in_front || { echo "$SCENE: another app came to the front, not tapping"; break; }
   $A shell input tap $(( (x1 + x2) / 2 )) $ty
 done
+fi
 start=$(date +%s)
 
 # clocks and thermal state every 2 s (the RP5 caps its GPU at 400 of 905 MHz when hot, which changes every result)

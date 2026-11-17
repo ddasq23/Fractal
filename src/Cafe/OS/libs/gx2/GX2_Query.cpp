@@ -4,6 +4,7 @@
 #include "Cafe/HW/Latte/Core/LattePM4.h"
 #include "Cafe/CafeSystem.h"
 #include "GX2_Query.h"
+#include "Cafe/HW/Latte/Core/Latte.h"
 #include "Cafe/HW/Latte/Core/LattePerfLog.h"
 
 #define LATTE_GC_NUM_RB							2
@@ -97,6 +98,28 @@ namespace GX2
 		}
 	}
 
+	// a guest stuck polling one query: log its memory and the host-side query state once, for hang reports
+	static void _QueryNotReady(GX2Query* query)
+	{
+		static MPTR s_lastQuery = MPTR_NULL;
+		static uint32 s_spins = 0;
+		static uint32 s_logged = 0;
+		MPTR q = MEMPTR<GX2Query>(query).GetMPTR();
+		if (q != s_lastQuery)
+		{
+			s_lastQuery = q;
+			s_spins = 0;
+		}
+		if (++s_spins == 2000000 && s_logged < 4)
+		{
+			s_logged++;
+			std::string regs;
+			for (uint32 i = 0; i < _QUERY_REG_COUNT * 2; i++)
+				regs += fmt::format(" {:08x}", _swapEndianU32(query->reg[i]));
+			cemuLog_log(LogType::Force, "GX2: query {:08x} not ready after {} polls, mem{} | {}", q, s_spins, regs, LatteQuery_DebugState());
+		}
+	}
+
 	uint32 GX2QueryGetOcclusionResult(GX2Query* query, uint64be* resultOut)
 	{
 		// diagnostics: perf/tuning.txt query_force_result=<samples> answers every occlusion query at once with that count
@@ -109,6 +132,7 @@ namespace GX2
 		if (query->reg[LATTE_GC_NUM_RB * 4 + 1] == _swapEndianU32('OCPU') && query->reg[LATTE_GC_NUM_RB * 4 + 0] == 0)
 		{
 			// CPU query result not ready
+			_QueryNotReady(query);
 			return GX2_FALSE;
 		}
 
@@ -116,6 +140,7 @@ namespace GX2
 		uint64 endValue = *(uint64*)(query->reg + 2);
 		if ((startValue & 0x8000000000000000ULL) || (endValue & 0x8000000000000000ULL))
 		{
+			_QueryNotReady(query);
 			return GX2_FALSE;
 		}
 		*resultOut = endValue - startValue;

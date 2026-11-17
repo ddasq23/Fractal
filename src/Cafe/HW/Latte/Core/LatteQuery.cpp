@@ -91,6 +91,11 @@ void LatteQuery_UpdateFinishedQueries()
 		i--;
 		g_renderer->occlusionQuery_destroy(queryObject);
 	}
+	// nothing in flight and no host query running: no samples are pending, so every event issued so far is finished. A GX2
+	// query that ended while no host query was running otherwise never finished (Batman Arkham City froze on "Saving..."
+	// polling GX2QueryGetOcclusionResult forever)
+	if (list_queriesInFlight.empty() && _currentlyActiveRendererQuery == nullptr && queryEventCounter > 0 && latestQueryFinishedEventId < queryEventCounter - 1)
+		latestQueryFinishedEventId = queryEventCounter - 1;
 	// check for finished GX2 queries
 	for (sint32 i = 0; i < list_activeGX2Queries2.size(); i++)
 	{
@@ -103,6 +108,18 @@ void LatteQuery_UpdateFinishedQueries()
 			i--;
 		}
 	}
+}
+
+// diagnostics for a guest stuck polling an occlusion query (GX2QueryGetOcclusionResult): the host-side query state.
+// Read without locking from the CPU thread, only for the log
+std::string LatteQuery_DebugState()
+{
+	std::string r = fmt::format("latestFinishedEvent {} inFlight {} activeRendererQuery {}", latestQueryFinishedEventId, list_queriesInFlight.size(), _currentlyActiveRendererQuery != nullptr);
+	for (auto& it : list_queriesInFlight)
+		r += fmt::format(" [flight {}-{} ended {}]", it->queryEventStart, it->queryEventEnd, it->queryEnded);
+	for (auto& it : list_activeGX2Queries2)
+		r += fmt::format(" [gx2 {:08x} {}-{} ended {}]", it->queryMPTR, it->queryEventStart, it->queryEventEnd, it->queryEnded);
+	return r;
 }
 
 bool LatteQuery_HasPendingGX2Queries()
@@ -146,13 +163,20 @@ void LatteQuery_BeginOcclusionQuery(MPTR queryMPTR)
 		checkQueriesCounter = 0;
 	}
 
-	for(auto& it : list_activeGX2Queries2)
+	for (size_t i = 0; i < list_activeGX2Queries2.size(); i++)
 	{
-		if (it->queryMPTR == queryMPTR)
+		auto it = list_activeGX2Queries2[i];
+		if (it->queryMPTR != queryMPTR)
+			continue;
+		if (!it->queryEnded)
 		{
 			debug_printf("itHLEBeginOcclusionQuery: Query 0x%08x is already active\n", queryMPTR);
 			return;
 		}
+		// ended but its result was not written yet: the guest begins it again, so the old result is no longer wanted
+		free(it);
+		list_activeGX2Queries2.erase(list_activeGX2Queries2.begin() + i);
+		break;
 	}
 	uint64 currentEventId = LatteQuery_getNextEventId();
 	// end any currently active query
@@ -201,7 +225,8 @@ void LatteQuery_EndOcclusionQuery(MPTR queryMPTR)
 	{
 		LatteQueryObject* queryObject = LatteQuery_createSamplePassedQuery();
 		LatteQuery_begin(queryObject, currentEventId);
-		list_queriesInFlight.emplace_back(queryObject);
+		// not in flight yet: LatteQuery_endActiveRendererQuery adds it when it ends. Adding it here too put the same object
+		// in the list twice, so it was recycled while still listed
 		_currentlyActiveRendererQuery = queryObject;
 		catchOpenGLError();
 	}
