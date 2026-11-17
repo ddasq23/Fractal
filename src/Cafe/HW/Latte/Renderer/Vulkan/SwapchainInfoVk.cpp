@@ -196,6 +196,7 @@ void SwapchainInfoVk::Create()
 
 	m_acquireIndex = 0;
 	hasDefinedSwapchainImage = false;
+	hasPresentedImage = false;
 
 	m_queueDepth = 0;
 }

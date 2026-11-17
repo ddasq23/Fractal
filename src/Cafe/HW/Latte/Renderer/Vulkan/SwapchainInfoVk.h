@@ -71,6 +71,7 @@ struct SwapchainInfoVk
 	bool m_supportsTransferSrc = false; // swapchain images can be copied from (only requested while frame generation is active)
 	VSync m_vsyncState = VSync::Immediate;
 	bool hasDefinedSwapchainImage{}; // indicates if the swapchain image is in a defined state
+	bool hasPresentedImage{}; // a game picture was presented on this swapchain (a later swap without a copy keeps it)
 	VkInstance m_instance{};
 	VkPhysicalDevice m_physicalDevice{};
 	VkDevice m_logicalDevice{};

@@ -3829,6 +3829,12 @@ bool VulkanRenderer::UpdateSwapchainProperties(bool mainWindow)
 
 void VulkanRenderer::SwapBuffer(bool mainWindow)
 {
+	// a swap with nothing copied to this screen since the last one: on the console the scan buffer keeps its last
+	// picture, so keep showing it instead of presenting a cleared image (LEGO Batman 2 swaps twice per frame and
+	// flickered black every other frame on all GPUs)
+	if (GetChainInfo(mainWindow).swapchainImageIndex == -1 && GetChainInfo(mainWindow).hasPresentedImage)
+		return;
+
 	if(!AcquireNextSwapchainImage(mainWindow))
 		return;
 
@@ -3963,6 +3969,8 @@ void VulkanRenderer::PresentSwapchainImage(SwapchainInfoVk& chainInfo, bool isGe
 		chainInfo.m_shouldRecreate = true;
 #endif
 
+	if (chainInfo.hasDefinedSwapchainImage)
+		chainInfo.hasPresentedImage = true;
 	chainInfo.hasDefinedSwapchainImage = false;
 
 	chainInfo.swapchainImageIndex = -1;
