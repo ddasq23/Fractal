@@ -91,6 +91,25 @@ namespace coreinit
 		*physRangeSize = PHYS_RANGE_SIZE;
 	}
 
+	// Fractal: the virtual range OSAllocVirtAddr hands out (wut: OSGetMapVirtAddrRange). Unimplemented before, so the
+	// title read whatever was in its output variables (Splinter Cell Blacklist asks for it)
+	void OSGetMapVirtAddrRange(uint32be* virtRangeStart, uint32be* virtRangeSize)
+	{
+		if (virtRangeStart)
+			*virtRangeStart = VIRT_RANGE_ADDR;
+		if (virtRangeSize)
+			*virtRangeSize = VIRT_RANGE_SIZE;
+	}
+
+	// the physical range of the title's data memory (MEM2); physical and virtual addresses are the same here
+	void OSGetDataPhysAddrRange(uint32be* physRangeStart, uint32be* physRangeSize)
+	{
+		if (physRangeStart)
+			*physRangeStart = mmuRange_MEM2.getBase();
+		if (physRangeSize)
+			*physRangeSize = mmuRange_MEM2.getSize();
+	}
+
 	void* OSAllocVirtAddr(MEMPTR<void> address, uint32 size, uint32 align)
 	{
 		if (align == 0)
@@ -155,6 +174,8 @@ namespace coreinit
 	{
 		s_allocatedVirtMemory.clear();
 		cafeExportRegister("coreinit", OSGetAvailPhysAddrRange, LogType::CoreinitMemoryMapping);
+		cafeExportRegister("coreinit", OSGetMapVirtAddrRange, LogType::CoreinitMemoryMapping);
+		cafeExportRegister("coreinit", OSGetDataPhysAddrRange, LogType::CoreinitMemoryMapping);
 		cafeExportRegister("coreinit", OSAllocVirtAddr, LogType::CoreinitMemoryMapping);
 		cafeExportRegister("coreinit", OSFreeVirtAddr, LogType::CoreinitMemoryMapping);
 		cafeExportRegister("coreinit", OSMapMemory, LogType::CoreinitMemoryMapping);

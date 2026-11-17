@@ -4,6 +4,7 @@
 #include "Cafe/HW/Latte/Core/LattePM4.h"
 #include "Cafe/CafeSystem.h"
 #include "GX2_Query.h"
+#include "Cafe/HW/Latte/Core/LattePerfLog.h"
 
 #define LATTE_GC_NUM_RB							2
 #define _QUERY_REG_COUNT						8 // each reg/result is 64bits, little endian
@@ -98,6 +99,13 @@ namespace GX2
 
 	uint32 GX2QueryGetOcclusionResult(GX2Query* query, uint64be* resultOut)
 	{
+		// diagnostics: perf/tuning.txt query_force_result=<samples> answers every occlusion query at once with that count
+		static const sint64 s_forceResult = PerfLog::Tunable("query_force_result", -1);
+		if (s_forceResult >= 0)
+		{
+			*resultOut = (uint64)s_forceResult;
+			return GX2_TRUE;
+		}
 		if (query->reg[LATTE_GC_NUM_RB * 4 + 1] == _swapEndianU32('OCPU') && query->reg[LATTE_GC_NUM_RB * 4 + 0] == 0)
 		{
 			// CPU query result not ready
