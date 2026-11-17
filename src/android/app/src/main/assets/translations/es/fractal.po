@@ -3339,3 +3339,24 @@ msgstr "Mod instalado: {0}. Ábrelo en la lista, bajo el nombre de su juego, par
 
 msgid "Couldn't install the mod: {0}"
 msgstr "No se pudo instalar el mod: {0}"
+
+msgid "RADV (Mesa) port for Samsung Xclipse GPUs, the base of most Xclipse drivers"
+msgstr "Port de RADV (Mesa) para GPUs Samsung Xclipse, la base de la mayoría de los drivers Xclipse"
+
+msgid "RADV (Mesa) for Samsung Xclipse GPUs"
+msgstr "RADV (Mesa) para GPUs Samsung Xclipse"
+
+msgid "RADV for Samsung Xclipse GPUs following Mesa main"
+msgstr "RADV para GPUs Samsung Xclipse siguiendo Mesa main"
+
+msgid "RADV (Mesa) tuned for the Xclipse 940 (Galaxy S24 FE)"
+msgstr "RADV (Mesa) ajustado para la Xclipse 940 (Galaxy S24 FE)"
+
+msgid "RADV with profile-guided optimization for the Xclipse 550"
+msgstr "RADV con optimización guiada por perfil para la Xclipse 550"
+
+msgid "Experimental build for one GPU"
+msgstr "Build experimental para una GPU"
+
+msgid "Experimental: RADV (Mesa) drivers for Samsung Xclipse are listed below. If a driver fails, Fractal goes back to the system driver."
+msgstr "Experimental: abajo se listan drivers RADV (Mesa) para Samsung Xclipse. Si un driver falla, Fractal vuelve al driver del sistema."

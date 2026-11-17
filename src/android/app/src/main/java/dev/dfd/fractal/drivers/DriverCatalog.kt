@@ -163,6 +163,39 @@ val DriverSources = listOf(
     ),
 )
 
+/** Xclipse: RADV (Mesa) ports for Samsung Exynos GPUs. Their releases also carry glibc and Wayland builds for Linux
+ *  containers (Winlator, proot), which don't load in an Android app. */
+private fun radvAndroid(name: String): Boolean {
+    val n = name.lowercase()
+    return isZip(n) && n.startsWith("radv") && listOf("glibc", "wayland", "opengl", "source").none { it in n }
+}
+
+val XclipseSources = listOf(
+    DriverSource(
+        "JimVulkan", "radv-xclipse", GpuVendor.XCLIPSE,
+        trNoop("RADV (Mesa) port for Samsung Xclipse GPUs, the base of most Xclipse drivers"), { name, _ -> radvAndroid(name) },
+    ),
+    DriverSource(
+        "paulowesll", "mesa", GpuVendor.XCLIPSE,
+        trNoop("RADV (Mesa) for Samsung Xclipse GPUs"), { name, _ -> isZip(name) && "xclipse" in name.lowercase() },
+    ),
+    DriverSource(
+        "JesusChapman", "radv-xclipse-mainline", GpuVendor.XCLIPSE,
+        trNoop("RADV for Samsung Xclipse GPUs following Mesa main"), { name, _ -> radvAndroid(name) },
+    ),
+    DriverSource(
+        "aaditya-v-more", "xclipse-driver", GpuVendor.XCLIPSE,
+        trNoop("RADV (Mesa) tuned for the Xclipse 940 (Galaxy S24 FE)"), { name, _ -> radvAndroid(name) },
+        supports = { it.model == null || it.model >= 900 },
+    ),
+    DriverSource(
+        "nowhere02", "xclipse550-radv-pgo", GpuVendor.XCLIPSE,
+        trNoop("RADV with profile-guided optimization for the Xclipse 550"), { name, _ -> radvAndroid(name) },
+        supports = { it.model == null || it.model == 550 },
+        experimental = true, note = trNoop("Experimental build for one GPU"),
+    ),
+)
+
 @Serializable
 data class GhAsset(
     val name: String,

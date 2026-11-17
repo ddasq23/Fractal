@@ -150,10 +150,11 @@ void* g_vulkan_so = nullptr;
 bool SupportsLoadingCustomDriver()
 {
 #ifdef __aarch64__
-	// Adreno (kgsl) or Mali (kbase). libadrenotools' custom driver path only swaps the Vulkan HAL the
-	// system loader opens, so it also works for Mali drivers that are HAL modules (PanVK, malisx2).
+	// Adreno (kgsl), Mali (kbase) or Samsung Xclipse (sgpu, a DRM render node). libadrenotools' custom driver path only
+	// swaps the Vulkan HAL the system loader opens, so it also works for Mali drivers that are HAL modules (PanVK,
+	// malisx2) and for the RADV ports for Xclipse.
 	std::error_code ec;
-	return fs::exists("/dev/kgsl-3d0", ec) || fs::exists("/dev/mali0", ec);
+	return fs::exists("/dev/kgsl-3d0", ec) || fs::exists("/dev/mali0", ec) || fs::exists("/dev/dri/renderD128", ec);
 #else
 	return false;
 #endif

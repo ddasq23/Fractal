@@ -181,13 +181,15 @@ private fun GpuCard(gpu: Gpu?, supportsCustomDrivers: Boolean) {
                             tr("Turnip (Mesa) drivers for this GPU are listed below")
                         supportsCustomDrivers && gpu.vendor == GpuVendor.MALI ->
                             tr("Experimental: PanVK and malisx2 drivers for this GPU are listed below. If a driver fails, Fractal goes back to the system driver.")
+                        supportsCustomDrivers && gpu.vendor == GpuVendor.XCLIPSE ->
+                            tr("Experimental: RADV (Mesa) drivers for Samsung Xclipse are listed below. If a driver fails, Fractal goes back to the system driver.")
                         else -> tr("Custom drivers are not supported on this GPU; the system driver is used")
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = FractalTheme.colors.textSecondary,
                 )
             }
-            if (supportsCustomDrivers && gpu?.vendor == GpuVendor.MALI) {
+            if (supportsCustomDrivers && (gpu?.vendor == GpuVendor.MALI || gpu?.vendor == GpuVendor.XCLIPSE)) {
                 StatusChip(tr("Experimental"))
                 Spacer(Modifier.width(8.dp))
             }

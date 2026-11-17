@@ -82,7 +82,7 @@ class DriversViewModel(application: Application) : AndroidViewModel(application)
 
     /** Sources for this device's GPU vendor. */
     fun visibleSources(gpu: Gpu?): List<DriverSource> =
-        if (gpu == null || !supportsCustomDrivers) emptyList() else DriverSources.filter { it.vendor == gpu.vendor && it.supports(gpu) }
+        if (gpu == null || !supportsCustomDrivers) emptyList() else (DriverSources + XclipseSources).filter { it.vendor == gpu.vendor && it.supports(gpu) }
 
     fun refresh() = viewModelScope.launch { loadCatalog(force = true) }
 

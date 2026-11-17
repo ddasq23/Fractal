@@ -12,7 +12,8 @@ import android.opengl.GLES20
 import dev.dfd.fractal.common.ui.localization.tr
 import java.io.File
 
-enum class GpuVendor { ADRENO, MALI, OTHER }
+/** XCLIPSE: Samsung Exynos GPUs (AMD RDNA), which run RADV (Mesa) custom drivers. */
+enum class GpuVendor { ADRENO, MALI, XCLIPSE, OTHER }
 
 data class Gpu(
     val vendor: GpuVendor,
@@ -28,6 +29,7 @@ data class Gpu(
         get() = when (vendor) {
             GpuVendor.ADRENO -> model?.let { "Adreno $it" } ?: renderer.ifBlank { "Adreno" }
             GpuVendor.MALI -> model?.let { "Mali-G$it" } ?: renderer.ifBlank { "Mali" }
+            GpuVendor.XCLIPSE -> model?.let { "Xclipse $it" } ?: renderer.ifBlank { "Xclipse" }
             GpuVendor.OTHER -> renderer.ifBlank { tr("Unknown GPU") }
         }
 }
@@ -41,6 +43,8 @@ object GpuInfo {
         val vendor = when {
             renderer.contains("Adreno", ignoreCase = true) -> GpuVendor.ADRENO
             renderer.contains("Mali", ignoreCase = true) || renderer.contains("Immortalis", ignoreCase = true) -> GpuVendor.MALI
+            // GL_RENDERER is "Samsung Xclipse 940", or "ANGLE (Samsung Xclipse 940) on Vulkan" where GLES runs on ANGLE
+            renderer.contains("Xclipse", ignoreCase = true) -> GpuVendor.XCLIPSE
             File("/dev/kgsl-3d0").exists() -> GpuVendor.ADRENO
             File("/dev/mali0").exists() -> GpuVendor.MALI
             else -> GpuVendor.OTHER
@@ -48,6 +52,7 @@ object GpuInfo {
         val model = when (vendor) {
             GpuVendor.ADRENO -> Regex("""Adreno[^0-9]*(\d{3})""").find(renderer)?.groupValues?.get(1)?.toIntOrNull()
             GpuVendor.MALI -> Regex("""(?:Mali|Immortalis)-G(\d+)""").find(renderer)?.groupValues?.get(1)?.toIntOrNull()
+            GpuVendor.XCLIPSE -> Regex("""Xclipse\s*(\d{3})""", RegexOption.IGNORE_CASE).find(renderer)?.groupValues?.get(1)?.toIntOrNull()
             GpuVendor.OTHER -> null
         }
         return Gpu(vendor, renderer, model)
