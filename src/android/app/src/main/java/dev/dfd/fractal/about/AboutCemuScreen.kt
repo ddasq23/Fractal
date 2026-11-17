@@ -259,6 +259,8 @@ private val UsedLibraries: List<Library> = listOf(
     Library("Snapdragon Game Super Resolution", "https://github.com/quic/snapdragon-gsr"),
     Library("Space Grotesk (OFL)", "https://github.com/floriankarsten/space-grotesk"),
     Library("Inter (OFL)", "https://github.com/rsms/inter"),
+    // the performance HUD (emulation/hud) is based on WinlatorHUD
+    Library("Winlator-Ludashi performance HUD by StevenMXZ (GPL-3.0)", "https://github.com/StevenMXZ/Winlator-Ludashi"),
     Library(
         "Modified ih264 from Android project",
         LibrarySource(

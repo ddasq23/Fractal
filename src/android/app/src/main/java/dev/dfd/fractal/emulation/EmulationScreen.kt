@@ -56,6 +56,9 @@ import dev.dfd.fractal.settings.input.controller.AutoControllerMapping
 import dev.dfd.fractal.common.ui.localization.controllerTypeToString
 import kotlinx.coroutines.delay
 import dev.dfd.fractal.common.settings.InputOverlaySettings
+import dev.dfd.fractal.common.settings.performanceHudSettings
+import dev.dfd.fractal.common.settings.updatePerformanceHud
+import dev.dfd.fractal.emulation.hud.PerformanceHudOverlay
 import dev.dfd.fractal.common.settings.OverlayControllerType
 import dev.dfd.fractal.common.settings.activeProfile
 import dev.dfd.fractal.common.settings.createProfile
@@ -125,6 +128,7 @@ fun EmulationScreen(
     val gamePadPosition by viewModel.gamePadPosition.collectAsState()
     val isInputOverlayVisible by viewModel.isInputOverlayVisible.collectAsState()
     val inputOverlaySettings by viewModel.inputOverlaySettings.collectAsState()
+    val performanceHud by remember { performanceHudSettings() }.collectAsState(initial = null)
 
 
     fun closeDrawer() {
@@ -467,6 +471,15 @@ fun EmulationScreen(
                 if (type != null) session?.update { it.setInputRect(type, target.styleKey, rect, portrait) }
             },
         )
+
+        // above the on-screen controls, taking only the touches on itself; out of the way while they are edited
+        val hud = performanceHud
+        if (hud != null && hud.enabled && session == null && isEmulationInitialized && emulationError == null) {
+            PerformanceHudOverlay(
+                settings = hud,
+                onMoved = { x, y -> scope.launch { updatePerformanceHud { it.copy(x = x, y = y) } } },
+            )
+        }
 
         if (session != null) {
             OverlayEditor(

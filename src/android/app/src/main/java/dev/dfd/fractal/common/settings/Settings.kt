@@ -123,6 +123,7 @@ data class AppSettings(
     val emulationSettings: EmulationSettings = EmulationSettings(),
     val inputOverlaySettings: InputOverlaySettings = InputOverlaySettings(),
     val hotkeySettings: Map<HotkeyAction, HotkeyCombo> = emptyMap(),
+    val performanceHud: PerformanceHudSettings = PerformanceHudSettings(),
 )
 
 object AppSettingsSerializer : Serializer<AppSettings> {

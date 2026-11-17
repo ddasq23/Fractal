@@ -3487,3 +3487,99 @@ msgstr "{0} ficou definida para este jogo: vale quando o jogo abrir de novo. Dá
 
 msgid "Restart now"
 msgstr "Reiniciar agora"
+
+msgid "Performance HUD"
+msgstr "HUD de desempenho"
+
+msgid "Show performance HUD"
+msgstr "Mostrar HUD de desempenho"
+
+msgid "CPU, GPU, RAM, temperatures, power and FPS over the game. Drag it with a finger to move it"
+msgstr "CPU, GPU, RAM, temperaturas, consumo e FPS sobre o jogo. Arraste com o dedo para mudar de lugar"
+
+msgid "CPU, GPU, RAM, temperatures, power and FPS over the game, in the look of the app theme. Drag it with a finger to move it; the game menu has these settings too"
+msgstr "CPU, GPU, RAM, temperaturas, consumo e FPS sobre o jogo, no visual do tema do app. Arraste com o dedo para mudar de lugar; o menu do jogo também tem estas opções"
+
+msgid "Shown items"
+msgstr "Itens mostrados"
+
+msgid "Layout"
+msgstr "Disposição"
+
+msgid "Row"
+msgstr "Linha"
+
+msgid "Column"
+msgstr "Coluna"
+
+msgid "Background opacity"
+msgstr "Opacidade do fundo"
+
+msgid "Or drag the HUD over the game"
+msgstr "Ou arraste o HUD sobre o jogo"
+
+msgid "Reset position"
+msgstr "Restaurar posição"
+
+msgid "Where it was dragged"
+msgstr "Onde foi arrastado"
+
+msgid "One item per line"
+msgstr "Um item por linha"
+
+msgid "A column instead of a single row"
+msgstr "Uma coluna em vez de uma linha só"
+
+msgid "Shown on the HUD"
+msgstr "Mostrado no HUD"
+
+msgid "GPU model"
+msgstr "Modelo da GPU"
+
+msgid "GPU usage"
+msgstr "Uso da GPU"
+
+msgid "CPU temperature"
+msgstr "Temperatura da CPU"
+
+msgid "Power draw"
+msgstr "Consumo de energia"
+
+msgid "Battery level"
+msgstr "Nível da bateria"
+
+msgid "Battery temperature"
+msgstr "Temperatura da bateria"
+
+msgid "Charging"
+msgstr "Carregando"
+
+msgid "Frames the game shows per second"
+msgstr "Quadros que o jogo mostra por segundo"
+
+msgid "The device's graphics chip"
+msgstr "O chip gráfico do aparelho"
+
+msgid "How busy the GPU is. Many phones don't let apps read it: it shows N/A then"
+msgstr "O quanto a GPU está ocupada. Muitos celulares não deixam os apps lerem isso: aí aparece N/A"
+
+msgid "Of the whole device. Where Android hides the load, it is estimated from the clock speeds"
+msgstr "Do aparelho todo. Onde o Android esconde a carga, ela é estimada pelas frequências"
+
+msgid "From a CPU sensor the system lets apps read"
+msgstr "De um sensor da CPU que o sistema deixa os apps lerem"
+
+msgid "Memory in use on the device, in percent"
+msgstr "Memória em uso no aparelho, em porcentagem"
+
+msgid "Watts going in or out of the battery"
+msgstr "Watts entrando ou saindo da bateria"
+
+msgid "Charge left, in percent"
+msgstr "Carga restante, em porcentagem"
+
+msgid "Read from the system, works on every device"
+msgstr "Lida do sistema, funciona em todo aparelho"
+
+msgid "CHG while the device is charging"
+msgstr "CHG enquanto o aparelho carrega"

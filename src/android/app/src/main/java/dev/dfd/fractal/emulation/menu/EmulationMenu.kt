@@ -92,6 +92,13 @@ import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import androidx.compose.runtime.collectAsState
 import dev.dfd.fractal.common.settings.AppSettingsStore
+import dev.dfd.fractal.common.settings.HudAnchor
+import dev.dfd.fractal.common.settings.HudItem
+import dev.dfd.fractal.common.settings.PerformanceHudSettings
+import dev.dfd.fractal.common.settings.performanceHudSettings
+import dev.dfd.fractal.common.settings.updatePerformanceHud
+import dev.dfd.fractal.common.ui.localization.hudAnchorName
+import dev.dfd.fractal.common.ui.localization.hudItemName
 import dev.dfd.fractal.common.ui.localization.controllerTypeToString
 import dev.dfd.fractal.nativeinterface.NativeInput
 import kotlinx.coroutines.flow.map
@@ -264,6 +271,8 @@ fun EmulationMenuContent(
             onCheckedChange = { on -> actions.updateDisplay { it.copy(showFps = on) } },
         )
 
+        PerformanceHudMenuSection()
+
         MenuSection(tr("Graphics"))
         MenuChoiceRow(
             title = tr("Upscale filter"),
@@ -378,6 +387,73 @@ fun EmulationMenuContent(
         Spacer(Modifier.padding(bottom = 8.dp))
     }
 }
+
+/**
+ * The performance HUD (CPU, GPU, RAM, temperatures, power, FPS). The same settings as the overlay settings screen;
+ * changes show on the HUD under the menu right away.
+ */
+@Composable
+private fun PerformanceHudMenuSection() {
+    val scope = rememberCoroutineScope()
+    val stored by remember { performanceHudSettings() }.collectAsState(initial = null)
+    val settings = stored ?: return
+    fun update(transform: (PerformanceHudSettings) -> PerformanceHudSettings) {
+        scope.launch { updatePerformanceHud(transform) }
+    }
+
+    MenuSection(tr("Performance HUD"))
+    MenuToggleRow(
+        icon = FractalIcons.Stats,
+        title = tr("Show performance HUD"),
+        description = tr("CPU, GPU, RAM, temperatures, power and FPS over the game. Drag it with a finger to move it"),
+        checked = settings.enabled,
+        onCheckedChange = { on -> update { it.copy(enabled = on) } },
+    )
+    if (!settings.enabled) return
+    MenuChipGroup(title = tr("Shown items")) {
+        for (item in HudItem.entries) {
+            OverlayChip(hudItemName(item), settings.shows(item), { update { it.withItem(item, !it.shows(item)) } })
+        }
+    }
+    MenuChoiceRow(
+        title = tr("Layout"),
+        choices = listOf(0 to tr("Row"), 1 to tr("Column")),
+        selected = if (settings.vertical) 1 else 0,
+        onSelect = { value -> update { it.copy(vertical = value == 1) } },
+    )
+    OverlaySliderRow(
+        title = tr("Size"),
+        value = settings.sizePercent.toFloat(),
+        valueRange = PerformanceHudSettings.SIZE_MIN.toFloat()..PerformanceHudSettings.SIZE_MAX.toFloat(),
+        steps = HUD_SIZE_STEPS,
+        valueText = { "${it.roundToInt()}%" },
+        onValueChangeFinished = { v -> update { it.copy(sizePercent = v.roundToInt()) } },
+    )
+    OverlaySliderRow(
+        title = tr("Background opacity"),
+        value = settings.opacityPercent.toFloat(),
+        valueRange = PerformanceHudSettings.OPACITY_MIN.toFloat()..PerformanceHudSettings.OPACITY_MAX.toFloat(),
+        steps = HUD_OPACITY_STEPS,
+        valueText = { "${it.roundToInt()}%" },
+        onValueChangeFinished = { v -> update { it.copy(opacityPercent = v.roundToInt()) } },
+    )
+    MenuChipGroup(title = tr("Position"), description = tr("Or drag the HUD over the game")) {
+        for (anchor in HudAnchor.entries) {
+            OverlayChip(hudAnchorName(anchor), settings.anchor == anchor, { update { it.at(anchor) } })
+        }
+    }
+    MenuActionRow(
+        icon = FractalIcons.Refresh,
+        title = tr("Reset position"),
+        onClick = { update { it.at(PerformanceHudSettings.DEFAULT_ANCHOR) } },
+    )
+}
+
+/** 50% to 200% in steps of 10. */
+private const val HUD_SIZE_STEPS = 14
+
+/** 0% to 100% in steps of 5. */
+private const val HUD_OPACITY_STEPS = 19
 
 /** Lossless Scaling frame generation (ported from Cemu Plus). Changes apply to the running game and are saved. */
 @Composable
@@ -578,6 +654,20 @@ private fun MenuChoiceRow(
     onSelect: (Int) -> Unit,
     description: String? = null,
 ) {
+    MenuChipGroup(title, description) {
+        for ((value, label) in choices) {
+            OverlayChip(label, value == selected, { onSelect(value) })
+        }
+    }
+}
+
+/** Card with a title and a wrapping row of chips. */
+@Composable
+private fun MenuChipGroup(
+    title: String,
+    description: String? = null,
+    chips: @Composable () -> Unit,
+) {
     val shape = FractalTheme.shapes.card
     Column(
         Modifier
@@ -591,9 +681,7 @@ private fun MenuChoiceRow(
             Text(description, style = MaterialTheme.typography.bodySmall, color = FractalTheme.colors.textSecondary)
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            for ((value, label) in choices) {
-                OverlayChip(label, value == selected, { onSelect(value) })
-            }
+            chips()
         }
     }
 }
