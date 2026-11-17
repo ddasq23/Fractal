@@ -566,6 +566,35 @@ bool InputManager::save(size_t player_index, std::string_view filename)
 	return true;
 }
 
+bool InputManager::save_type_profile(std::string_view filename, EmulatedController::Type type)
+{
+	if (!is_valid_profilename(std::string{filename}))
+		return false;
+	fs::path file_path = ActiveSettings::GetConfigPath("controllerProfiles");
+	fs::create_directories(file_path);
+	file_path /= _utf8ToPath(filename);
+	file_path.replace_extension(".xml");
+
+	pugi::xml_document doc;
+	auto declaration_node = doc.append_child(pugi::node_declaration);
+	declaration_node.append_attribute("version") = "1.0";
+	declaration_node.append_attribute("encoding") = "UTF-8";
+	auto emulated_controller_node = doc.append_child("emulated_controller");
+	emulated_controller_node.append_child("type").append_child(pugi::node_pcdata).set_value(
+		std::string{EmulatedController::type_to_string(type)}.c_str());
+	emulated_controller_node.append_child("profile").append_child(pugi::node_pcdata).set_value(std::string{filename}.c_str());
+
+	FileStream* fs = FileStream::createFile2(file_path);
+	if (!fs)
+		return false;
+	std::stringstream xmlData;
+	doc.save(xmlData);
+	std::string xmlStr = xmlData.str();
+	fs->writeData(xmlStr.data(), xmlStr.size());
+	delete fs;
+	return true;
+}
+
 bool InputManager::is_gameprofile_set(size_t player_index) const
 {
 	return m_is_gameprofile_set[player_index];

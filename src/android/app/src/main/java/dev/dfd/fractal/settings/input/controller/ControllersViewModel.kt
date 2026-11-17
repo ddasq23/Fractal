@@ -15,6 +15,7 @@ import dev.dfd.fractal.common.android.inputdevice.hasRumble
 import dev.dfd.fractal.common.android.inputdevice.listGameControllers
 import dev.dfd.fractal.common.android.inputdevice.toControllerInfo
 import dev.dfd.fractal.nativeinterface.NativeInput
+import dev.dfd.fractal.settings.input.controller.GameControllerType
 import dev.dfd.fractal.nativeinterface.NativeInput.EmulatedControllerType
 import dev.dfd.fractal.nativeinterface.NativeInput.WiimoteExtension
 import dev.dfd.fractal.settings.input.controller.emulatedcontroller.inputFullName
@@ -231,7 +232,8 @@ class ControllersViewModel(private val context: Context, val controllerIndex: In
         _controls.value = emptyMap()
         oldControls.keys.forEach { NativeInput.clearControllerMapping(controllerIndex, it) }
 
-        val layout = if (_choice.value == ControllerChoice.GAMECUBE) MappingLayout.GAMECUBE else MappingLayout.STANDARD
+        val layout = if (_choice.value == ControllerChoice.GAMECUBE) MappingLayout.GAMECUBE
+        else AutoControllerMapping.defaultLayout(context)
         InputMapper.mapAllInputs(deviceId, controllerIndex, layout)
 
         refreshControllerData()
@@ -312,7 +314,8 @@ class ControllersViewModel(private val context: Context, val controllerIndex: In
     // region profiles
 
     fun refreshProfiles() {
-        _profiles.value = NativeInput.getControllerProfiles().sortedWith(String.CASE_INSENSITIVE_ORDER)
+        _profiles.value = NativeInput.getControllerProfiles().filter { it !in GameControllerType.profileNames }
+            .sortedWith(String.CASE_INSENSITIVE_ORDER)
     }
 
     fun isValidProfileName(name: String) = name.isNotBlank() && NativeInput.isValidControllerProfileName(name.trim())

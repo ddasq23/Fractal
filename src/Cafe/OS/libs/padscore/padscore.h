@@ -2,6 +2,21 @@
 
 #include "util/math/vector3.h"
 #include "Cafe/OS/RPL/COSModule.h"
+#include <atomic>
+
+// How often the running game polls each input API: it tells whether the game reads the Wii U GamePad (VPAD), Wii
+// Remotes and Pro Controllers (KPAD/WPAD) or both, so the app can point out a controller setup the game ignores.
+struct InputApiUsage
+{
+	static constexpr size_t kVpadChannels = 2;
+	static constexpr size_t kWpadChannels = 7;
+	std::atomic<uint64> vpadReads[kVpadChannels]{};
+	// KPADRead, KPADReadEx and WPADRead calls per WPAD channel, with or without a controller there
+	std::atomic<uint64> wpadReads[kWpadChannels]{};
+	// last WPADSetDataFormat per channel, -1 until the game sets one
+	std::atomic<sint32> wpadDataFormat[kWpadChannels]{-1, -1, -1, -1, -1, -1, -1};
+};
+extern InputApiUsage g_inputApiUsage;
 
 namespace padscore
 {

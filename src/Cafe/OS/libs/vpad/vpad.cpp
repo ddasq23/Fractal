@@ -224,6 +224,9 @@ namespace vpad
 		ppcDefineParamPtr(error, uint32be, 3);
 		cemuLog_log(LogType::InputAPI, "VPADRead({}, _, {})", channel, length);*/
 	
+		if (channel >= 0 && channel < (sint32)InputApiUsage::kVpadChannels)
+			g_inputApiUsage.vpadReads[channel]++;
+
 		// default init which should be always set
 		memset(status, 0x00, sizeof(VPADStatus_t));
 

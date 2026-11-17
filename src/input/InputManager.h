@@ -53,6 +53,10 @@ public:
 	bool save(size_t player_index, std::string_view filename = {});
 
 	bool is_gameprofile_set(size_t player_index) const;
+	// a named profile with only the emulated controller type: the automatic mapping adds the connected gamepad
+	static bool save_type_profile(std::string_view filename, EmulatedController::Type type);
+	// the slot now holds a profile the running game's profile chose: the slot file is no longer written over
+	void set_gameprofile_set(size_t player_index, bool set) { m_is_gameprofile_set[player_index] = set; }
 
 	void Shutdown(); 
 	

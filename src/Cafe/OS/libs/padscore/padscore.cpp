@@ -176,6 +176,7 @@ void padscoreExport_WPADRead(PPCInterpreter_t* hCPU)
 
 	if (channel < InputManager::kMaxWPADControllers)
 	{
+		g_inputApiUsage.wpadReads[channel]++;
 		if(const auto controller = InputManager::instance().get_wpad_controller(channel) )
 		{
 			controller->WPADRead(wpadStatus);
@@ -196,6 +197,7 @@ void padscoreExport_WPADSetDataFormat(PPCInterpreter_t* hCPU)
 
 	if (channel < InputManager::kMaxWPADControllers)
 	{
+		g_inputApiUsage.wpadDataFormat[channel] = (sint32)fmt;
 		if (const auto controller = InputManager::instance().get_wpad_controller(channel))
 			controller->set_data_format((WPADDataFormat)fmt);
 	}
@@ -427,6 +429,8 @@ void padscoreExport_KPADSetConnectCallback(PPCInterpreter_t* hCPU)
 }
 
 uint64 g_kpadLastRead[InputManager::kMaxWPADControllers] = {0};
+InputApiUsage g_inputApiUsage;
+static_assert(InputApiUsage::kWpadChannels == InputManager::kMaxWPADControllers);
 bool g_kpadIsInited = true;
 
 sint32 _KPADRead(uint32 channel, KPADStatus_t* samplingBufs, uint32 length, betype<KPAD_ERROR>* errResult)
@@ -437,6 +441,7 @@ sint32 _KPADRead(uint32 channel, KPADStatus_t* samplingBufs, uint32 length, bety
 		debugBreakpoint();
 		return 0;
 	}
+	g_inputApiUsage.wpadReads[channel]++;
 	
 	if (g_kpadIsInited == false)
 	{

@@ -3428,3 +3428,47 @@ msgstr "Compartilhar relatório"
 
 msgid "Not now"
 msgstr "Agora não"
+msgid "This game reads the Wii U GamePad, and {0} is set up as a Pro Controller. If the game doesn't respond to it, use it as the GamePad."
+msgstr "Este jogo lê o Wii U GamePad, e {0} está configurado como Pro Controller. Se o jogo não responder a ele, use-o como GamePad."
+
+msgid "This game reads the Wii U GamePad, and the touch controls drive a Pro Controller. If the game doesn't respond to them, use them as the GamePad."
+msgstr "Este jogo lê o Wii U GamePad, e os controles na tela comandam um Pro Controller. Se o jogo não responder a eles, use-os como GamePad."
+
+msgid "Use as GamePad"
+msgstr "Usar como GamePad"
+
+msgid "This game doesn't read the Wii U GamePad: it takes a Pro Controller or Wii Remote."
+msgstr "Este jogo não lê o Wii U GamePad: ele usa Pro Controller ou Wii Remote."
+
+msgid "Use Pro Controller"
+msgstr "Usar Pro Controller"
+
+msgid "Controller 1 is now {0} in this game. You can change it in the game's settings."
+msgstr "O controle 1 agora é {0} neste jogo. Dá para mudar nas configurações do jogo."
+
+msgid "Couldn't change the controller"
+msgstr "Não foi possível trocar o controle"
+
+msgid "Player 1 controller"
+msgstr "Controle do jogador 1"
+
+msgid "Some games only read the Wii U GamePad, others only a Pro Controller or Wii Remote. Your gamepad and the touch controls become this controller in this game only."
+msgstr "Alguns jogos só leem o Wii U GamePad, outros só Pro Controller ou Wii Remote. Seu controle e os controles na tela viram este controle só neste jogo."
+
+msgid "Nintendo button layout"
+msgstr "Botões no padrão Nintendo"
+
+msgid "Map the face buttons by position, as on a Nintendo controller: A on the right, B at the bottom. Off: by label, so on an Xbox-style gamepad A is at the bottom. Used when a gamepad is mapped automatically or reset."
+msgstr "Mapeia os botões A/B/X/Y pela posição, como num controle Nintendo: A à direita, B embaixo. Desligado: pelo nome, então num controle estilo Xbox o A fica embaixo. Vale quando um controle é mapeado automaticamente ou redefinido."
+
+msgid "Some games only read the Wii U GamePad, others only a Pro Controller or Wii Remote. To change it for one game, open the game's settings > Player 1 controller."
+msgstr "Alguns jogos só leem o Wii U GamePad, outros só Pro Controller ou Wii Remote. Para mudar em um jogo, abra as configurações do jogo > Controle do jogador 1."
+
+msgid "Touch controls"
+msgstr "Controles na tela"
+
+msgid "Player {0} · {1}"
+msgstr "Jogador {0} · {1}"
+
+msgid "They drive player {0}: {1}"
+msgstr "Comandam o jogador {0}: {1}"

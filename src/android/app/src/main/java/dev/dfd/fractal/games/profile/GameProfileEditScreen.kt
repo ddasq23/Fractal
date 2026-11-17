@@ -45,7 +45,9 @@ import dev.dfd.fractal.common.ui.fractal.FractalScreen
 import dev.dfd.fractal.common.ui.fractal.SectionTitle
 import dev.dfd.fractal.common.ui.fractal.StatusChip
 import dev.dfd.fractal.common.ui.icons.FractalIcons
+import dev.dfd.fractal.common.ui.localization.controllerTypeToString
 import dev.dfd.fractal.common.ui.localization.tr
+import dev.dfd.fractal.settings.input.controller.GameControllerType
 import dev.dfd.fractal.common.ui.theme.FractalTheme
 import dev.dfd.fractal.common.ui.theme.themedPanel
 import dev.dfd.fractal.games.GameIcons
@@ -209,12 +211,22 @@ fun GameProfileEditScreen(
 
             controllerProfiles?.let { profiles ->
                 SectionTitle(tr("Controllers"))
+                ChoiceRow(
+                    title = tr("Player 1 controller"),
+                    description = tr("Some games only read the Wii U GamePad, others only a Pro Controller or Wii Remote. Your gamepad and the touch controls become this controller in this game only."),
+                    value = profiles.player1Type,
+                    choices = listOf<Int?>(null) + GameControllerType.CHOICES,
+                    label = { it?.let(::controllerTypeToString) ?: tr("Same as the input settings") },
+                    onSelect = viewModel::setPlayer1Type,
+                )
                 HintText(
                     if (profiles.available.isEmpty()) tr("Save a controller profile in Settings > Controllers to use it here, e.g. a Wii U GamePad setup for a game that needs one.")
                     else tr("The game loads these controller profiles when it starts; the input settings stay as they are.")
                 )
                 // four players cover most games; a slot further down shows when it has a profile
-                profiles.perSlot.forEachIndexed { index, profile ->
+                profiles.perSlot.forEachIndexed { index, slotProfile ->
+                    // a type choice above is no profile of the user's
+                    val profile = slotProfile?.takeUnless { GameControllerType.isTypeProfile(it) }
                     if (index >= 4 && profile == null) return@forEachIndexed
                     ChoiceRow(
                         title = tr("Controller {0}", index + 1),

@@ -38,6 +38,7 @@ object AutoControllerMapping {
     private const val KEY_USER_DISABLED_SLOTS = "user_disabled_slots"
     private const val KEY_DEFAULT_TYPE = "default_type"
     private const val KEY_GAMECUBE_SLOTS = "gamecube_layout_slots"
+    private const val KEY_NINTENDO_LAYOUT = "nintendo_layout"
 
     /** Emulated controller types a new gamepad can become. */
     val DEFAULT_TYPE_CHOICES = listOf(EmulatedControllerType.PRO, EmulatedControllerType.VPAD)
@@ -73,6 +74,17 @@ object AutoControllerMapping {
     fun setDefaultType(context: Context, type: Int) {
         if (type in DEFAULT_TYPE_CHOICES) prefs(context).edit().putInt(KEY_DEFAULT_TYPE, type).apply()
     }
+
+    /** Face buttons mapped by position (Nintendo: A on the right) instead of by label (Xbox: A at the bottom). */
+    fun isNintendoLayout(context: Context): Boolean = prefs(context).getBoolean(KEY_NINTENDO_LAYOUT, false)
+
+    fun setNintendoLayout(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_NINTENDO_LAYOUT, enabled).apply()
+    }
+
+    /** Layout a gamepad gets when it is mapped automatically or reset. */
+    fun defaultLayout(context: Context): MappingLayout =
+        if (isNintendoLayout(context)) MappingLayout.NINTENDO else MappingLayout.STANDARD
 
     /** Slot [controllerIndex] is a Classic Controller laid out as a GameCube controller (only how it is shown and mapped). */
     fun isGameCubeLayout(context: Context, controllerIndex: Int): Boolean =
@@ -193,6 +205,29 @@ object AutoControllerMapping {
         NativeInput.saveInput(0)
     }
 
+    /**
+     * The running game chose player 1's type ([GameControllerType]): that profile holds no mappings, so the first
+     * connected gamepad goes there, also when the input settings already have it on another controller. Nothing is
+     * saved: the game profile slot is not the user's controller 1.
+     */
+    private fun mapGameTypeSlot(devices: List<InputDevice>, layout: MappingLayout): Pair<MappedController, String>? {
+        if (!NativeInput.isControllerSetByGameProfile(0) || NativeInput.isControllerDisabled(0)) {
+            return null
+        }
+        if (!GameControllerType.isTypeProfile(NativeInput.getControllerProfileName(0))) {
+            return null
+        }
+        val onSlot = mappedDescriptors(0)
+        if (devices.any { it.descriptor in onSlot }) {
+            return null
+        }
+        val device = devices.first()
+        if (InputMapper.mapAllInputs(device.id, 0, layout) == 0) {
+            return null
+        }
+        return MappedController(0, device.name) to device.descriptor
+    }
+
     /** Maps every connected gamepad that drives no emulated controller yet and saves those slots. */
     fun mapConnectedControllers(context: Context): List<MappedController> {
         if (suspendCount > 0 || !isEnabled(context)) {
@@ -209,12 +244,17 @@ object AutoControllerMapping {
             .toMutableSet()
         val mapped = mutableListOf<MappedController>()
 
+        mapGameTypeSlot(devices, defaultLayout(context))?.let {
+            usedDescriptors += it.second
+            mapped += it.first
+        }
+
         for (device in devices) {
             if (device.descriptor in usedDescriptors) {
                 continue
             }
             val (index, created) = claimFreeSlot(context) ?: break
-            if (InputMapper.mapAllInputs(device.id, index) == 0) {
+            if (InputMapper.mapAllInputs(device.id, index, defaultLayout(context)) == 0) {
                 if (created) {
                     NativeInput.setControllerType(index, EmulatedControllerType.DISABLED)
                 }

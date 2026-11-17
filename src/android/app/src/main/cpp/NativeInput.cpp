@@ -7,6 +7,8 @@
 #include "input/emulated/EmulatedController.h"
 #include "input/emulated/WiimoteController.h"
 #include "config/ActiveSettings.h"
+#include "Cafe/OS/libs/padscore/padscore.h"
+#include "Cafe/GameProfile/GameProfile.h"
 
 #include <android/sensor.h>
 
@@ -638,4 +640,63 @@ Java_dev_dfd_fractal_nativeinterface_NativeInput_getControllerProfileName(JNIEnv
 	if (!emulatedController || !emulatedController->has_profile_name())
 		return nullptr;
 	return JNIUtils::ToJString(env, emulatedController->get_profile_name());
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jlongArray JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_getInputApiUsage(JNIEnv* env, [[maybe_unused]] jclass clazz)
+{
+	// [VPAD reads ch0, ch1, WPAD reads ch0..6, WPAD data format ch0..6]
+	constexpr size_t vpad = InputApiUsage::kVpadChannels, wpad = InputApiUsage::kWpadChannels;
+	jlong values[vpad + wpad * 2];
+	for (size_t i = 0; i < vpad; i++)
+		values[i] = (jlong)g_inputApiUsage.vpadReads[i].load();
+	for (size_t i = 0; i < wpad; i++)
+	{
+		values[vpad + i] = (jlong)g_inputApiUsage.wpadReads[i].load();
+		values[vpad + wpad + i] = (jlong)g_inputApiUsage.wpadDataFormat[i].load();
+	}
+	jlongArray result = env->NewLongArray(std::size(values));
+	env->SetLongArrayRegion(result, 0, std::size(values), values);
+	return result;
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_useControllerProfileInRunningGame(JNIEnv* env, [[maybe_unused]] jclass clazz, jint index, jstring name)
+{
+	const auto profileName = JNIUtils::FromJString(env, name);
+	if (index < 0 || index >= static_cast<jint>(InputManager::kMaxController) || !InputManager::is_valid_profilename(profileName))
+		return false;
+	try
+	{
+		auto& inputManager = InputManager::instance();
+		if (!inputManager.load(index, profileName))
+			return false;
+		// like a profile the game profile loaded at start: the slot file keeps the user's own setup
+		inputManager.set_gameprofile_set(index, true);
+		if (g_current_game_profile)
+			g_current_game_profile->SetControllerProfile(index, profileName);
+		return true;
+	}
+	catch (const std::exception& ex)
+	{
+		cemuLog_log(LogType::Force, "can't use controller profile {}: {}", profileName, ex.what());
+		return false;
+	}
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT jboolean JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeInput_saveControllerTypeProfile(JNIEnv* env, [[maybe_unused]] jclass clazz, jstring name, jint emulated_controller_type)
+{
+	auto type = static_cast<EmulatedController::Type>(emulated_controller_type);
+	if (type < EmulatedController::Type::VPAD || type >= EmulatedController::Type::MAX)
+		return false;
+	try
+	{
+		return InputManager::save_type_profile(JNIUtils::FromJString(env, name), type);
+	}
+	catch (const std::exception& ex)
+	{
+		cemuLog_log(LogType::Force, "can't save controller type profile: {}", ex.what());
+		return false;
+	}
 }

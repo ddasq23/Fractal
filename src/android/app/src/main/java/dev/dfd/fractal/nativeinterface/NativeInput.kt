@@ -357,4 +357,22 @@ object NativeInput {
     /** Name of the profile controller [index] was loaded from or saved as, null for none. */
     @JvmStatic
     external fun getControllerProfileName(index: Int): String?
+
+    /**
+     * How often the running game polled each input API since the emulator started:
+     * [VPADRead GamePad 1, 2, WPAD reads (KPADRead/KPADReadEx/WPADRead) channel 0..6, last WPADSetDataFormat 0..6 (-1 none)].
+     */
+    @JvmStatic
+    external fun getInputApiUsage(): LongArray
+
+    /**
+     * Loads the named profile [name] into controller [index] of the running game as its game profile would: the slot
+     * file (controller<index>.xml) keeps the user's own setup for other games.
+     */
+    @JvmStatic
+    external fun useControllerProfileInRunningGame(index: Int, name: String): Boolean
+
+    /** Writes the named profile [name] holding only the emulated controller type, without mappings. */
+    @JvmStatic
+    external fun saveControllerTypeProfile(name: String, emulatedControllerType: Int): Boolean
 }

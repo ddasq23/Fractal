@@ -90,6 +90,11 @@ import dev.dfd.fractal.nativeinterface.NativeFrameGen
 import dev.dfd.fractal.nativeinterface.NativeSettings
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+import androidx.compose.runtime.collectAsState
+import dev.dfd.fractal.common.settings.AppSettingsStore
+import dev.dfd.fractal.common.ui.localization.controllerTypeToString
+import dev.dfd.fractal.nativeinterface.NativeInput
+import kotlinx.coroutines.flow.map
 
 /** What the in-game menu can ask the emulation screen to do. */
 interface EmulationMenuActions {
@@ -300,9 +305,21 @@ fun EmulationMenuContent(
         FrameGenMenuSection(isOpen)
 
         MenuSection(tr("Controls"))
+        val touchSlot by remember { AppSettingsStore.dataStore.data.map { it.inputOverlaySettings.controllerIndex } }
+            .collectAsState(initial = null)
+        // which emulated controller the touch controls drive, read again each time the menu opens
+        val touchSlotDescription = remember(isOpen, touchSlot) {
+            touchSlot?.let { slot ->
+                val type = runCatching {
+                    if (NativeInput.isControllerDisabled(slot)) null else controllerTypeToString(NativeInput.getControllerType(slot))
+                }.getOrNull() ?: tr("Disabled")
+                tr("They drive player {0}: {1}", slot + 1, type)
+            }
+        }
         MenuToggleRow(
             icon = FractalIcons.TouchControls,
             title = tr("Show on-screen controls"),
+            description = touchSlotDescription,
             checked = state.isInputOverlayVisible,
             onCheckedChange = { on -> actions.updateMenuState { it.copy(isInputOverlayVisible = on) } },
         )

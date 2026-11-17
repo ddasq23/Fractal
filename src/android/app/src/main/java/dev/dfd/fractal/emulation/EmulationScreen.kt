@@ -20,7 +20,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
@@ -47,7 +49,12 @@ import dev.dfd.fractal.common.settings.HotkeyAction
 import dev.dfd.fractal.common.ui.extensions.showMessage
 import dev.dfd.fractal.common.ui.localization.tr
 import dev.dfd.fractal.emulation.emulatedusbdevices.EmulatedUSBDevicesDialog
+import dev.dfd.fractal.emulation.input.ControllerTypeHint
 import dev.dfd.fractal.emulation.input.HotkeyManager
+import dev.dfd.fractal.emulation.input.InputApiUsage
+import dev.dfd.fractal.settings.input.controller.AutoControllerMapping
+import dev.dfd.fractal.common.ui.localization.controllerTypeToString
+import kotlinx.coroutines.delay
 import dev.dfd.fractal.common.settings.InputOverlaySettings
 import dev.dfd.fractal.common.settings.OverlayControllerType
 import dev.dfd.fractal.common.settings.activeProfile
@@ -272,6 +279,53 @@ fun EmulationScreen(
 
     LaunchedEffect(Unit) {
         HotkeyManager.actions.collect { action -> perform(action) }
+    }
+
+    // the game reads the GamePad only (or never), and the player's input goes to the other kind: say so once
+    LaunchedEffect(isEmulationInitialized) {
+        if (!isEmulationInitialized) return@LaunchedEffect
+        // the game profile slots are loaded now: one that only sets player 1's type gets the gamepad
+        runCatching {
+            AutoControllerMapping.showMappedToast(context, AutoControllerMapping.mapConnectedControllers(context))
+        }
+        overlayController.rebuild()
+        var waited = 0L
+        for (at in ControllerTypeHint.CHECK_DELAYS_MS) {
+            delay(at - waited)
+            waited = at
+            val titleId = runCatching { NativeEmulation.getForegroundTitleId() }.getOrDefault(0L)
+            if (titleId == 0L || ControllerTypeHint.wasShown(context, titleId)) return@LaunchedEffect
+            if (viewModel.sideMenuState.value.isPaused || editorSession != null) continue
+            val usage = InputApiUsage.read() ?: return@LaunchedEffect
+            val overlaySlot = viewModel.inputOverlaySettings.value
+                .takeIf { viewModel.sideMenuState.value.isInputOverlayVisible }?.controllerIndex
+            val suggestion = ControllerTypeHint.check(usage, overlaySlot) ?: continue
+            ControllerTypeHint.markShown(context, titleId)
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = suggestion.message,
+                actionLabel = suggestion.action,
+                withDismissAction = true,
+                duration = SnackbarDuration.Indefinite,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                val ok = ControllerTypeHint.apply(context, suggestion, titleId)
+                // the touch controls drive the controller that changed
+                if (ok && overlaySlot != null && overlaySlot != 0) {
+                    viewModel.updateInputOverlaySettings { it.copy(controllerIndex = 0) }
+                }
+                overlayController.rebuild()
+                snackbarHostState.showMessage(
+                    scope,
+                    if (ok) tr(
+                        "Controller 1 is now {0} in this game. You can change it in the game's settings.",
+                        controllerTypeToString(suggestion.fix.controllerType),
+                    )
+                    else tr("Couldn't change the controller"),
+                )
+            }
+            return@LaunchedEffect
+        }
     }
 
     val menuActions = remember {

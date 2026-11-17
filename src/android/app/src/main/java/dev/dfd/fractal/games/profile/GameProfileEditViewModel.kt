@@ -17,6 +17,7 @@ import dev.dfd.fractal.nativeinterface.NativeGameTitles.DriverSettingMode
 import dev.dfd.fractal.nativeinterface.NativeGameTitles.Game
 import dev.dfd.fractal.nativeinterface.NativeGraphicPacks
 import dev.dfd.fractal.nativeinterface.NativeInput
+import dev.dfd.fractal.settings.input.controller.GameControllerType
 import dev.dfd.fractal.nativeinterface.NativeSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -62,7 +63,10 @@ data class GamePack(
 )
 
 /** Controller profile each slot loads for this game (null: the input settings) and the saved profiles. */
-data class GameControllerProfiles(val perSlot: List<String?>, val available: List<String>)
+data class GameControllerProfiles(val perSlot: List<String?>, val available: List<String>) {
+    /** Player 1's type this game sets ([GameControllerType]), null when it doesn't. */
+    val player1Type: Int? get() = GameControllerType.typeOfProfile(perSlot[0])
+}
 
 /** Saves & cache section: what there is to export. */
 data class GameDataInfo(val hasSave: Boolean, val shaderCacheBytes: Long)
@@ -297,8 +301,17 @@ class GameProfileEditViewModel(val game: Game) : ViewModel() {
 
     private fun loadControllerProfiles() = GameControllerProfiles(
         perSlot = (0..<NativeInput.MAX_CONTROLLERS).map { NativeGameTitles.getControllerProfileForTitle(titleId, it) },
-        available = NativeInput.getControllerProfiles().sortedWith(String.CASE_INSENSITIVE_ORDER),
+        available = NativeInput.getControllerProfiles().filter { it !in GameControllerType.profileNames }
+            .sortedWith(String.CASE_INSENSITIVE_ORDER),
     )
+
+    /** Player 1's emulated controller type in this game; null: the input settings decide. */
+    fun setPlayer1Type(type: Int?) {
+        _controllerProfiles.update {
+            it?.copy(perSlot = it.perSlot.toMutableList().apply { set(0, type?.let(GameControllerType::profileName)) })
+        }
+        viewModelScope.launch(profileDispatcher) { GameControllerType.set(titleId, type) }
+    }
 
     fun setControllerProfile(index: Int, profile: String?) {
         _controllerProfiles.update { it?.copy(perSlot = it.perSlot.toMutableList().apply { set(index, profile) }) }

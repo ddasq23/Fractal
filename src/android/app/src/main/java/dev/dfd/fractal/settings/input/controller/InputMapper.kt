@@ -47,6 +47,12 @@ enum class MappingLayout {
      * L and R on the triggers, the C stick on the right stick.
      */
     GAMECUBE,
+
+    /**
+     * Face buttons by position, as on a Nintendo controller: A on the right button, B at the bottom, X on top, Y on
+     * the left. With STANDARD an Xbox-style pad has A at the bottom, where the Wii U has B.
+     */
+    NINTENDO,
 }
 
 object InputMapper {
@@ -200,6 +206,14 @@ object InputMapper {
     /** Mappings [layout] puts on [button] instead of the standard ones; null to keep the standard. */
     private fun layoutMappings(layout: MappingLayout, button: NativeInputButton): Array<InputMapping>? = when (layout) {
         MappingLayout.STANDARD -> null
+        // Android names the face buttons by position (A bottom, B right, X left, Y top)
+        MappingLayout.NINTENDO -> when (button) {
+            VPadButtons.A, ProControllerButtons.A, ClassicControllerButtons.A -> arrayOf(ButtonInputMapping.BUTTON_B)
+            VPadButtons.B, ProControllerButtons.B, ClassicControllerButtons.B -> arrayOf(ButtonInputMapping.BUTTON_A)
+            VPadButtons.X, ProControllerButtons.X, ClassicControllerButtons.X -> arrayOf(ButtonInputMapping.BUTTON_Y)
+            VPadButtons.Y, ProControllerButtons.Y, ClassicControllerButtons.Y -> arrayOf(ButtonInputMapping.BUTTON_X)
+            else -> null
+        }
         // Android names the face buttons by position (A bottom, B right, X left, Y top)
         MappingLayout.GAMECUBE -> when (button) {
             ClassicControllerButtons.A -> arrayOf(ButtonInputMapping.BUTTON_A)
