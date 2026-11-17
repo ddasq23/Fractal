@@ -1,5 +1,6 @@
 package dev.dfd.fractal
 
+import dev.dfd.fractal.common.android.context.DataFolder
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -144,13 +145,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        NativeSettings.saveSettings()
+        if (!DataFolder.switching) NativeSettings.saveSettings()
     }
 
     override fun onPause() {
         super.onPause()
         autoControllerMapping.unregister()
-        NativeSettings.saveSettings()
+        if (!DataFolder.switching) NativeSettings.saveSettings()
     }
 
     override fun onResume() {

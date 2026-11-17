@@ -1,5 +1,6 @@
 package dev.dfd.fractal.graphicpacks
 
+import dev.dfd.fractal.common.android.context.internalFolder
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -203,7 +204,7 @@ class GraphicPacksViewModel(
 
     fun downloadNewUpdate(context: Context) {
 
-        val graphicPacksRootDir = context.getExternalFilesDir(null)
+        val graphicPacksRootDir: java.io.File? = context.internalFolder()
 
         if (graphicPacksRootDir == null) {
             _downloadStatus.value = GraphicPacksDownloadStatus.ERROR
@@ -288,6 +289,12 @@ class GraphicPacksViewModel(
 
         _graphicPackDataNodes.value =
             mutableListOf<GraphicPackDataNode>().fillWithDataNodes(rootNode)
+    }
+
+    /** Scans the graphic packs folder again (after a mod was installed) and rebuilds the list. */
+    fun reload() {
+        NativeGraphicPacks.refreshGraphicPacks()
+        refreshGraphicPacks()
     }
 
     init {

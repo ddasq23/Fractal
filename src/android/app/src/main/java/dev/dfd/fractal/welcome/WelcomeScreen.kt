@@ -6,6 +6,7 @@
 
 package dev.dfd.fractal.welcome
 
+import dev.dfd.fractal.common.android.context.internalFolder
 import dev.dfd.fractal.settings.appearance.MenuSoundSettings
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.systemBars
@@ -375,7 +376,7 @@ private object SetupPacksDownload {
 @Composable
 private fun GraphicPacksStep(goToGraphicPacks: () -> Unit) {
     val context = LocalContext.current
-    val versionFile = remember { context.getExternalFilesDir(null)?.resolve("graphicPacks/downloadedGraphicPacks/version.txt") }
+    val versionFile = remember { context.internalFolder().resolve("graphicPacks/downloadedGraphicPacks/version.txt") }
     LaunchedEffect(Unit) {
         SetupPacksDownload.installedVersion.value = versionFile?.takeIf { it.exists() }?.readText()?.trim()
     }
@@ -394,7 +395,7 @@ private fun GraphicPacksStep(goToGraphicPacks: () -> Unit) {
         if (installedVersion == null) tr("Download graphic packs (recommended)") else tr("Check for updates"),
         onClick = {
             if (busy) return@FractalButton
-            val root = context.getExternalFilesDir(null)
+            val root: java.io.File? = context.internalFolder()
             if (root == null) {
                 SetupPacksDownload.status.value = GraphicPacksDownloadStatus.ERROR
                 return@FractalButton

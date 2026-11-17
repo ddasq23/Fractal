@@ -3201,3 +3201,141 @@ msgstr "{0} shaders y {1} pipelines de {2,choice,1#1 jugador|1<{2} jugadores} ({
 
 msgid "{0} shaders on this device."
 msgstr "{0} shaders en este dispositivo."
+
+msgid "Pick a folder in internal storage or on an SD card."
+msgstr "Elige una carpeta del almacenamiento interno o de la tarjeta SD."
+
+msgid "Fractal already uses this folder."
+msgstr "Fractal ya usa esta carpeta."
+
+msgid "The new folder can't be inside the current data folder."
+msgstr "La nueva carpeta no puede estar dentro de la carpeta de datos actual."
+
+msgid "Fractal can't write to this folder. Pick another one."
+msgstr "Fractal no puede escribir en esta carpeta. Elige otra."
+
+msgid "Without \"All files access\" Fractal can only use its default folder."
+msgstr "Sin el \"Acceso a todos los archivos\" Fractal solo puede usar su carpeta predeterminada."
+
+msgid "Emulator data folder"
+msgstr "Carpeta de datos del emulador"
+
+msgid "Saves, game updates and DLC installed in the emulator, shader caches, graphic packs, drivers and settings are kept in this folder. The default folder is inside Android/data, which newer Android versions hide from file managers and which is deleted with the app. A folder of your own, in internal storage or on an SD card, is easy to open, back up and keep across reinstalls."
+msgstr "Las partidas guardadas, actualizaciones y DLC instalados en el emulador, cachés de shaders, graphic packs, drivers y ajustes se guardan en esta carpeta. La carpeta predeterminada está dentro de Android/data, que las versiones nuevas de Android ocultan a los gestores de archivos y que se borra con la app. Una carpeta propia, en el almacenamiento interno o en la tarjeta SD, es fácil de abrir, respaldar y conservar al reinstalar."
+
+msgid "Current folder"
+msgstr "Carpeta actual"
+
+msgid "Free space"
+msgstr "Espacio libre"
+
+msgid "The chosen folder {0} can't be used now (SD card removed or \"All files access\" turned off), so the default folder is in use."
+msgstr "La carpeta elegida {0} no se puede usar ahora (tarjeta SD retirada o \"Acceso a todos los archivos\" desactivado), así que se usa la carpeta predeterminada."
+
+msgid "Choose another folder"
+msgstr "Elegir otra carpeta"
+
+msgid "Use the default folder"
+msgstr "Usar la carpeta predeterminada"
+
+msgid "All files access"
+msgstr "Acceso a todos los archivos"
+
+msgid "The emulator reads and writes its data folder directly, so a folder outside Android/data needs \"All files access\". Turn it on for Fractal on the next screen and come back."
+msgstr "El emulador lee y escribe su carpeta de datos directamente, así que una carpeta fuera de Android/data necesita el \"Acceso a todos los archivos\". Actívalo para Fractal en la siguiente pantalla y vuelve."
+
+msgid "Open settings"
+msgstr "Abrir ajustes"
+
+msgid "Move the data?"
+msgstr "¿Mover los datos?"
+
+msgid "{0} of data doesn't fit in {1} ({2} free)."
+msgstr "{0} de datos no caben en {1} ({2} libres)."
+
+msgid "Move {0} of data to {1}? Fractal restarts when it is done."
+msgstr "¿Mover {0} de datos a {1}? Fractal se reinicia al terminar."
+
+msgid "This folder already has Fractal data"
+msgstr "Esta carpeta ya tiene datos de Fractal"
+
+msgid "{0} already holds a data folder. Use it as it is (the current data stays where it is), or move the current data ({1}) there, replacing files with the same name?"
+msgstr "{0} ya tiene una carpeta de datos. ¿Usarla tal cual (los datos actuales se quedan donde están) o mover allí los datos actuales ({1}), reemplazando los archivos con el mismo nombre?"
+
+msgid "Use it as it is"
+msgstr "Usarla tal cual"
+
+msgid "Move the current data"
+msgstr "Mover los datos actuales"
+
+msgid "Move the data ({0}) back to {1}? Without moving, the default folder is used as it is and the data stays in the chosen folder."
+msgstr "¿Mover los datos ({0}) de vuelta a {1}? Sin moverlos, se usa la carpeta predeterminada tal cual y los datos se quedan en la carpeta elegida."
+
+msgid "Don't move"
+msgstr "No mover"
+
+msgid "Moving the data"
+msgstr "Moviendo los datos"
+
+msgid "{0} of {1}"
+msgstr "{0} de {1}"
+
+msgid "Preparing…"
+msgstr "Preparando…"
+
+msgid "Couldn't move the data"
+msgstr "No se pudieron mover los datos"
+
+msgid "Nothing was changed: Fractal keeps using the current folder. Error: {0}"
+msgstr "No se cambió nada: Fractal sigue usando la carpeta actual. Error: {0}"
+
+msgid "Where saves, shader caches and graphic packs are kept: internal storage or SD card"
+msgstr "Dónde se guardan partidas, cachés de shaders y graphic packs: almacenamiento interno o tarjeta SD"
+
+msgid "Installing the mod"
+msgstr "Instalando el mod"
+
+msgid "Copying the files…"
+msgstr "Copiando los archivos…"
+
+msgid "Mods"
+msgstr "Mods"
+
+msgid "Mods are installed as graphic packs. Install one from a .zip or a folder, then turn it on here or in the game's graphic packs, and start the game."
+msgstr "Los mods se instalan como graphic packs. Instala uno desde un .zip o una carpeta, actívalo aquí o en los graphic packs del juego e inicia el juego."
+
+msgid "Install mod (.zip)"
+msgstr "Instalar mod (.zip)"
+
+msgid "Install from a folder"
+msgstr "Instalar desde una carpeta"
+
+msgid "How mods work"
+msgstr "Cómo funcionan los mods"
+
+msgid "Fractal runs Cemu mods, which are graphic packs: a folder with a rules.txt file and, for mods that replace game files, a content folder (aoc for DLC files, code for executables).\n\n1. Download a mod made for Cemu (GameBanana, GitHub, the mod's page). A .zip is fine, there's no need to extract it.\n2. Tap \"Install mod (.zip)\" or \"Install from a folder\". The mod is copied to graphicPacks/mods in the emulator data folder.\n3. Mods made for the console (SDCafiine) have only the content folder: Fractal asks which game they are for and writes the rules.txt.\n4. Open the mod in this list (it appears under the game's name), turn it on and pick its options, if any. It is also listed in the game's graphic packs.\n5. Start the game. Mods are read when the game starts: to turn one off, restart the game.\n\nMods for other consoles (Switch versions of the same game) don't work. If a game stops starting, turn its mods off one by one."
+msgstr "Fractal ejecuta mods de Cemu, que son graphic packs: una carpeta con un archivo rules.txt y, en los mods que reemplazan archivos del juego, una carpeta content (aoc para archivos de DLC, code para ejecutables).\n\n1. Descarga un mod hecho para Cemu (GameBanana, GitHub, la página del mod). Sirve el .zip, no hace falta extraerlo.\n2. Toca \"Instalar mod (.zip)\" o \"Instalar desde una carpeta\". El mod se copia a graphicPacks/mods en la carpeta de datos del emulador.\n3. Los mods hechos para la consola (SDCafiine) solo tienen la carpeta content: Fractal pregunta de qué juego son y crea el rules.txt.\n4. Abre el mod en esta lista (aparece con el nombre del juego), actívalo y elige sus opciones, si tiene. También aparece en los graphic packs del juego.\n5. Inicia el juego. Los mods se leen al iniciar el juego: para desactivar uno, reinicia el juego.\n\nLos mods de otras consolas (versiones de Switch del mismo juego) no funcionan. Si un juego deja de iniciar, desactiva sus mods uno por uno."
+
+msgid "Which game is this mod for?"
+msgstr "¿Para qué juego es este mod?"
+
+msgid "This mod has the game files but no rules.txt. Pick its game and Fractal creates one."
+msgstr "Este mod tiene los archivos del juego pero no un rules.txt. Elige su juego y Fractal crea uno."
+
+msgid "Mod name"
+msgstr "Nombre del mod"
+
+msgid "No games in the library yet: add your game folder first."
+msgstr "Todavía no hay juegos en la biblioteca: añade primero tu carpeta de juegos."
+
+msgid "not a zip file"
+msgstr "no es un archivo zip"
+
+msgid "No mod found: a mod has a rules.txt, or a content folder with the game files it replaces."
+msgstr "No se encontró ningún mod: un mod tiene un rules.txt o una carpeta content con los archivos del juego que reemplaza."
+
+msgid "Mod installed: {0}. Open it in the list under its game to turn it on."
+msgstr "Mod instalado: {0}. Ábrelo en la lista, bajo el nombre de su juego, para activarlo."
+
+msgid "Couldn't install the mod: {0}"
+msgstr "No se pudo instalar el mod: {0}"

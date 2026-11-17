@@ -35,6 +35,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -79,6 +80,15 @@ fun GraphicPacksScreen(
     val currentNode = currentNodeState.value
     val graphicPackDataState = graphicPacksViewModel.currentDataGraphicPack.collectAsState()
     val graphicPackData = graphicPackDataState.value
+
+    val scope = rememberCoroutineScope()
+    val modInstall = rememberModInstallUi(
+        onInstalled = { names ->
+            graphicPacksViewModel.reload()
+            snackbarHostState.showMessage(scope, tr("Mod installed: {0}. Open it in the list under its game to turn it on.", names.joinToString(", ")))
+        },
+        onError = { error -> snackbarHostState.showMessage(scope, tr("Couldn't install the mod: {0}", error)) },
+    )
 
     LaunchedEffect(Unit) {
         graphicPacksViewModel.events.collect {
@@ -160,6 +170,7 @@ fun GraphicPacksScreen(
         }
 
         if (currentNode is GraphicPackSectionNode) {
+            if (currentNode.isRoot()) item { ModsCard(modInstall) }
             if (currentNode.isRoot() && !graphicPacksViewModel.hasGraphicPacks) {
                 emptyListHint(tr("No graphic packs yet. Download the community graphic packs with the download button (X)."))
             } else if (installedOnly && currentNode.children.isNotEmpty() && currentNode.children.none { it.titleIdInstalled }) {
@@ -181,6 +192,8 @@ fun GraphicPacksScreen(
         }
 
     }
+
+    modInstall.dialogs()
 
     if (isDownloading) {
         GraphicPacksDownloadDialog(

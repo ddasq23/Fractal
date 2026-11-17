@@ -8,6 +8,7 @@ import dev.dfd.fractal.common.ui.fractal.screen
 import dev.dfd.fractal.settings.account.AccountSettingsScreen
 import dev.dfd.fractal.settings.appearance.AppearanceScreen
 import dev.dfd.fractal.settings.audio.AudioSettingsScreen
+import dev.dfd.fractal.settings.datafolder.DataFolderScreen
 import dev.dfd.fractal.drivers.DriversScreen
 import dev.dfd.fractal.settings.emulatedusbdevices.EmulatedUSBDevicesSettingsScreen
 import dev.dfd.fractal.settings.framegen.FrameGenSettingsScreen
@@ -35,6 +36,9 @@ object AppearanceRoute
 
 @Serializable
 object CustomDriversRoute
+
+@Serializable
+object DataFolderRoute
 
 private object SettingsRoutes {
     @Serializable
@@ -93,12 +97,16 @@ fun NavGraphBuilder.settingsNavigation(navController: NavHostController, goToWel
     screen<CustomDriversRoute> {
         DriversScreen(navigateBack = { navController.popBackStack() })
     }
+    screen<DataFolderRoute> {
+        DataFolderScreen(navigateBack = { navController.popBackStack() })
+    }
     navigation<SettingsRoute>(startDestination = SettingsRoutes.SettingsHomeScreenRoute) {
         screen<SettingsRoutes.SettingsHomeScreenRoute> {
             SettingsHomeScreen(
                 navigateBack = { navController.popBackStack() },
                 goToGeneralSettings = { navController.navigate(SettingsRoutes.GeneralSettingsScreenRoute) },
                 goToGamePaths = { navController.navigate(GamePathsRoute) },
+                goToDataFolder = { navController.navigate(DataFolderRoute) },
                 goToAccountSettings = { navController.navigate(SettingsRoutes.AccountSettingsScreenRoute) },
                 goToWelcome = goToWelcome,
                 goToGraphicsSettings = { navController.navigate(SettingsRoutes.GraphicsSettingsScreenRoute) },

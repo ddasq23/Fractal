@@ -34,6 +34,7 @@ private val TwoColumnMinWidth = 720.dp
 fun SettingsHomeScreen(
     goToGeneralSettings: () -> Unit,
     goToGamePaths: () -> Unit,
+    goToDataFolder: () -> Unit,
     goToAccountSettings: () -> Unit,
     goToWelcome: () -> Unit,
     goToGraphicsSettings: () -> Unit,
@@ -60,6 +61,11 @@ fun SettingsHomeScreen(
                 FractalIcons.Folder, tr("Game folders"),
                 tr("Folders scanned for games"),
                 dropUnlessResumed(block = goToGamePaths),
+            ),
+            SettingsEntry(
+                FractalIcons.Box, tr("Emulator data folder"),
+                tr("Where saves, shader caches and graphic packs are kept: internal storage or SD card"),
+                dropUnlessResumed(block = goToDataFolder),
             ),
             SettingsEntry(
                 FractalIcons.User, tr("Account settings"),
