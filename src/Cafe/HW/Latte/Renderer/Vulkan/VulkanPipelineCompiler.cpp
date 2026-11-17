@@ -28,6 +28,10 @@ RendererShaderVk* rectsEmulationGS_generate(LatteDecompilerShader* vertexShader,
 	gsSrc.append("layout(triangles) in;\r\n");
 	gsSrc.append("layout(triangle_strip) out;\r\n");
 	gsSrc.append("layout(max_vertices = 4) out;\r\n");
+	// the vertex shaders redeclare gl_PerVertex with only gl_Position; the built-in blocks must match between stages, and with
+	// the implicit full block here the Qualcomm driver drew nothing (Twilight Princess HD minimap, a RECTS copy; Turnip was fine)
+	gsSrc.append("in gl_PerVertex\r\n{\r\n\tvec4 gl_Position;\r\n} gl_in[];\r\n");
+	gsSrc.append("out gl_PerVertex\r\n{\r\n\tvec4 gl_Position;\r\n};\r\n");
 
 	// inputs & outputs
 	auto parameterMask = vertexShader->outputParameterMask;
@@ -413,6 +417,16 @@ void PipelineCompiler::InitVertexInputState(const LatteContextRegister& latteReg
 		uint32 bufferBaseRegisterIndex = mmSQ_VTX_ATTRIBUTE_BLOCK_START + bufferIndex * 7;
 		uint32 bufferStride = (latteRegister.GetRawView()[bufferBaseRegisterIndex + 2] >> 11) & 0xFFFF;
 
+		if (bufferStride % 4 != 0)
+		{
+			// diagnostics: vertex strides that are not a multiple of 4 (MoltenVK can't take them; are Android drivers fine?)
+			std::string formats;
+			for (auto& a : vertexInputAttributeDescription)
+				if (a.binding == bufferIndex)
+					formats += fmt::format(" {}@{}", (uint32)a.format, a.offset);
+			PerfLog::Event(fmt::format("vtx_stride_{}", bufferStride), fmt::format("vertex buffer stride {} (not a multiple of 4), vs {:016x}, attributes (vk format@offset):{}",
+				bufferStride, vertexShader ? vertexShader->baseHash : 0, formats));
+		}
 		VkVertexInputBindingDescription entry{};
 #if BOOST_OS_MACOS
 		if (bufferStride % 4 != 0) {
@@ -664,6 +678,13 @@ void PipelineCompiler::InitBlendState(const LatteContextRegister& latteRegister,
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 
 	const auto logicOp = colorControlReg.get_ROP();
+	const bool driverHasLogicOp = VulkanRenderer::GetInstance()->m_featureControl.deviceFeatures.logic_op;
+	if (logicOp != Latte::LATTE_CB_COLOR_CONTROL::E_LOGICOP::COPY)
+	{
+		// diagnostics: which raster ops a game uses, and whether the driver can do them (most Android drivers can't)
+		PerfLog::Event(fmt::format("logic_op_{:02x}", (uint32)logicOp),
+			fmt::format("pipeline with raster op {:02x}, driver logicOp feature {}", (uint32)logicOp, driverHasLogicOp ? "yes" : "no"));
+	}
 	if (logicOp == Latte::LATTE_CB_COLOR_CONTROL::E_LOGICOP::COPY)
 	{
 		colorBlending.logicOpEnable = VK_FALSE;
