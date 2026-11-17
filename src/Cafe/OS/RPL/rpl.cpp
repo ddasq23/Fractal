@@ -1905,6 +1905,7 @@ struct RPLTitleFix
 };
 
 static constexpr uint32 kAnyBranchAbs = 0x48000003;
+static constexpr uint32 kAnyBranchRel = 0x48000001; // matches any "bl"
 
 static const std::vector<RPLTitleFix>& RPLLoader_TitleFixes()
 {
@@ -1946,6 +1947,30 @@ static const std::vector<RPLTitleFix>& RPLLoader_TitleFixes()
 				0x68000002, 0x7C006378, 0x7C000034, 0x5403D97E, 0x4E800020,
 			},
 		},
+		// New Super Mario Bros. U / New Super Luigi U, queue of Mii head renders (+6800 of the owner): each entry points to
+		// the Mii model at +40, which another thread fills in. On a slow CPU (Mi A3, Snapdragon 665) the queue is walked
+		// before that, the NULL model is passed on and the game crashes 57 s into the boot. The community pack "Title
+		// Screen Crash Fix" skips the whole queue; here only an entry without a model is skipped, and it is still
+		// removed from the queue. The loop's "count != 0" re-check (already guaranteed by the loop condition) makes room:
+		//   lwz r8,8(r26); lwz r27,0(r8); lwz r28,40(r27); cmpwi r28,0; beq <remove entry>
+		{
+			"New Super Mario Bros. U: Mii render queue entry without a model",
+			{0x0005000010101D00ull, 0x0005000010101E00ull, 0x0005000010101C00ull, 0x000500001014B700ull, 0x000500001014B800ull,
+			 0x0005000010142300ull, 0x0005000010142400ull, 0x0005000010142200ull},
+			{
+				0x7C791B78, 0x80191A90, 0x2C000000, 0x3B591A90, 0x418200E8, // mr r25,r3; lwz r0,6800(r25); cmpwi; addi r26; beq end
+				0x3BE10010, 0x3BA10008,
+				0x2C000000, 0x3B600000, 0x4182000C, 0x811A0008, 0x83680000, // loop: cmpwi r0,0; li r27,0; beq; lwz r8; lwz r27
+				0xC05B0008, 0x7FE3FB78, 0xC03B0004, 0xC07B000C, 0x839B0028, kAnyBranchRel, // ...; lwz r28,40(r27); bl
+				0x389B0020, 0x38610010, 0x3BDB001C, kAnyBranchRel, 0x38610010, 0x7FC4F378, kAnyBranchRel,
+				0x38610010, 0x389B0024, kAnyBranchRel, 0x38610010, 0x38BB0010, 0x7C641B78, kAnyBranchRel,
+				0x38810010, 0x7F83E378, kAnyBranchRel, 0x83DC0020, 0x7FC3F378, kAnyBranchRel, 0x813C0018, 0x80090000,
+				0x7F23CB78, 0x93C1000C, 0x38A10008, 0x901D0000, 0x809B0000, 0x38C00002, kAnyBranchRel,
+				0x801A0000, // remove entry: lwz r0,0(r26)  (36 words after the beq)
+			},
+			7,
+			{0x811A0008, 0x83680000, 0x839B0028, 0x2C1C0000, 0x41820090},
+		},
 	};
 	return s_fixes;
 }
@@ -1966,7 +1991,10 @@ static void RPLLoader_ApplyTitleFixes(RPLModule* module)
 			for (size_t k = 0; k < count && match; k++)
 			{
 				const uint32 w = text[i + k];
-				match = fix.pattern[k] == kAnyBranchAbs ? (w & 0xFC000003) == kAnyBranchAbs : w == fix.pattern[k];
+				if (fix.pattern[k] == kAnyBranchAbs || fix.pattern[k] == kAnyBranchRel)
+					match = (w & 0xFC000003) == fix.pattern[k];
+				else
+					match = w == fix.pattern[k];
 			}
 			if (!match)
 				continue;
