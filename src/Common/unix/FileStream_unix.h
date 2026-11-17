@@ -53,6 +53,7 @@ class FileStreamUnix
 	FileStreamUnix(const fs::path& path, bool isOpen, bool isWriteable);
 
 	bool m_isValid{};
+	fs::path m_path; // for SetEndOfFile: std::fstream can't change the file size
 	std::fstream m_fileStream;
 	bool m_prevOperationWasWrite{false};
 

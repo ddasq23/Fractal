@@ -99,11 +99,20 @@ uint64 FileStreamUnix::GetSize()
 	return fs;
 }
 
+// cuts the file at the current position, like SetEndOfFile() on Windows (games shrink save files with
+// FSSetPosFile + FSTruncateFile: Teslagrad stopped with SIGTRAP from the old assert_dbg() when saving)
 bool FileStreamUnix::SetEndOfFile()
 {
-	assert_dbg();
-	return true;
-	//return ::SetEndOfFile(m_hFile) != 0;
+	cemu_assert(m_isValid);
+	const auto pos = m_prevOperationWasWrite ? m_fileStream.tellp() : m_fileStream.tellg();
+	if (pos < 0)
+		return false;
+	m_fileStream.flush();
+	std::error_code ec;
+	fs::resize_file(m_path, (uintmax_t)pos, ec);
+	m_fileStream.clear();
+	SetPosition((uint64)pos);
+	return !ec;
 }
 
 void FileStreamUnix::extract(std::vector<uint8>& data)
@@ -213,6 +222,7 @@ FileStreamUnix::~FileStreamUnix()
 FileStreamUnix::FileStreamUnix(const fs::path& path, bool isOpen, bool isWriteable)
 {
 	fs::path CIPath = findPathCI(path);
+	m_path = CIPath;
 	if (isOpen)
 	{
 		m_fileStream.open(CIPath, isWriteable ? (std::ios_base::in | std::ios_base::out | std::ios_base::binary) : (std::ios_base::in | std::ios_base::binary));
