@@ -669,6 +669,13 @@ bool PPCRecompilerImlGen_BC(ppcImlGenContext_t* ppcImlGenContext, uint32 opcode)
 	{
 		if (useDecrementer)
 			return false;
+		// bcl 20,x: a call that ignores the condition, the same as bl (Teslagrad's Unity code uses it). The block builder
+		// already treats any bc with LK like bl: no branch target, execution continues after it
+		if (ignoreCondition)
+		{
+			ppcImlGenContext->emitInst().make_macro(IMLOperation::MACRO_BL, ppcImlGenContext->ppcAddressOfCurrentInstruction, jumpAddressDest, ppcImlGenContext->cyclesSinceLastBranch, IMLREG_INVALID);
+			return true;
+		}
 		// conditional function calls are not supported
 		if( ignoreCondition == false )
 		{
@@ -1033,6 +1040,22 @@ bool PPCRecompilerImlGen_SUBFZE(ppcImlGenContext_t* ppcImlGenContext, uint32 opc
 	return true;
 }
 
+bool PPCRecompilerImlGen_SUBFME(ppcImlGenContext_t* ppcImlGenContext, uint32 opcode)
+{
+	// d = ~a + 0xFFFFFFFF + ca; (Disney Infinity 2.0 ran 145 function entries of its Lua reaction setup in the interpreter)
+	sint32 rD, rA, rB;
+	PPC_OPC_TEMPL_XO(opcode, rD, rA, rB);
+	IMLReg regA = _GetRegGPR(ppcImlGenContext, rA);
+	IMLReg regD = _GetRegGPR(ppcImlGenContext, rD);
+	IMLReg regTmp = PPCRecompilerImlGen_loadRegister(ppcImlGenContext, PPCREC_NAME_TEMPORARY + 0);
+	IMLReg regCa = PPCRecompilerImlGen_loadRegister(ppcImlGenContext, PPCREC_NAME_XER_CA);
+	ppcImlGenContext->emitInst().make_r_r(IMLOperation::OP_NOT, regTmp, regA);
+	ppcImlGenContext->emitInst().make_r_r_s32_carry(IMLOperation::OP_ADD_WITH_CARRY, regD, regTmp, -1, regCa);
+	if (opcode & PPC_OPC_RC)
+		PPCImlGen_UpdateCR0(ppcImlGenContext, regD);
+	return true;
+}
+
 bool PPCRecompilerImlGen_SUBFC(ppcImlGenContext_t* ppcImlGenContext, uint32 opcode)
 {
 	// d = ~a + b + 1;
@@ -1127,6 +1150,26 @@ bool PPCRecompilerImlGen_MULHWU(ppcImlGenContext_t* ppcImlGenContext, uint32 opc
 	return true;
 }
 
+// OE forms of divw/divwu (divwo, divwuo): XER[OV] = division by zero, or 0x80000000 / -1 for divw; XER[SO] |= OV. Same
+// results as the plain forms. Computed before the division because rD may be rA or rB. Teslagrad (Unity) checks
+// them: before, those functions ran in the interpreter (157 on the Mi A3)
+static void PPCImlGen_DivideOverflow(ppcImlGenContext_t* ctx, IMLReg regA, IMLReg regB, bool isSigned)
+{
+	IMLReg regOV = PPCRecompilerImlGen_loadRegister(ctx, PPCREC_NAME_XER_OV);
+	IMLReg regSO = PPCRecompilerImlGen_loadRegister(ctx, PPCREC_NAME_XER_SO);
+	ctx->emitInst().make_compare_s32(regB, 0, regOV, IMLCondition::EQ);
+	if (isSigned)
+	{
+		IMLReg regT1 = _GetRegTemporary(ctx, 1);
+		IMLReg regT2 = _GetRegTemporary(ctx, 2);
+		ctx->emitInst().make_compare_s32(regA, (sint32)0x80000000, regT1, IMLCondition::EQ);
+		ctx->emitInst().make_compare_s32(regB, -1, regT2, IMLCondition::EQ);
+		ctx->emitInst().make_r_r_r(IMLOperation::OP_AND, regT1, regT1, regT2);
+		ctx->emitInst().make_r_r_r(IMLOperation::OP_OR, regOV, regOV, regT1);
+	}
+	ctx->emitInst().make_r_r_r(IMLOperation::OP_OR, regSO, regSO, regOV);
+}
+
 bool PPCRecompilerImlGen_DIVW(ppcImlGenContext_t* ppcImlGenContext, uint32 opcode)
 {
 	sint32 rD, rA, rB;
@@ -1134,6 +1177,8 @@ bool PPCRecompilerImlGen_DIVW(ppcImlGenContext_t* ppcImlGenContext, uint32 opcod
 	IMLReg regR = _GetRegGPR(ppcImlGenContext, rD);
 	IMLReg regA = _GetRegGPR(ppcImlGenContext, rA);
 	IMLReg regB = _GetRegGPR(ppcImlGenContext, rB);
+	if (opcode & PPC_OPC_OE)
+		PPCImlGen_DivideOverflow(ppcImlGenContext, regA, regB, true);
 	ppcImlGenContext->emitInst().make_r_r_r(IMLOperation::OP_DIVIDE_SIGNED, regR, regA, regB);
 	if (opcode & PPC_OPC_RC)
 		PPCImlGen_UpdateCR0(ppcImlGenContext, regR);
@@ -1147,6 +1192,8 @@ bool PPCRecompilerImlGen_DIVWU(ppcImlGenContext_t* ppcImlGenContext, uint32 opco
 	IMLReg regD = _GetRegGPR(ppcImlGenContext, rD);
 	IMLReg regA = _GetRegGPR(ppcImlGenContext, rA);
 	IMLReg regB = _GetRegGPR(ppcImlGenContext, rB);
+	if (opcode & PPC_OPC_OE)
+		PPCImlGen_DivideOverflow(ppcImlGenContext, regA, regB, false);
 	ppcImlGenContext->emitInst().make_r_r_r(IMLOperation::OP_DIVIDE_UNSIGNED, regD, regA, regB);
 	if (opcode & PPC_OPC_RC)
 		PPCImlGen_UpdateCR0(ppcImlGenContext, regD);
@@ -2481,6 +2528,10 @@ bool PPCRecompiler_decodePPCInstruction(ppcImlGenContext_t* ppcImlGenContext)
 			if (!PPCRecompilerImlGen_STORE_INDEXED(ppcImlGenContext, opcode, 8, true, false))
 				unsupportedInstructionFound = true;
 			break;
+		case 232:
+			if (PPCRecompilerImlGen_SUBFME(ppcImlGenContext, opcode) == false)
+				unsupportedInstructionFound = true;
+			break;
 		case 234:
 			if (PPCRecompilerImlGen_ADDME(ppcImlGenContext, opcode) == false)
 				unsupportedInstructionFound = true;
@@ -2543,6 +2594,7 @@ bool PPCRecompiler_decodePPCInstruction(ppcImlGenContext_t* ppcImlGenContext)
 				unsupportedInstructionFound = true;
 			break;
 		case 459:
+		case 971: // DIVWUO
 			PPCRecompilerImlGen_DIVWU(ppcImlGenContext, opcode);
 			break;
 		case 467:
@@ -2554,6 +2606,7 @@ bool PPCRecompiler_decodePPCInstruction(ppcImlGenContext_t* ppcImlGenContext)
 				unsupportedInstructionFound = true;
 			break;
 		case 491:
+		case 1003: // DIVWO
 			if (PPCRecompilerImlGen_DIVW(ppcImlGenContext, opcode) == false)
 				unsupportedInstructionFound = true;
 			break;
