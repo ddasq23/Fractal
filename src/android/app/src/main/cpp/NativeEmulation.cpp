@@ -224,6 +224,45 @@ namespace NativeEmulation
 		jobject m_surface = nullptr;
 		jobject m_surfaceTexture = nullptr;
 	};
+
+	// What the PC's main window does for the emulated system. A title that launches another one (or itself again, as
+	// Call of Duty: Ghosts does at boot) goes through OSLauncherThread: the title shutdown destroys the renderer together
+	// with the GPU thread and the canvas is "recreated" before the next launch. Nothing was set here, so that call went
+	// through a null pointer and the app crashed.
+	class AndroidSystemImplementation : public CafeSystem::SystemImplementation
+	{
+	  public:
+		void CafeRecreateCanvas() override
+		{
+			if (g_renderer)
+				return;
+			cemuLog_log(LogType::Force, "Title relaunch: creating the renderer again on the same surfaces");
+			try
+			{
+				// same steps as initializeRenderer + initializeSurface
+				g_renderer = std::make_unique<VulkanRenderer>();
+				int width, height;
+				WindowSystem::GetWindowPhysSize(width, height);
+				VulkanRenderer::GetInstance()->InitializeSurface({width, height}, true);
+				auto& windowInfo = WindowSystem::GetWindowInfo();
+				if (windowInfo.pad_open && windowInfo.canvas_pad.surface.load() != nullptr)
+				{
+					WindowSystem::GetPadWindowPhysSize(width, height);
+					VulkanRenderer::GetInstance()->InitializeSurface({width, height}, false);
+				}
+			}
+			catch (const std::exception& ex)
+			{
+				cemuLog_log(LogType::Force, "Title relaunch: renderer creation failed: {}", ex.what());
+			}
+		}
+
+		void CafePPCProcessExit() override
+		{
+			// the title quit on its own; the PC goes back to the game list, here the last picture stays until the user leaves
+			cemuLog_log(LogType::Force, "The title exited (status {})", CafeSystem::GetForegroundTitleReturnStatus().value_or(0));
+		}
+	};
 } // namespace NativeEmulation
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
@@ -252,6 +291,8 @@ Java_dev_dfd_fractal_nativeinterface_NativeEmulation_initializeEmulation([[maybe
 	ActiveSettings::Init();
 	LatteOverlay_init();
 	CemuCommonInit();
+	static NativeEmulation::AndroidSystemImplementation s_systemImplementation;
+	CafeSystem::SetImplementation(&s_systemImplementation);
 }
 
 extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
