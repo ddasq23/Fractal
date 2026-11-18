@@ -35,6 +35,7 @@ RendererShaderVk* rectsEmulationGS_generate(LatteDecompilerShader* vertexShader,
 
 	// inputs & outputs
 	auto parameterMask = vertexShader->outputParameterMask;
+	std::array<bool, 32> writtenLocations{};
 	for (sint32 f = 0; f < 2; f++)
 	{
 		for (uint32 i = 0; i < 32; i++)
@@ -48,7 +49,10 @@ RendererShaderVk* rectsEmulationGS_generate(LatteDecompilerShader* vertexShader,
 			if (psImport == nullptr)
 				continue;
 
-			gsSrc.append(fmt::format("layout(location = {}) ", psInputTable->getPSImportLocationBySemanticId(vsSemanticId)));
+			const sint32 location = psInputTable->getPSImportLocationBySemanticId(vsSemanticId);
+			if (location >= 0 && location < 32)
+				writtenLocations[location] = true;
+			gsSrc.append(fmt::format("layout(location = {}) ", location));
 			if (psImport->isFlat)
 				gsSrc.append("flat ");
 			if (psImport->isNoPerspective)
@@ -64,6 +68,23 @@ RendererShaderVk* rectsEmulationGS_generate(LatteDecompilerShader* vertexShader,
 			else
 				gsSrc.append(fmt::format(" vec4 passParameterSem{}Out;\r\n", vsSemanticId));
 		}
+	}
+
+	// pixel shader inputs the vertex shader doesn't write: without the geometry shader the vertex shader covers them with
+	// zero dummies, here they need dummies of their own. The Qualcomm driver fails pipelines that leave one unwritten
+	// (VK_ERROR_UNKNOWN, and those draws are skipped: Cars 3, Ninja Gaiden 3, Disney Infinity 3.0)
+	std::string dummyInit;
+	for (sint32 i = 0; i < psInputTable->count && i < 32; i++)
+	{
+		if (writtenLocations[i] || psInputTable->import[i].semanticId > LATTE_ANALYZER_IMPORT_INDEX_PARAM_MAX)
+			continue;
+		gsSrc.append(fmt::format("layout(location = {}) ", i));
+		if (psInputTable->import[i].isFlat)
+			gsSrc.append("flat ");
+		if (psInputTable->import[i].isNoPerspective)
+			gsSrc.append("noperspective ");
+		gsSrc.append(fmt::format("out vec4 dummyPassParameter{};\r\n", i));
+		dummyInit.append(fmt::format("dummyPassParameter{} = vec4(0.0);\r\n", i));
 	}
 
 	// gen function
@@ -114,6 +135,14 @@ RendererShaderVk* rectsEmulationGS_generate(LatteDecompilerShader* vertexShader,
 	gsSrc.append("}\r\n");
 
 	gsSrc.append("}\r\n");
+
+	// outputs are undefined after each EmitVertex, so the dummies are written before every one
+	if (!dummyInit.empty())
+	{
+		const std::string emit = "EmitVertex();\r\n";
+		for (size_t pos = gsSrc.find(emit); pos != std::string::npos; pos = gsSrc.find(emit, pos + dummyInit.size() + emit.size()))
+			gsSrc.insert(pos, dummyInit);
+	}
 
 	auto vkShader = new RendererShaderVk(RendererShader::ShaderType::kGeometry, 0, 0, false, false, gsSrc);
 	vkShader->PreponeCompilation(true);

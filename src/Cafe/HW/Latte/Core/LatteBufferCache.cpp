@@ -1579,15 +1579,16 @@ public:
 			{
 				cemuLog_log(LogType::Force, "Out-of-memory in GPU buffer (trying to allocate: {}KB) Cleaning up cache...", (rangeEnd - rangeBegin + 1023) / 1024);
 				CleanupCacheAggressive(rangeBegin, rangeEnd);
+				// each allocateCacheMemory() call that succeeds takes heap space, so it's only retried after a failure
 				if (!newRange->allocateCacheMemory())
 				{
 					cemuLog_log(LogType::Force, "GPU buffer still full: dropping streamout ranges unused for 2 frames");
 					CleanupCacheAggressive(rangeBegin, rangeEnd, 2);
-				}
-				if (!newRange->allocateCacheMemory())
-				{
-					cemuLog_log(LogType::Force, "Failed to free enough memory in GPU buffer");
-					cemu_assert(false);
+					if (!newRange->allocateCacheMemory())
+					{
+						cemuLog_log(LogType::Force, "Failed to free enough memory in GPU buffer");
+						cemu_assert(false);
+					}
 				}
 			}
 		}
