@@ -672,10 +672,28 @@ double LatteOverlay_GetFps()
 	return s_lastFps.load();
 }
 
+// the app's performance HUD shows the same statistics as the overlay box: gathered while either one wants them
+static std::atomic<bool> s_hudStatsWanted{false};
+static std::mutex s_hudStatsMutex;
+static LatteOverlayHudStats s_hudStats{};
+
+void LatteOverlay_SetHudStatsWanted(bool wanted)
+{
+	s_hudStatsWanted.store(wanted, std::memory_order_relaxed);
+}
+
+LatteOverlayHudStats LatteOverlay_GetHudStats()
+{
+	std::unique_lock lock(s_hudStatsMutex);
+	return s_hudStats;
+}
+
 void LatteOverlay_updateStats(double fps, sint32 drawcalls, sint32 fastDrawcalls)
 {
 	s_lastFps = fps;
-	if (GetConfig().overlay.position == ScreenPosition::kDisabled)
+	const bool overlayOn = GetConfig().overlay.position != ScreenPosition::kDisabled;
+	const bool hudOn = s_hudStatsWanted.load(std::memory_order_relaxed);
+	if (!overlayOn && !hudOn)
 		return;
 
 	g_state.fps = fps;
@@ -683,11 +701,28 @@ void LatteOverlay_updateStats(double fps, sint32 drawcalls, sint32 fastDrawcalls
 	g_state.draw_calls_per_frame = drawcalls;
 	g_state.fast_draw_calls_per_frame = fastDrawcalls;
 	UpdateStats_CemuCpu();
-	UpdateStats_CpuPerCore();
+	// /proc/stat per core: the overlay box only (Android hides it from apps, the HUD reads the device load itself)
+	if (overlayOn)
+		UpdateStats_CpuPerCore();
 
 	// update ram
 	g_state.ram_usage = (QueryRamUsage() / 1000) / 1000;
 
 	// update vram
 	g_renderer->GetVRAMInfo(g_state.vramUsage, g_state.vramTotal);
+
+	if (hudOn)
+	{
+		std::unique_lock lock(s_hudStatsMutex);
+		s_hudStats.fps = fps;
+		s_hudStats.presentedFps = g_state.presented_fps;
+		s_hudStats.frameGenRatio = g_state.frame_gen_ratio;
+		s_hudStats.frameGenActive = g_state.frame_gen_active;
+		s_hudStats.drawCallsPerFrame = drawcalls;
+		s_hudStats.fastDrawCallsPerFrame = fastDrawcalls;
+		s_hudStats.cpuUsage = g_state.cpu_usage;
+		s_hudStats.ramUsageMB = g_state.ram_usage;
+		s_hudStats.vramUsageMB = g_state.vramUsage;
+		s_hudStats.vramTotalMB = g_state.vramTotal;
+	}
 }

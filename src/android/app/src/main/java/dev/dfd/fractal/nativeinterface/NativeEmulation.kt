@@ -58,6 +58,18 @@ object NativeEmulation {
     @JvmStatic
     external fun getGpuLoadPercent(): Int
 
+    /** Performance HUD: gathers the statistics behind [getHudStats] (the old overlay box's ones) while on. */
+    @JvmStatic
+    external fun setHudStatsWanted(wanted: Boolean)
+
+    /**
+     * The statistics of the last second into [out], in this order: game FPS, FPS shown with frame generation,
+     * frame generation ratio, 1 when frame generation runs, draw calls and fast draw calls per frame, the emulator's
+     * CPU use in percent of the whole CPU, its RAM in MB, VRAM used and total in MB (-1 when unknown).
+     */
+    @JvmStatic
+    external fun getHudStats(out: FloatArray)
+
     @JvmStatic
     external fun getForegroundTitleName(): String
 

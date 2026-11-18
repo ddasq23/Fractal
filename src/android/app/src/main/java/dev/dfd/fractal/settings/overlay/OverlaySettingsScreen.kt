@@ -47,10 +47,10 @@ fun OverlaySettingsScreen(navigateBack: () -> Unit) {
         navigateBack = navigateBack,
     ) {
         PerformanceHudSettingsSection()
-        Header(tr("Performance overlay"))
+        Header(tr("Classic overlay"))
         SingleSelection(
             label = tr("Position"),
-            description = tr("Statistics drawn over the game"),
+            description = tr("Cemu's statistics box, without the app theme. The performance HUD above shows the same statistics"),
             choice = overlayPosition,
             choices = OverlayPositionChoices,
             choiceToString = { overlayScreenPositionToString(it) },
@@ -98,7 +98,7 @@ private fun PerformanceHudSettingsSection() {
     Header(tr("Performance HUD"))
     Toggle(
         label = tr("Show performance HUD"),
-        description = tr("CPU, GPU, RAM, temperatures, power and FPS over the game, in the look of the app theme. Drag it with a finger to move it; the game menu has these settings too"),
+        description = tr("FPS, frame time, CPU, GPU, RAM, temperatures, power and Fractal's own statistics over the game, in the look of the app theme. Drag it with a finger to move it; the game menu has these settings too"),
         checked = settings.enabled,
         onCheckedChanged = { on -> update { it.copy(enabled = on) } },
     )

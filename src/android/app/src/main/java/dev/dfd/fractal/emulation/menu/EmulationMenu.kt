@@ -412,7 +412,7 @@ private fun PerformanceHudMenuSection() {
     MenuToggleRow(
         icon = FractalIcons.Stats,
         title = tr("Show performance HUD"),
-        description = tr("CPU, GPU, RAM, temperatures, power and FPS over the game. Drag it with a finger to move it"),
+        description = tr("FPS, frame time, CPU, GPU, RAM, temperatures, power and Fractal's own statistics over the game. Drag it with a finger to move it"),
         checked = settings.enabled,
         onCheckedChange = { on -> update { it.copy(enabled = on) } },
     )

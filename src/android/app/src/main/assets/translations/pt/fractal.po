@@ -3598,3 +3598,39 @@ msgstr "Graphic packs e cheats"
 
 msgid "Turn this game's packs, mods and cheats on or off. Most apply right away; resolution packs need a restart"
 msgstr "Ligue ou desligue os packs, mods e cheats deste jogo. A maioria vale na hora; packs de resolução pedem reiniciar"
+
+msgid "Frame time"
+msgstr "Tempo de quadro"
+
+msgid "Fractal CPU usage"
+msgstr "Uso de CPU do Fractal"
+
+msgid "Fractal RAM usage"
+msgstr "Uso de RAM do Fractal"
+
+msgid "Average time of a game frame, in milliseconds"
+msgstr "Tempo médio de um quadro do jogo, em milissegundos"
+
+msgid "FG and the frames shown per second, while frame generation adds frames"
+msgstr "FG e os quadros exibidos por segundo, enquanto a geração de quadros adiciona quadros"
+
+msgid "Share of the whole CPU used by Fractal itself (EMU)"
+msgstr "Parte da CPU inteira usada pelo próprio Fractal (EMU)"
+
+msgid "Memory used by Fractal itself, in MB (EMU)"
+msgstr "Memória usada pelo próprio Fractal, em MB (EMU)"
+
+msgid "Draw calls the game makes per frame; in brackets the ones that took the fast path"
+msgstr "Draw calls que o jogo faz por quadro; entre parênteses as que foram pelo caminho rápido"
+
+msgid "FPS, frame time, CPU, GPU, RAM, temperatures, power and Fractal's own statistics over the game, in the look of the app theme. Drag it with a finger to move it; the game menu has these settings too"
+msgstr "FPS, tempo de quadro, CPU, GPU, RAM, temperaturas, consumo e as estatísticas do próprio Fractal sobre o jogo, no visual do tema do app. Arraste com o dedo para mudar de lugar; o menu do jogo também tem estas opções"
+
+msgid "FPS, frame time, CPU, GPU, RAM, temperatures, power and Fractal's own statistics over the game. Drag it with a finger to move it"
+msgstr "FPS, tempo de quadro, CPU, GPU, RAM, temperaturas, consumo e as estatísticas do próprio Fractal sobre o jogo. Arraste com o dedo para mudar de lugar"
+
+msgid "Classic overlay"
+msgstr "Sobreposição clássica"
+
+msgid "Cemu's statistics box, without the app theme. The performance HUD above shows the same statistics"
+msgstr "Caixa de estatísticas do Cemu, sem o tema do app. O HUD de desempenho acima mostra as mesmas estatísticas"

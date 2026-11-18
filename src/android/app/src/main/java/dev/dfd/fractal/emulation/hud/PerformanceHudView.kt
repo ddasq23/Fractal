@@ -391,8 +391,9 @@ class PerformanceHudView(context: Context) : View(context) {
         statsLoop?.let {
             it.alive = false
             it.handler.removeCallbacks(it)
-            // the GPU timestamps cost a little: off while nobody looks (runs before the quit below)
-            sensors?.let { s -> it.handler.post { s.setEmulatorGpuLoad(false) } }
+            // the GPU timestamps and the emulator's statistics cost a little: off while nobody looks (runs before the
+            // quit below)
+            sensors?.let { s -> it.handler.post { s.stopEmulatorReadings() } }
         }
         statsThread?.quitSafely()
         statsThread = null
@@ -454,12 +455,17 @@ class PerformanceHudView(context: Context) : View(context) {
 
     private fun format(item: HudItem, value: Int): String = when {
         item == HudItem.CHARGING -> if (value == 1) "CHG" else ""
+        // shown only while frame generation runs
+        item == HudItem.FRAME_GEN -> if (value > 0) "FG $value" else ""
         value == NOT_READ -> "--"
         value < 0 -> "N/A"
         else -> when (item) {
             HudItem.FPS -> value.toString()
             HudItem.CPU_TEMP, HudItem.BATTERY_TEMP -> "$value°C"
             HudItem.POWER -> String.format(Locale.US, "%.1fW", value / 1000f)
+            HudItem.FRAME_TIME -> String.format(Locale.US, "%.1fms", value / 10f)
+            HudItem.DRAW_CALLS -> "${drawCallsOf(value)} (${fastDrawCallsOf(value)})"
+            HudItem.EMU_RAM -> "${value}MB"
             else -> "$value%"
         }
     }
@@ -659,11 +665,13 @@ class PerformanceHudView(context: Context) : View(context) {
 
         val GROUP_OF: Array<HudGroup> = Array(HudItem.entries.size) { i ->
             when (HudItem.entries[i]) {
-                HudItem.FPS -> HudGroup.FPS
+                HudItem.FPS, HudItem.FRAME_TIME, HudItem.FRAME_GEN -> HudGroup.FPS
                 HudItem.GPU_NAME -> HudGroup.GPU_NAME
                 HudItem.GPU_USAGE -> HudGroup.GPU
                 HudItem.CPU_USAGE, HudItem.CPU_TEMP -> HudGroup.CPU
                 HudItem.RAM -> HudGroup.RAM
+                HudItem.EMU_CPU, HudItem.EMU_RAM -> HudGroup.EMU
+                HudItem.DRAW_CALLS -> HudGroup.DRAWS
                 HudItem.POWER -> HudGroup.POWER
                 HudItem.BATTERY_LEVEL, HudItem.BATTERY_TEMP, HudItem.CHARGING -> HudGroup.BATTERY
             }
@@ -671,21 +679,27 @@ class PerformanceHudView(context: Context) : View(context) {
 
         val SLOT_OF: IntArray = IntArray(HudItem.entries.size) { i ->
             when (HudItem.entries[i]) {
-                HudItem.CPU_TEMP, HudItem.BATTERY_TEMP -> 1
-                HudItem.CHARGING -> 2
+                HudItem.CPU_TEMP, HudItem.BATTERY_TEMP, HudItem.FRAME_TIME, HudItem.EMU_RAM -> 1
+                HudItem.CHARGING, HudItem.FRAME_GEN -> 2
                 else -> 0
             }
         }
 
-        /** The widest usual value of each item; none for the GPU name and the charging mark, which rarely change. */
+        /**
+         * The widest usual value of each item; none for the GPU name and the charging and frame generation marks,
+         * which rarely change and take no room while they are off.
+         */
         val RESERVE: Array<String?> = Array(HudItem.entries.size) { i ->
             when (HudItem.entries[i]) {
                 HudItem.FPS -> "000"
-                HudItem.GPU_USAGE, HudItem.CPU_USAGE, HudItem.RAM, HudItem.BATTERY_LEVEL -> "100%"
+                HudItem.GPU_USAGE, HudItem.CPU_USAGE, HudItem.RAM, HudItem.BATTERY_LEVEL, HudItem.EMU_CPU -> "100%"
+                HudItem.FRAME_TIME -> "00.0ms"
+                HudItem.EMU_RAM -> "0000MB"
+                HudItem.DRAW_CALLS -> "0000 (000)"
                 HudItem.CPU_TEMP -> "100°C"
                 HudItem.BATTERY_TEMP -> "00°C"
                 HudItem.POWER -> "00.0W"
-                HudItem.GPU_NAME, HudItem.CHARGING -> null
+                HudItem.GPU_NAME, HudItem.CHARGING, HudItem.FRAME_GEN -> null
             }
         }
     }

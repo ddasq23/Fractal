@@ -483,6 +483,32 @@ Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getFps([[maybe_unused]] JNI
 	return LatteOverlay_GetFps();
 }
 
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_setHudStatsWanted([[maybe_unused]] JNIEnv* env, [[maybe_unused]] jclass clazz, jboolean wanted)
+{
+	LatteOverlay_SetHudStatsWanted(wanted);
+}
+
+extern "C" [[maybe_unused]] JNIEXPORT void JNICALL
+Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getHudStats(JNIEnv* env, [[maybe_unused]] jclass clazz, jfloatArray out)
+{
+	const LatteOverlayHudStats stats = LatteOverlay_GetHudStats();
+	const jfloat values[] = {
+		(jfloat)stats.fps,
+		(jfloat)stats.presentedFps,
+		(jfloat)stats.frameGenRatio,
+		stats.frameGenActive ? 1.0f : 0.0f,
+		(jfloat)stats.drawCallsPerFrame,
+		(jfloat)stats.fastDrawCallsPerFrame,
+		stats.cpuUsage,
+		(jfloat)stats.ramUsageMB,
+		(jfloat)stats.vramUsageMB,
+		(jfloat)stats.vramTotalMB,
+	};
+	const jsize count = std::min<jsize>(env->GetArrayLength(out), (jsize)std::size(values));
+	env->SetFloatArrayRegion(out, 0, count, values);
+}
+
 extern "C" [[maybe_unused]] JNIEXPORT jstring JNICALL
 Java_dev_dfd_fractal_nativeinterface_NativeEmulation_getForegroundTitleName(JNIEnv* env, [[maybe_unused]] jclass clazz)
 {

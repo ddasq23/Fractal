@@ -3599,3 +3599,39 @@ msgstr "Graphic packs y trucos"
 
 msgid "Turn this game's packs, mods and cheats on or off. Most apply right away; resolution packs need a restart"
 msgstr "Activa o desactiva los packs, mods y trucos de este juego. La mayoría se aplica al momento; los packs de resolución piden reiniciar"
+
+msgid "Frame time"
+msgstr "Tiempo de fotograma"
+
+msgid "Fractal CPU usage"
+msgstr "Uso de CPU de Fractal"
+
+msgid "Fractal RAM usage"
+msgstr "Uso de RAM de Fractal"
+
+msgid "Average time of a game frame, in milliseconds"
+msgstr "Tiempo medio de un fotograma del juego, en milisegundos"
+
+msgid "FG and the frames shown per second, while frame generation adds frames"
+msgstr "FG y los fotogramas mostrados por segundo, mientras la generación de fotogramas añade fotogramas"
+
+msgid "Share of the whole CPU used by Fractal itself (EMU)"
+msgstr "Parte de toda la CPU usada por el propio Fractal (EMU)"
+
+msgid "Memory used by Fractal itself, in MB (EMU)"
+msgstr "Memoria usada por el propio Fractal, en MB (EMU)"
+
+msgid "Draw calls the game makes per frame; in brackets the ones that took the fast path"
+msgstr "Draw calls que el juego hace por fotograma; entre paréntesis las que fueron por la vía rápida"
+
+msgid "FPS, frame time, CPU, GPU, RAM, temperatures, power and Fractal's own statistics over the game, in the look of the app theme. Drag it with a finger to move it; the game menu has these settings too"
+msgstr "FPS, tiempo de fotograma, CPU, GPU, RAM, temperaturas, consumo y las estadísticas del propio Fractal sobre el juego, con el estilo del tema de la app. Arrástralo con un dedo para moverlo; el menú del juego también tiene estas opciones"
+
+msgid "FPS, frame time, CPU, GPU, RAM, temperatures, power and Fractal's own statistics over the game. Drag it with a finger to move it"
+msgstr "FPS, tiempo de fotograma, CPU, GPU, RAM, temperaturas, consumo y las estadísticas del propio Fractal sobre el juego. Arrástralo con un dedo para moverlo"
+
+msgid "Classic overlay"
+msgstr "Superposición clásica"
+
+msgid "Cemu's statistics box, without the app theme. The performance HUD above shows the same statistics"
+msgstr "Caja de estadísticas de Cemu, sin el tema de la app. El HUD de rendimiento de arriba muestra las mismas estadísticas"

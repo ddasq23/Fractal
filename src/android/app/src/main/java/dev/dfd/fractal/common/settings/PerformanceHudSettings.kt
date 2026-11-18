@@ -12,16 +12,22 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 
 /**
- * What the performance HUD can show. [bit] is the item's flag in [PerformanceHudSettings.items]; the values are the
- * ones of Winlator-Ludashi's HUD, where it comes from.
+ * What the performance HUD can show. [bit] is the item's flag in [PerformanceHudSettings.items]; the values up to
+ * 1 shl 11 are the ones of Winlator-Ludashi's HUD, where it comes from; the ones after it are the statistics of
+ * Cemu's overlay box, read from the emulator.
  */
 enum class HudItem(val bit: Int) {
     FPS(1),
+    FRAME_TIME(1 shl 12),
+    FRAME_GEN(1 shl 13),
     GPU_NAME(1 shl 7),
     GPU_USAGE(1 shl 1),
     CPU_USAGE(1 shl 2),
     CPU_TEMP(1 shl 8),
     RAM(1 shl 6),
+    EMU_CPU(1 shl 15),
+    EMU_RAM(1 shl 16),
+    DRAW_CALLS(1 shl 14),
     POWER(1 shl 3),
     BATTERY_LEVEL(1 shl 11),
     BATTERY_TEMP(1 shl 9),
@@ -31,8 +37,15 @@ enum class HudItem(val bit: Int) {
     companion object {
         val ALL_MASK: Int = entries.fold(0) { mask, item -> mask or item.bit }
 
-        /** Everything but the battery level, which the system bar already shows. */
-        val DEFAULT_MASK: Int = ALL_MASK and BATTERY_LEVEL.bit.inv()
+        /**
+         * The device statistics but the battery level, which the system bar already shows; the emulator's own ones
+         * are there for who looks for them.
+         */
+        val DEFAULT_MASK: Int = listOf(FPS, GPU_NAME, GPU_USAGE, CPU_USAGE, CPU_TEMP, RAM, POWER, BATTERY_TEMP, CHARGING)
+            .fold(0) { mask, item -> mask or item.bit }
+
+        /** The items read from the emulator rather than from the device. */
+        val EMULATOR_MASK: Int = FRAME_TIME.bit or FRAME_GEN.bit or EMU_CPU.bit or EMU_RAM.bit or DRAW_CALLS.bit
     }
 }
 

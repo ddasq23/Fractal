@@ -43,6 +43,15 @@ internal class HudSensors(context: Context) {
         if (mask and HudItem.RAM.bit != 0) out[HudItem.RAM.ordinal] = readRam()
         val batteryBits = HudItem.POWER.bit or HudItem.BATTERY_LEVEL.bit or HudItem.BATTERY_TEMP.bit or HudItem.CHARGING.bit
         if (mask and batteryBits != 0) readBattery(out)
+        val wantsEmulator = mask and HudItem.EMULATOR_MASK != 0
+        setEmulatorStats(wantsEmulator)
+        if (wantsEmulator) readEmulator(mask, out)
+    }
+
+    /** Turns off what the emulator measures for the HUD, while nobody looks at it. */
+    fun stopEmulatorReadings() {
+        setEmulatorGpuLoad(false)
+        setEmulatorStats(false)
     }
 
     /** "Adreno 740", "Mali-G57"; empty when unknown. Asks the GPU once (a tiny EGL context). */
@@ -157,6 +166,46 @@ internal class HudSensors(context: Context) {
             if (digits.isNotEmpty()) return digits.toIntOrNull()?.let(::clampPercent) ?: -1
         }
         return -1
+    }
+
+    // ---- the emulator's statistics (those of Cemu's overlay box) ----
+
+    private var emulatorStatsOn = false
+    private val emulatorStats = FloatArray(EMULATOR_STAT_COUNT)
+
+    private fun setEmulatorStats(on: Boolean) {
+        if (on == emulatorStatsOn) return
+        emulatorStatsOn = on
+        runCatching { NativeEmulation.setHudStatsWanted(on) }
+    }
+
+    private fun readEmulator(mask: Int, out: IntArray) {
+        if (runCatching { NativeEmulation.getHudStats(emulatorStats) }.isFailure) {
+            for (item in HudItem.entries) if (item.bit and HudItem.EMULATOR_MASK != 0) out[item.ordinal] = -1
+            return
+        }
+        val stats = emulatorStats
+        val fps = stats[STAT_FPS]
+        if (mask and HudItem.FRAME_TIME.bit != 0) {
+            // tenths of a millisecond
+            out[HudItem.FRAME_TIME.ordinal] = if (fps > 0.5f) (10_000f / fps).roundToInt() else -1
+        }
+        if (mask and HudItem.FRAME_GEN.bit != 0) {
+            // 0 while frame generation is off: no text then
+            out[HudItem.FRAME_GEN.ordinal] = if (stats[STAT_FRAME_GEN_ACTIVE] > 0f) {
+                stats[STAT_PRESENTED_FPS].roundToInt().coerceAtLeast(1)
+            } else 0
+        }
+        if (mask and HudItem.DRAW_CALLS.bit != 0) {
+            out[HudItem.DRAW_CALLS.ordinal] = packDrawCalls(stats[STAT_DRAW_CALLS].toInt(), stats[STAT_FAST_DRAW_CALLS].toInt())
+        }
+        if (mask and HudItem.EMU_CPU.bit != 0) {
+            out[HudItem.EMU_CPU.ordinal] = stats[STAT_CPU].roundToInt().coerceIn(0, 100)
+        }
+        if (mask and HudItem.EMU_RAM.bit != 0) {
+            val mb = stats[STAT_RAM_MB].toInt()
+            out[HudItem.EMU_RAM.ordinal] = if (mb > 0) mb else -1
+        }
     }
 
     // ---- CPU usage and temperature ----
@@ -439,6 +488,16 @@ internal class HudSensors(context: Context) {
 
         fun clampPercent(value: Int) = value.coerceIn(0, 100)
 
+        // order of NativeEmulation.getHudStats
+        const val STAT_FPS = 0
+        const val STAT_PRESENTED_FPS = 1
+        const val STAT_FRAME_GEN_ACTIVE = 3
+        const val STAT_DRAW_CALLS = 4
+        const val STAT_FAST_DRAW_CALLS = 5
+        const val STAT_CPU = 6
+        const val STAT_RAM_MB = 7
+        const val EMULATOR_STAT_COUNT = 10
+
         /** The first (optionally negative) integer in [count] bytes of [bytes]; 0 when there is none. */
         fun parseLong(bytes: ByteArray, count: Int): Long {
             var i = 0
@@ -462,3 +521,10 @@ internal class HudSensors(context: Context) {
         }
     }
 }
+
+/** Draw calls and fast draw calls per frame as one reading (the draws in the upper half), so it changes as one. */
+internal fun packDrawCalls(draws: Int, fast: Int): Int = (draws.coerceIn(0, 0x7FFF) shl 16) or fast.coerceIn(0, 0xFFFF)
+
+internal fun drawCallsOf(packed: Int): Int = packed ushr 16
+
+internal fun fastDrawCallsOf(packed: Int): Int = packed and 0xFFFF

@@ -15,6 +15,8 @@ enum class HudGroup(val label: String) {
     GPU("GPU"),
     CPU("CPU"),
     RAM("RAM"),
+    EMU("EMU"),
+    DRAWS("DRAW"),
     POWER("PWR"),
     BATTERY("BAT"),
 }
@@ -78,6 +80,8 @@ data class HudStyle(
             HudGroup.GPU to 0xFFE040FB.toInt(),
             HudGroup.CPU to 0xFF00E5FF.toInt(),
             HudGroup.RAM to 0xFFB0FFB0.toInt(),
+            HudGroup.EMU to 0xFFFFD740.toInt(),
+            HudGroup.DRAWS to 0xFF9FA8DA.toInt(),
             HudGroup.POWER to 0xFFFF8000.toInt(),
             HudGroup.BATTERY to 0xFFEF5350.toInt(),
         )
@@ -90,6 +94,8 @@ data class HudStyle(
             HudGroup.GPU to 0xFFFF2D95.toInt(),
             HudGroup.CPU to 0xFF6AE3FF.toInt(),
             HudGroup.RAM to 0xFFB388FF.toInt(),
+            HudGroup.EMU to 0xFFFFE66D.toInt(),
+            HudGroup.DRAWS to 0xFF7DF9C2.toInt(),
             HudGroup.POWER to 0xFFFFB000.toInt(),
             HudGroup.BATTERY to 0xFFFF6E9C.toInt(),
         )
