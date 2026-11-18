@@ -752,6 +752,30 @@ namespace CafeSystem
 			cemuLog_log(LogType::Force, "Mounting failed");
 			return PREPARE_STATUS_CODE::UNABLE_TO_MOUNT;
 		}
+		// updates that keep a game from loading in the emulator, where the base version runs: the title starts without
+		// it (same as removing the update folder, the workaround the Cemu wiki gives for these)
+		struct BrokenUpdate
+		{
+			uint64 baseTitleId;
+			uint16 version;
+			const char* reason;
+		};
+		static constexpr BrokenUpdate s_brokenUpdates[] = {
+			// ZombiU (USA) v32: black TV and GamePad after launch, the game loop waits forever (also on Cemu for PC)
+			{0x000500001010DD00ull, 32, "ZombiU v32 never gets past the black screen after launch"},
+		};
+		if (TitleInfo& update = sGameInfo_ForegroundTitle.GetUpdate(); update.IsValid())
+		{
+			for (const BrokenUpdate& broken : s_brokenUpdates)
+			{
+				if (titleBase.GetAppTitleId() == broken.baseTitleId && update.GetAppTitleVersion() == broken.version)
+				{
+					cemuLog_log(LogType::Force, "Update v{} not used: {}", broken.version, broken.reason);
+					sGameInfo_ForegroundTitle.DropUpdate();
+					break;
+				}
+			}
+		}
 		// check update
 		TitleInfo& titleUpdate = sGameInfo_ForegroundTitle.GetUpdate();
 		if (titleUpdate.IsValid())

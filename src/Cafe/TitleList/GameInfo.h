@@ -39,6 +39,12 @@ public:
 		return m_update.IsValid();
 	}
 
+	// run the title without its update (see CafeSystem: updates known to keep a game from loading)
+	void DropUpdate()
+	{
+		m_update = TitleInfo();
+	}
+
 	void AddAOC(const TitleInfo& titleInfo)
 	{
 		TitleId aocTitleId = titleInfo.GetAppTitleId();
